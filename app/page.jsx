@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "./firebase/firebase";
@@ -7,6 +7,7 @@ export default function Home() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [downloadURL, setDownloadURL] = useState(null);
+  const [error, setError] = useState(null);
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
@@ -15,13 +16,19 @@ export default function Home() {
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
+    setError(null);
 
-    const storageRef = ref(storage, `uploads/${file.name}`);
-    await uploadBytes(storageRef, file);
+    try {
+      const storageRef = ref(storage, `uploads/${file.name}`);
+      await uploadBytes(storageRef, file);
 
-    const url = await getDownloadURL(storageRef);
-    setDownloadURL(url);
-    setUploading(false);
+      const url = await getDownloadURL(storageRef);
+      setDownloadURL(url);
+    } catch (err) {
+      setError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -36,6 +43,8 @@ export default function Home() {
       >
         {uploading ? "Uploading..." : "Upload"}
       </button>
+
+      {error && <p className="text-red-500 mt-4">{error}</p>}
 
       {downloadURL && (
         <p className="mt-4">
