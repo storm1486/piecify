@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { db } from "../firebase/firebase"; // Adjust the path as necessary
 import { collection, query, where, getDocs } from "firebase/firestore";
+import Link from "next/link";
 
 export default function Documents() {
   const [documents, setDocuments] = useState([]);
@@ -47,6 +48,13 @@ export default function Documents() {
           <p>No documents uploaded yet.</p>
         )}
       </div>
+
+      {/* Back to Home Link */}
+      <Link href="/" passHref>
+        <button className="bg-gray-500 text-white px-4 py-2 rounded mt-4">
+          Back to Home
+        </button>
+      </Link>
     </main>
   );
 }
