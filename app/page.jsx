@@ -1,7 +1,10 @@
 "use client";
 import { useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "./firebase/firebase";
+import { db, storage } from "./firebase/firebase"; // Adjust the path as necessary
+import { collection, addDoc } from "firebase/firestore";
+import Link from "next/link";
+
 
 export default function Home() {
   const [file, setFile] = useState(null);
@@ -24,6 +27,14 @@ export default function Home() {
 
       const url = await getDownloadURL(storageRef);
       setDownloadURL(url);
+
+      // Store the file information in Firestore
+      await addDoc(collection(db, "uploads"), {
+        userId: "user's-uid", // Replace with actual user ID
+        fileName: file.name,
+        fileUrl: url,
+        uploadedAt: new Date(),
+      });
     } catch (err) {
       setError("Upload failed. Please try again.");
     } finally {
@@ -55,6 +66,13 @@ export default function Home() {
           .
         </p>
       )}
+
+      {/* Add the button to navigate to the Documents page */}
+      <Link href="/documents">
+        <button className="bg-green-500 text-white px-4 py-2 rounded mt-4">
+          Go to Documents Page
+        </button>
+      </Link>
     </main>
   );
 }

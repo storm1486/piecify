@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getStorage } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics"; // Import if you're using analytics
 
 const firebaseConfig = {
@@ -16,6 +17,7 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase services
 const storage = getStorage(app);
+const db = getFirestore(app);
 const analytics = typeof window !== "undefined" ? getAnalytics(app) : null; // Initialize analytics if it's running in the browser
 
-export { storage, analytics };
+export { storage, db, analytics };
