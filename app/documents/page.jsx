@@ -37,14 +37,11 @@ export default function Documents() {
           {documents.length > 0 ? (
             documents.map((doc) => (
               <li key={doc.id} className="bg-white p-2 rounded shadow-sm">
-                <a
-                  href={doc.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline block truncate"
-                >
-                  {doc.fileName}
-                </a>
+                <Link href={`/viewDocuments/${doc.id}`} passHref>
+                  <span className="text-blue-600 underline block truncate cursor-pointer">
+                    {doc.fileName}
+                  </span>
+                </Link>
               </li>
             ))
           ) : (
