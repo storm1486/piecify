@@ -5,7 +5,6 @@ import { db, storage } from "./firebase/firebase"; // Adjust the path as necessa
 import { collection, addDoc } from "firebase/firestore";
 import Link from "next/link";
 
-
 export default function Home() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -43,36 +42,47 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center">
-      <h1 className="text-4xl font-bold mb-4">Piecify</h1>
+    <main className="flex min-h-screen">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-200 p-4">
+        <h2 className="text-xl font-semibold mb-4">Navigation</h2>
+        <ul className="space-y-2">
+          <li>
+            <Link href="/documents">
+              <div className="block p-2 bg-blue-500 text-white rounded text-center">
+                Documents Page
+              </div>
+            </Link>
+          </li>
+          {/* Add more navigation links here as needed */}
+        </ul>
+      </aside>
 
-      <input type="file" onChange={handleFileChange} className="mb-4" />
-      <button
-        onClick={handleUpload}
-        className="bg-blue-500 text-white px-4 py-2 rounded"
-        disabled={uploading}
-      >
-        {uploading ? "Uploading..." : "Upload"}
-      </button>
+      {/* Main Content Area */}
+      <section className="flex-1 p-8 flex flex-col items-center justify-center">
+        <h1 className="text-4xl font-bold mb-4">Piecify</h1>
 
-      {error && <p className="text-red-500 mt-4">{error}</p>}
-
-      {downloadURL && (
-        <p className="mt-4">
-          File uploaded successfully! Access it{" "}
-          <a href={downloadURL} className="text-blue-600 underline">
-            here
-          </a>
-          .
-        </p>
-      )}
-
-      {/* Add the button to navigate to the Documents page */}
-      <Link href="/documents">
-        <button className="bg-green-500 text-white px-4 py-2 rounded mt-4">
-          Go to Documents Page
+        <input type="file" onChange={handleFileChange} className="mb-4" />
+        <button
+          onClick={handleUpload}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+          disabled={uploading}
+        >
+          {uploading ? "Uploading..." : "Upload"}
         </button>
-      </Link>
+
+        {error && <p className="text-red-500 mt-4">{error}</p>}
+
+        {downloadURL && (
+          <p className="mt-4">
+            File uploaded successfully! Access it{" "}
+            <a href={downloadURL} className="text-blue-600 underline">
+              here
+            </a>
+            .
+          </p>
+        )}
+      </section>
     </main>
   );
 }

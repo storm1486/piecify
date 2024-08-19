@@ -9,7 +9,6 @@ export default function Documents() {
 
   useEffect(() => {
     const fetchDocuments = async () => {
-      // Assuming you have the user's UID available
       const userId = "user's-uid"; // Replace with actual user ID
       const q = query(collection(db, "uploads"), where("userId", "==", userId));
       const querySnapshot = await getDocs(q);
@@ -24,37 +23,43 @@ export default function Documents() {
   }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center">
-      <h1 className="text-4xl font-bold mb-4">Documents Page</h1>
-      <p>This is where users can manage their documents.</p>
+    <main className="flex min-h-screen">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-200 p-4 flex flex-col">
+        <Link href="/" passHref>
+          <button className="bg-blue-500 text-white px-4 py-2 rounded mb-4">
+            Home
+          </button>
+        </Link>
 
-      <div className="mt-4">
-        {documents.length > 0 ? (
-          <ul>
-            {documents.map((doc) => (
-              <li key={doc.id} className="mb-4">
+        <h2 className="text-xl font-semibold mb-4">Your Documents</h2>
+        <ul className="space-y-2 flex-1 overflow-y-auto">
+          {documents.length > 0 ? (
+            documents.map((doc) => (
+              <li key={doc.id} className="bg-white p-2 rounded shadow-sm">
                 <a
                   href={doc.fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 underline"
+                  className="text-blue-600 underline block truncate"
                 >
                   {doc.fileName}
                 </a>
               </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No documents uploaded yet.</p>
-        )}
-      </div>
+            ))
+          ) : (
+            <p className="text-gray-600">No documents uploaded yet.</p>
+          )}
+        </ul>
+      </aside>
 
-      {/* Back to Home Link */}
-      <Link href="/" passHref>
-        <button className="bg-gray-500 text-white px-4 py-2 rounded mt-4">
-          Back to Home
-        </button>
-      </Link>
+      {/* Main Content Area */}
+      <section className="flex-1 p-8">
+        <h1 className="text-4xl font-bold mb-4">Documents Page</h1>
+        <p>This is where users can manage their documents.</p>
+
+        {/* Add any other main content here */}
+      </section>
     </main>
   );
 }
