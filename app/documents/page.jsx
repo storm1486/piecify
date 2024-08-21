@@ -1,38 +1,77 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; // Import useRouter for navigation
 import { db } from "../firebase/firebase"; // Adjust the path as necessary
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import Link from "next/link";
 
 export default function Documents() {
-  const [folders, setFolders] = useState({});
+  const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState(null);
+  const [files, setFiles] = useState([]);
+  const router = useRouter(); // Initialize useRouter
 
   useEffect(() => {
-    const fetchDocuments = async () => {
-      const userId = "user's-uid"; // Replace with actual user ID
-      const q = query(collection(db, "uploads"), where("userId", "==", userId));
-      const querySnapshot = await getDocs(q);
-      const docs = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+    const fetchFolders = async () => {
+      const folderList = [];
 
-      // Group documents by folderName
-      const groupedFolders = docs.reduce((folders, doc) => {
-        const folderName = doc.folderName || "Uncategorized";
-        if (!folders[folderName]) {
-          folders[folderName] = [];
+      // Get all documents (folders)
+      const collections = await getDocs(collection(db, "folders"));
+      collections.forEach((doc) => {
+        const data = doc.data();
+        if (data.name) {
+          folderList.push({ id: doc.id, name: data.name });
         }
-        folders[folderName].push(doc);
-        return folders;
-      }, {});
+      });
 
-      setFolders(groupedFolders);
+      setFolders(folderList);
     };
 
-    fetchDocuments();
+    fetchFolders();
   }, []);
+
+  const fetchFiles = async (folderId) => {
+    setSelectedFolder(folderId);
+    const filesList = [];
+
+    const filesSnapshot = await getDocs(
+      collection(db, "folders", folderId, "files")
+    );
+    filesSnapshot.forEach((doc) => {
+      filesList.push({ id: doc.id, ...doc.data() });
+    });
+
+    setFiles(filesList);
+  };
+
+  const handleFileClick = (fileId) => {
+    // Navigate to the view document page with the selected file ID
+    if (selectedFolder) {
+      router.push(`/viewDocuments/${selectedFolder}/${fileId}`);
+    } else {
+      console.error("No folder selected.");
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    const folderName = prompt("Enter the name of the new folder:");
+
+    if (folderName && folderName.trim()) {
+      try {
+        const folderRef = collection(db, "folders");
+        const docRef = await addDoc(folderRef, {
+          name: folderName,
+          createdAt: new Date(),
+        });
+
+        setFolders([...folders, { id: docRef.id, name: folderName }]);
+      } catch (error) {
+        console.error("Error creating folder:", error);
+      }
+    } else {
+      alert("Folder name cannot be empty.");
+    }
+  };
 
   return (
     <main className="flex min-h-screen">
@@ -45,15 +84,24 @@ export default function Documents() {
         </Link>
 
         <h2 className="text-xl font-semibold mb-4">Your Folders</h2>
+
+        {/* Plus button to create a new folder */}
+        <button
+          onClick={handleCreateFolder}
+          className="bg-green-500 text-white px-2 py-1 mb-4 rounded-full"
+        >
+          +
+        </button>
+
         <ul className="space-y-2 flex-1 overflow-y-auto">
-          {Object.keys(folders).length > 0 ? (
-            Object.keys(folders).map((folderName) => (
-              <li key={folderName}>
+          {folders.length > 0 ? (
+            folders.map((folder) => (
+              <li key={folder.id}>
                 <button
-                  onClick={() => setSelectedFolder(folderName)}
+                  onClick={() => fetchFiles(folder.id)}
                   className="text-blue-600 underline block truncate text-left w-full"
                 >
-                  {folderName}
+                  {folder.name}
                 </button>
               </li>
             ))
@@ -65,30 +113,32 @@ export default function Documents() {
 
       {/* Main Content Area */}
       <section className="flex-1 p-8">
-        <h1 className="text-4xl font-bold mb-4">Documents Page</h1>
-        <p>This is where users can manage their documents.</p>
-
+        <h1 className="text-4xl font-bold mb-4">
+          {selectedFolder
+            ? `Files in Folder: ${
+                folders.find((f) => f.id === selectedFolder)?.name
+              }`
+            : "Documents Page"}
+        </h1>
         {selectedFolder ? (
-          <>
-            <h2 className="text-2xl font-semibold mt-8 mb-4">
-              {selectedFolder}
-            </h2>
-            <ul className="space-y-2">
-              {folders[selectedFolder].map((doc) => (
-                <li key={doc.id} className="bg-white p-2 rounded shadow-sm">
-                  <Link href={`/viewDocuments/${doc.id}`} passHref>
-                    <span className="text-blue-600 underline block truncate cursor-pointer">
-                      {doc.fileName}
-                    </span>
-                  </Link>
+          files.length > 0 ? (
+            <ul>
+              {files.map((file) => (
+                <li key={file.id} className="mb-4">
+                  <button
+                    onClick={() => handleFileClick(file.id)}
+                    className="text-blue-600 underline block"
+                  >
+                    {file.fileName}
+                  </button>
                 </li>
               ))}
             </ul>
-          </>
+          ) : (
+            <p>No files in this folder.</p>
+          )
         ) : (
-          <p className="mt-8 text-gray-600">
-            Select a folder to view its documents.
-          </p>
+          <p>Select a folder to view its contents or create a new folder.</p>
         )}
       </section>
     </main>

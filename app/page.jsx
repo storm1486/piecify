@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "./firebase/firebase"; // Adjust the path as necessary
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs } from "firebase/firestore";
 import Link from "next/link";
 
 export default function Home() {
@@ -10,30 +10,52 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [downloadURL, setDownloadURL] = useState(null);
   const [error, setError] = useState(null);
+  const [folders, setFolders] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState("");
+
+  useEffect(() => {
+    const fetchFolders = async () => {
+      const folderList = [];
+      const folderSnapshot = await getDocs(collection(db, "folders"));
+
+      folderSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.name) {
+          folderList.push({ id: doc.id, name: data.name });
+        }
+      });
+
+      setFolders(folderList);
+    };
+
+    fetchFolders();
+  }, []);
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || !selectedFolder) {
+      setError("Please select a file and a folder.");
+      return;
+    }
     setUploading(true);
     setError(null);
 
     try {
-      const storageRef = ref(storage, `uploads/${file.name}`);
+      const storageRef = ref(storage, `${selectedFolder}/${file.name}`);
       await uploadBytes(storageRef, file);
 
       const url = await getDownloadURL(storageRef);
       setDownloadURL(url);
 
-      // Store the file information in Firestore
-      await addDoc(collection(db, "uploads"), {
+      // Store the file information in Firestore under the selected folder
+      await addDoc(collection(db, "folders", selectedFolder, "files"), {
         userId: "user's-uid", // Replace with actual user ID
         fileName: file.name,
         fileUrl: url,
         uploadedAt: new Date(),
-        folderName: 'test'
       });
     } catch (err) {
       setError("Upload failed. Please try again.");
@@ -62,6 +84,22 @@ export default function Home() {
       {/* Main Content Area */}
       <section className="flex-1 p-8 flex flex-col items-center justify-center">
         <h1 className="text-4xl font-bold mb-4">Piecify</h1>
+
+        {/* Folder Selection */}
+        <select
+          value={selectedFolder}
+          onChange={(e) => setSelectedFolder(e.target.value)}
+          className="mb-4 p-2 border rounded"
+        >
+          <option value="" disabled>
+            Select Folder
+          </option>
+          {folders.map((folder) => (
+            <option key={folder.id} value={folder.id}>
+              {folder.name}
+            </option>
+          ))}
+        </select>
 
         <input type="file" onChange={handleFileChange} className="mb-4" />
         <button

@@ -1,20 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation"; // Correct hooks for Next.js 13+
-import { db } from "../../firebase/firebase"; // Adjust the path as necessary
+import { useParams, useRouter } from "next/navigation";
+import { db } from "../../../firebase/firebase"; // Adjust the path as necessary
 import { doc, getDoc } from "firebase/firestore";
-import Link from "next/link";
 
 export default function ViewDocument() {
-  const { id } = useParams(); // Use useParams to get the dynamic ID
+  const { folderId, fileId } = useParams(); // Retrieve both folderId and fileId from the URL parameters
   const router = useRouter();
   const [document, setDocument] = useState(null);
 
   useEffect(() => {
     const fetchDocument = async () => {
-      if (id) {
+      if (folderId && fileId) {
         try {
-          const docRef = doc(db, "uploads", id);
+          // Construct the path to the document in the Firestore database
+          const docRef = doc(db, "folders", folderId, "files", fileId);
           const docSnap = await getDoc(docRef);
 
           if (docSnap.exists()) {
@@ -29,7 +29,7 @@ export default function ViewDocument() {
     };
 
     fetchDocument();
-  }, [id]);
+  }, [folderId, fileId]);
 
   if (!document) {
     return <p>Loading...</p>;
