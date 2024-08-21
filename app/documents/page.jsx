@@ -22,6 +22,8 @@ export default function Documents() {
     fetchDocuments();
   }, []);
 
+console.log(documents.map((doc) => doc.id))
+
   return (
     <main className="flex min-h-screen">
       {/* Sidebar */}
