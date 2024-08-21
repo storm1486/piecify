@@ -33,6 +33,7 @@ export default function Home() {
         fileName: file.name,
         fileUrl: url,
         uploadedAt: new Date(),
+        folderName: 'test'
       });
     } catch (err) {
       setError("Upload failed. Please try again.");
