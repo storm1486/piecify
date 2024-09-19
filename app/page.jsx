@@ -12,6 +12,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchFolders = async () => {
@@ -82,11 +83,11 @@ export default function Home() {
 
       {/* Main Content Area */}
       <section className="flex-1 p-8 flex flex-col items-center justify-center">
-        <h1 className="text-4xl font-bold mb-4 dark:text-white">Piecify</h1>
+        <h1 className="text-4xl font-bold mb-4 dark:text-white">Pieceify</h1>
 
         {/* Display Folders */}
         <div className="w-full mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Folders</h2>
+          <h2 className="text-2xl font-semibold mb-4">All Files</h2>
           <ul className="space-y-2">
             {folders.map((folder) => (
               <li
@@ -102,51 +103,59 @@ export default function Home() {
             ))}
           </ul>
         </div>
-
-        {/* Folder Selection for Uploading */}
-        <select
-          value={selectedFolder}
-          onChange={(e) => setSelectedFolder(e.target.value)}
-          className="mb-4 p-2 border border-gray-300 bg-white text-black dark:border-gray-700 dark:bg-gray-700 dark:text-white rounded"
-        >
-          <option value="" disabled>
-            Select Folder to Upload
-          </option>
-          {folders.map((folder) => (
-            <option key={folder.id} value={folder.id}>
-              {folder.name}
-            </option>
-          ))}
-        </select>
-
-        <input
-          type="file"
-          onChange={handleFileChange}
-          className="mb-4 text-black dark:text-white"
-        />
         <button
-          onClick={handleUpload}
-          className="bg-blue-500 text-white dark:bg-blue-700 px-4 py-2 rounded"
-          disabled={uploading}
+          onClick={() => setIsModalOpen(true)}
+          className="bg-green-500 text-white px-4 py-2 rounded mb-4"
         >
-          {uploading ? "Uploading..." : "Upload"}
+          Upload File
         </button>
+        {isModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
+              <h2 className="text-2xl font-semibold mb-4">Upload File</h2>
 
-        {error && (
-          <p className="text-red-500 dark:text-red-300 mt-4">{error}</p>
-        )}
+              {/* Folder Selection for Uploading */}
+              <select
+                value={selectedFolder}
+                onChange={(e) => setSelectedFolder(e.target.value)}
+                className="mb-4 p-2 border border-gray-300 bg-white text-black dark:border-gray-700 dark:bg-gray-700 dark:text-white rounded"
+              >
+                <option value="" disabled>
+                  Select Folder to Upload
+                </option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
 
-        {downloadURL && (
-          <p className="mt-4">
-            File uploaded successfully! Access it{" "}
-            <a
-              href={downloadURL}
-              className="text-blue-600 dark:text-blue-400 underline"
-            >
-              here
-            </a>
-            .
-          </p>
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="mb-4 text-black dark:text-white"
+              />
+              <button
+                onClick={handleUpload}
+                className="bg-blue-500 text-white dark:bg-blue-700 px-4 py-2 rounded"
+                disabled={uploading}
+              >
+                {uploading ? "Uploading..." : "Upload"}
+              </button>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="mt-4 bg-red-500 text-white px-4 py-2 rounded"
+              >
+                Close
+              </button>
+
+              {error && (
+                <p className="text-red-500 dark:text-red-300 mt-4">{error}</p>
+              )}
+            </div>
+          </div>
         )}
       </section>
     </main>
