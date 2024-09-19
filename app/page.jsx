@@ -111,14 +111,19 @@ export default function Home() {
         </button>
         {isModalOpen && (
           <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
-              <h2 className="text-2xl font-semibold mb-4">Upload File</h2>
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+              <h2 className="text-2xl font-semibold mb-6 text-center">
+                Upload a File
+              </h2>
 
-              {/* Folder Selection for Uploading */}
+              {/* Folder Label and Selection */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Select Folder
+              </label>
               <select
                 value={selectedFolder}
                 onChange={(e) => setSelectedFolder(e.target.value)}
-                className="mb-4 p-2 border border-gray-300 bg-white text-black dark:border-gray-700 dark:bg-gray-700 dark:text-white rounded"
+                className="w-full mb-4 p-2 border border-gray-300 bg-white text-black dark:border-gray-700 dark:bg-gray-700 dark:text-white rounded"
               >
                 <option value="" disabled>
                   Select Folder to Upload
@@ -130,14 +135,20 @@ export default function Home() {
                 ))}
               </select>
 
+              {/* File Upload Label and Input */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Select File
+              </label>
               <input
                 type="file"
                 onChange={handleFileChange}
-                className="mb-4 text-black dark:text-white"
+                className="w-full mb-4 p-2 text-black dark:text-white"
               />
+
+              {/* Upload Button */}
               <button
                 onClick={handleUpload}
-                className="bg-blue-500 text-white dark:bg-blue-700 px-4 py-2 rounded"
+                className="w-full bg-blue-500 text-white dark:bg-blue-700 px-4 py-2 rounded mb-4"
                 disabled={uploading}
               >
                 {uploading ? "Uploading..." : "Upload"}
@@ -146,13 +157,15 @@ export default function Home() {
               {/* Close Button */}
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="mt-4 bg-red-500 text-white px-4 py-2 rounded"
+                className="w-full bg-red-500 text-white px-4 py-2 rounded"
               >
                 Close
               </button>
 
               {error && (
-                <p className="text-red-500 dark:text-red-300 mt-4">{error}</p>
+                <p className="text-red-500 dark:text-red-300 mt-4 text-center">
+                  {error}
+                </p>
               )}
             </div>
           </div>
