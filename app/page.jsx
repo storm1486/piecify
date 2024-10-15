@@ -14,6 +14,7 @@ export default function Home() {
   const [selectedFolder, setSelectedFolder] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAscending, setIsAscending] = useState(true); // State for sorting direction
+  const [favorites, setFavorites] = useState([]); // State to track favorite folders
 
   useEffect(() => {
     const fetchFolders = async () => {
@@ -36,6 +37,14 @@ export default function Home() {
 
     fetchFolders();
   }, []);
+
+  const handleToggleFavorite = (folderId) => {
+    if (favorites.includes(folderId)) {
+      setFavorites(favorites.filter((id) => id !== folderId)); // Remove from favorites
+    } else {
+      setFavorites([...favorites, folderId]); // Add to favorites
+    }
+  };
 
   const handleSortByName = () => {
     const sortedFolders = [...folders].sort((a, b) => {
@@ -98,7 +107,6 @@ export default function Home() {
           <h2 className="text-2xl font-semibold mb-4">All Files</h2>
 
           {/* Filter/Description Header */}
-          {/* Filter/Description Header */}
           <div className="flex justify-between px-4 py-2 border-b border-gray-300 dark:border-gray-700">
             <span
               className="font-bold cursor-pointer"
@@ -115,10 +123,28 @@ export default function Home() {
                 key={folder.id}
                 className="border border-gray-300 dark:border-gray-700 rounded-lg"
               >
-                <Link href={`/folders/${folder.id}`}>
-                  <div className="flex justify-between p-4 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg cursor-pointer">
-                    {/* Display folder name */}
-                    <span>{folder.name}</span>
+                <div className="flex justify-between p-4 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg">
+                  {/* Display folder name with navigation */}
+                  <Link href={`/folders/${folder.id}`}>
+                    <span className="cursor-pointer">{folder.name}</span>
+                  </Link>
+
+                  <div className="flex items-center">
+                    {/* Favorite Button */}
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation(); // Prevent navigation
+                        handleToggleFavorite(folder.id);
+                      }}
+                      className={`mr-4 text-xl ${
+                        favorites.includes(folder.id)
+                          ? "text-yellow-500"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      ★
+                    </button>
+
                     {/* Display formatted date */}
                     <span>
                       {folder.createdAt
@@ -127,11 +153,11 @@ export default function Home() {
                           }/${folder.createdAt.getDate()}/${folder.createdAt
                             .getFullYear()
                             .toString()
-                            .slice(-2)}` // Show month/day/last two digits of year
+                            .slice(-2)}`
                         : "No Date"}
                     </span>
                   </div>
-                </Link>
+                </div>
               </li>
             ))}
           </ul>
