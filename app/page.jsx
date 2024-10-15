@@ -2,7 +2,14 @@
 import { useState, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "./firebase/firebase"; // Adjust the path as necessary
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  setDoc,
+  deleteDoc,
+} from "firebase/firestore";
 import Link from "next/link";
 
 export default function Home() {
@@ -38,11 +45,20 @@ export default function Home() {
     fetchFolders();
   }, []);
 
-  const handleToggleFavorite = (folderId) => {
-    if (favorites.includes(folderId)) {
-      setFavorites(favorites.filter((id) => id !== folderId)); // Remove from favorites
-    } else {
-      setFavorites([...favorites, folderId]); // Add to favorites
+  const handleToggleFavorite = async (folderId, folderName) => {
+    try {
+      const favoriteDocRef = doc(db, "favoriteFolders", folderId); // Reference to the favoriteFolders collection
+      if (favorites.includes(folderId)) {
+        // If it's already a favorite, remove it from the favoriteFolders collection
+        await deleteDoc(favoriteDocRef);
+        setFavorites(favorites.filter((id) => id !== folderId)); // Remove from local state
+      } else {
+        // If not a favorite, add it to the favoriteFolders collection
+        await setDoc(favoriteDocRef, { folderId, folderName }); // Add the folder to Firestore favoriteFolders
+        setFavorites([...favorites, folderId]); // Add to local state
+      }
+    } catch (error) {
+      console.error("Error updating favorites:", error);
     }
   };
 
@@ -134,13 +150,13 @@ export default function Home() {
                     <button
                       onClick={(event) => {
                         event.stopPropagation(); // Prevent navigation
-                        handleToggleFavorite(folder.id);
+                        handleToggleFavorite(folder.id, folder.name); // Pass folderId and folderName to the function
                       }}
-                      className={`mr-4 text-xl ${
+                      className={`mr-4 text-2xl ${
                         favorites.includes(folder.id)
                           ? "text-yellow-500"
                           : "text-gray-400"
-                      }`}
+                      }`} // Increase the size by adjusting the text size
                     >
                       ★
                     </button>
