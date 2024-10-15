@@ -1,6 +1,6 @@
 "use client"; // Ensure the component is client-side
 
-import { useParams } from "next/navigation"; // Use next/navigation for App Router
+import { useParams, useRouter } from "next/navigation"; // Use next/navigation for App Router
 import { useEffect, useState } from "react";
 import { collection, getDocs, getDoc, doc } from "firebase/firestore"; // Import Firestore methods
 import { db } from "../../firebase/firebase"; // Adjust the path based on your setup
@@ -12,6 +12,7 @@ export default function FolderPage() {
   const [files, setFiles] = useState([]); // State to store the list of files
   const [loading, setLoading] = useState(true); // Loading state
   const [folderName, setFolderName] = useState(""); // State to store the folder name
+  const router = useRouter(); // For navigation
 
   useEffect(() => {
     if (folderId) {
@@ -45,6 +46,11 @@ export default function FolderPage() {
     }
   };
 
+  // Handle file click to navigate to the same document page
+  const handleFileClick = (fileId) => {
+    router.push(`/viewDocuments/${folderId}/${fileId}`); // Navigate to the document viewing page
+  };
+
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
@@ -72,14 +78,12 @@ export default function FolderPage() {
               <ul>
                 {files.map((file) => (
                   <li key={file.id} className="mb-4">
-                    <a
-                      href={file.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => handleFileClick(file.id)} // Navigate on file click
                       className="text-blue-600 underline"
                     >
                       {file.fileName}
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>
