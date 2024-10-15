@@ -22,7 +22,11 @@ export default function Home() {
       folderSnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.name) {
-          folderList.push({ id: doc.id, name: data.name });
+          folderList.push({
+            id: doc.id,
+            name: data.name,
+            createdAt: data.createdAt?.toDate(),
+          });
         }
       });
 
@@ -70,15 +74,6 @@ export default function Home() {
       {/* Sidebar */}
       <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
         <h2 className="text-xl font-semibold mb-4">Navigation</h2>
-        <ul className="space-y-2">
-          <li>
-            <Link href="/documents">
-              <div className="block p-2 bg-blue-500 text-white dark:bg-blue-700 rounded text-center">
-                Documents Page
-              </div>
-            </Link>
-          </li>
-        </ul>
       </aside>
 
       {/* Main Content Area */}
@@ -88,6 +83,13 @@ export default function Home() {
         {/* Display Folders */}
         <div className="w-full mb-8">
           <h2 className="text-2xl font-semibold mb-4">All Files</h2>
+
+          {/* Filter/Description Header */}
+          <div className="flex justify-between px-4 py-2 border-b border-gray-300 dark:border-gray-700">
+            <span className="font-bold">Name</span>
+            <span className="font-bold">Date Created</span>
+          </div>
+
           <ul className="space-y-2">
             {folders.map((folder) => (
               <li
@@ -95,14 +97,27 @@ export default function Home() {
                 className="border border-gray-300 dark:border-gray-700 rounded-lg"
               >
                 <Link href={`/folders/${folder.id}`}>
-                  <div className="block p-4 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg cursor-pointer">
-                    {folder.name}
+                  <div className="flex justify-between p-4 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg cursor-pointer">
+                    {/* Display folder name */}
+                    <span>{folder.name}</span>
+                    {/* Display formatted date */}
+                    <span>
+                      {folder.createdAt
+                        ? `${
+                            folder.createdAt.getMonth() + 1
+                          }/${folder.createdAt.getDate()}/${folder.createdAt
+                            .getFullYear()
+                            .toString()
+                            .slice(-2)}` // Show month/day/last two digits of year
+                        : "No Date"}
+                    </span>
                   </div>
                 </Link>
               </li>
             ))}
           </ul>
         </div>
+
         <button
           onClick={() => setIsModalOpen(true)}
           className="bg-green-500 text-white px-4 py-2 rounded mb-4"
