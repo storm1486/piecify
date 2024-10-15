@@ -13,6 +13,7 @@ export default function Home() {
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAscending, setIsAscending] = useState(true); // State for sorting direction
 
   useEffect(() => {
     const fetchFolders = async () => {
@@ -35,6 +36,18 @@ export default function Home() {
 
     fetchFolders();
   }, []);
+
+  const handleSortByName = () => {
+    const sortedFolders = [...folders].sort((a, b) => {
+      if (isAscending) {
+        return a.name.localeCompare(b.name);
+      } else {
+        return b.name.localeCompare(a.name);
+      }
+    });
+    setFolders(sortedFolders);
+    setIsAscending(!isAscending); // Toggle the sorting order
+  };
 
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
@@ -85,8 +98,14 @@ export default function Home() {
           <h2 className="text-2xl font-semibold mb-4">All Files</h2>
 
           {/* Filter/Description Header */}
+          {/* Filter/Description Header */}
           <div className="flex justify-between px-4 py-2 border-b border-gray-300 dark:border-gray-700">
-            <span className="font-bold">Name</span>
+            <span
+              className="font-bold cursor-pointer"
+              onClick={handleSortByName}
+            >
+              Name {isAscending ? "↑" : "↓"}
+            </span>
             <span className="font-bold">Date Created</span>
           </div>
 
