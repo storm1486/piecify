@@ -2,8 +2,9 @@
 
 import { useParams, useRouter } from "next/navigation"; // Use next/navigation for App Router
 import { useEffect, useState } from "react";
-import { collection, getDocs, getDoc, doc } from "firebase/firestore"; // Import Firestore methods
-import { db } from "../../firebase/firebase"; // Adjust the path based on your setup
+import { collection, getDocs, getDoc, doc, addDoc } from "firebase/firestore"; // Import Firestore methods
+import { db, storage } from "../../firebase/firebase"; // Adjust the path based on your setup
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Firebase storage methods
 import Link from "next/link";
 
 export default function FolderPage() {
@@ -12,6 +13,10 @@ export default function FolderPage() {
   const [files, setFiles] = useState([]); // State to store the list of files
   const [loading, setLoading] = useState(true); // Loading state
   const [folderName, setFolderName] = useState(""); // State to store the folder name
+  const [isModalOpen, setIsModalOpen] = useState(false); // Modal state
+  const [file, setFile] = useState(null); // Selected file state
+  const [uploading, setUploading] = useState(false); // Upload state
+  const [error, setError] = useState(null); // Error state
   const router = useRouter(); // For navigation
 
   useEffect(() => {
@@ -46,9 +51,44 @@ export default function FolderPage() {
     }
   };
 
-  // Handle file click to navigate to the same document page
   const handleFileClick = (fileId) => {
     router.push(`/viewDocuments/${folderId}/${fileId}`); // Navigate to the document viewing page
+  };
+
+  const handleFileChange = (event) => {
+    setFile(event.target.files[0]);
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError("Please select a file.");
+      return;
+    }
+    setUploading(true);
+    setError(null);
+
+    try {
+      const storageRef = ref(storage, `${folderId}/${file.name}`);
+      await uploadBytes(storageRef, file);
+
+      const url = await getDownloadURL(storageRef);
+
+      // Store file info in Firestore
+      await addDoc(collection(db, "folders", folderId, "files"), {
+        fileName: file.name,
+        fileUrl: url,
+        uploadedAt: new Date(),
+      });
+
+      // Refresh file list after upload
+      fetchFiles();
+      setIsModalOpen(false);
+      setFile(null);
+    } catch (err) {
+      setError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -67,6 +107,49 @@ export default function FolderPage() {
         <h1 className="text-4xl font-bold mb-4 dark:text-white">
           {isReady ? `${folderName}` : "Loading..."}
         </h1>
+
+        {/* Upload File Button */}
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-green-500 text-white px-4 py-2 rounded mb-4"
+        >
+          Upload File
+        </button>
+
+        {/* File Upload Modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+              <h2 className="text-2xl font-semibold mb-6 text-center">
+                Upload a File
+              </h2>
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Select File
+              </label>
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="w-full mb-4 p-2 text-black dark:text-white"
+              />
+              <button
+                onClick={handleUpload}
+                className="w-full bg-blue-500 text-white dark:bg-blue-700 px-4 py-2 rounded mb-4"
+                disabled={uploading}
+              >
+                {uploading ? "Uploading..." : "Upload"}
+              </button>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="w-full bg-red-500 text-white px-4 py-2 rounded"
+              >
+                Close
+              </button>
+              {error && (
+                <p className="text-red-500 dark:text-red-300 mt-4">{error}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Display loading state */}
         {loading ? (
