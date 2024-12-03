@@ -19,7 +19,8 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
   const [isAscending, setIsAscending] = useState(true); // State for sorting direction
   const [favorites, setFavorites] = useState([]); // State to track favorite folders
 
@@ -107,6 +108,28 @@ export default function Home() {
     }
   };
 
+  const handleCreateNewFolder = async () => {
+    if (!newFolderName.trim()) {
+      alert("Folder name cannot be empty.");
+      return;
+    }
+
+    try {
+      const docRef = await addDoc(collection(db, "folders"), {
+        name: newFolderName,
+        createdAt: new Date(),
+      });
+      setFolders([
+        ...folders,
+        { id: docRef.id, name: newFolderName, createdAt: new Date() },
+      ]);
+      setIsFolderModalOpen(false);
+      setNewFolderName(""); // Reset folder name input
+    } catch (error) {
+      console.error("Error creating new folder:", error);
+    }
+  };
+
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
@@ -179,7 +202,46 @@ export default function Home() {
                 </div>
               </li>
             ))}
+            <li
+              className="border border-dashed border-gray-400 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 p-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
+              onClick={() => setIsFolderModalOpen(true)}
+            >
+              <div className="flex justify-center items-center text-gray-500 dark:text-gray-300">
+                + Create New Folder
+              </div>
+            </li>
           </ul>
+          {isFolderModalOpen && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+                <h2 className="text-2xl font-semibold mb-6 text-center">
+                  Create New Folder
+                </h2>
+                <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                  Folder Name
+                </label>
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  className="w-full mb-4 p-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter folder name"
+                />
+                <button
+                  onClick={handleCreateNewFolder}
+                  className="w-full bg-blue-500 text-white dark:bg-blue-700 px-4 py-2 rounded mb-4"
+                >
+                  Create Folder
+                </button>
+                <button
+                  onClick={() => setIsFolderModalOpen(false)}
+                  className="w-full bg-red-500 text-white px-4 py-2 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </main>
