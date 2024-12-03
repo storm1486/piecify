@@ -123,7 +123,7 @@ export default function Home() {
           <h2 className="text-2xl font-semibold mb-4">All Files</h2>
 
           {/* Filter/Description Header */}
-          <div className="flex justify-between px-4 py-2 border-b border-gray-300 dark:border-gray-700">
+          <div className="flex justify-between px-4 py-2 border-b border-gray-300 dark:border-gray-700 mb-4">
             <span
               className="font-bold cursor-pointer"
               onClick={handleSortByName}
@@ -139,24 +139,27 @@ export default function Home() {
                 key={folder.id}
                 className="border border-gray-300 dark:border-gray-700 rounded-lg"
               >
-                <div className="flex justify-between p-4 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg">
-                  {/* Display folder name with navigation */}
-                  <Link href={`/folders/${folder.id}`}>
-                    <span className="cursor-pointer">{folder.name}</span>
-                  </Link>
+                <div
+                  className="flex justify-between items-center p-4 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg cursor-pointer"
+                  onClick={() =>
+                    (window.location.href = `/folders/${folder.id}`)
+                  } // Navigate on click
+                >
+                  <span>{folder.name}</span>
 
-                  <div className="flex items-center">
-                    {/* Favorite Button */}
+                  <div className="flex items-center space-x-4">
+                    {/* Favorite Button with Invisible Background/Border */}
                     <button
                       onClick={(event) => {
-                        event.stopPropagation(); // Prevent navigation
-                        handleToggleFavorite(folder.id, folder.name); // Pass folderId and folderName to the function
+                        event.stopPropagation(); // Prevent folder navigation
+                        handleToggleFavorite(folder.id, folder.name);
                       }}
-                      className={`mr-4 text-2xl ${
+                      className={`p-2 border border-transparent bg-transparent rounded-lg text-xl ${
                         favorites.includes(folder.id)
                           ? "text-yellow-500"
                           : "text-gray-400"
-                      }`} // Increase the size by adjusting the text size
+                      } hover:text-yellow-500`} // Change color on hover
+                      aria-label={`Mark ${folder.name} as favorite`}
                     >
                       ★
                     </button>
