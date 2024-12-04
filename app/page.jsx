@@ -25,6 +25,21 @@ export default function Home() {
   const [favorites, setFavorites] = useState([]); // State to track favorite folders
 
   useEffect(() => {
+    const fetchFavorites = async () => {
+      try {
+        const favoritesSnapshot = await getDocs(
+          collection(db, "favoriteFolders")
+        );
+        const favoriteList = favoritesSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setFavorites(favoriteList.map((folder) => folder.folderId)); // Store only the folder IDs
+      } catch (error) {
+        console.error("Error fetching favorites:", error);
+      }
+    };
+
     const fetchFolders = async () => {
       const folderList = [];
       const folderSnapshot = await getDocs(collection(db, "folders"));
@@ -43,20 +58,21 @@ export default function Home() {
       setFolders(folderList);
     };
 
+    fetchFavorites(); // Fetch favorites on load
     fetchFolders();
   }, []);
 
   const handleToggleFavorite = async (folderId, folderName) => {
     try {
-      const favoriteDocRef = doc(db, "favoriteFolders", folderId); // Reference to the favoriteFolders collection
+      const favoriteDocRef = doc(db, "favoriteFolders", folderId);
       if (favorites.includes(folderId)) {
-        // If it's already a favorite, remove it from the favoriteFolders collection
+        // If it's already a favorite, remove it
         await deleteDoc(favoriteDocRef);
-        setFavorites(favorites.filter((id) => id !== folderId)); // Remove from local state
+        setFavorites(favorites.filter((id) => id !== folderId)); // Update local state
       } else {
-        // If not a favorite, add it to the favoriteFolders collection
-        await setDoc(favoriteDocRef, { folderId, folderName }); // Add the folder to Firestore favoriteFolders
-        setFavorites([...favorites, folderId]); // Add to local state
+        // Add to Firestore and update local state
+        await setDoc(favoriteDocRef, { folderId, folderName });
+        setFavorites([...favorites, folderId]);
       }
     } catch (error) {
       console.error("Error updating favorites:", error);
@@ -133,13 +149,42 @@ export default function Home() {
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
+      {/* Sidebar */}
       <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
         <h2 className="text-xl font-semibold mb-4">Navigation</h2>
+
+        {/* Favorited Section */}
+        <div className="mt-6">
+          <h3 className="text-lg font-bold mb-2">Favorited</h3>
+          <ul className="space-y-2">
+            {folders
+              .filter((folder) => favorites.includes(folder.id))
+              .map((folder) => (
+                <li key={folder.id} className="text-sm">
+                  <Link
+                    href={`/folders/${folder.id}`}
+                    className="text-blue-500 hover:underline"
+                  >
+                    {folder.name}
+                  </Link>
+                </li>
+              ))}
+          </ul>
+          {folders.filter((folder) => favorites.includes(folder.id)).length ===
+            0 && <p className="text-sm text-gray-500">No favorites yet.</p>}
+        </div>
       </aside>
 
       {/* Main Content Area */}
       <section className="flex-1 p-8 flex flex-col items-center justify-center">
-        <h1 className="text-4xl font-bold mb-4 dark:text-white">Pieceify</h1>
+        {/* Search Bar */}
+        <div className="fixed top-0 left-64 w-[calc(100%-16rem)] dark:bg-gray-800 p-4 z-50">
+          <input
+            type="text"
+            placeholder="Search folders..."
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+          />
+        </div>
 
         {/* Display Folders */}
         <div className="w-full mb-8">
