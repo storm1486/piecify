@@ -7,7 +7,7 @@ import { doc, getDoc } from "firebase/firestore";
 export default function ViewDocument() {
   const { folderId, fileId } = useParams(); // Retrieve both folderId and fileId from the URL parameters
   const router = useRouter();
-  const [document, setDocument] = useState(null);
+  const [docData, setDocData] = useState(null); // Renamed from "document" to "docData"
 
   useEffect(() => {
     const fetchDocument = async () => {
@@ -18,7 +18,8 @@ export default function ViewDocument() {
           const docSnap = await getDoc(docRef);
 
           if (docSnap.exists()) {
-            setDocument(docSnap.data());
+            console.log("Document Data:", docSnap.data());
+            setDocData(docSnap.data()); // Set the fetched document data
           } else {
             console.error("No such document!");
           }
@@ -31,11 +32,11 @@ export default function ViewDocument() {
     fetchDocument();
   }, [folderId, fileId]);
 
-  if (!document) {
+  if (!docData) {
     return <p>Loading...</p>;
   }
 
-  const fileExtension = document.fileName.split(".").pop().toLowerCase();
+  const fileExtension = docData.fileName.split(".").pop().toLowerCase();
   const supportedExtensions = [
     "pdf",
     "doc",
@@ -46,30 +47,46 @@ export default function ViewDocument() {
     "xlsx",
   ];
 
+  const handleViewFull = () => {
+    const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(
+      docData.fileUrl
+    )}&embedded=false`;
+    window.open(viewerUrl, "_blank"); // Opens the full Google Docs Viewer
+  };
+
   return (
     <main className="flex flex-col items-center justify-center min-h-screen p-4">
-      <button
-        onClick={() => router.back()}
-        className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
-      >
-        Back to Documents
-      </button>
+      {/* Header */}
+      <header className="w-full flex justify-between items-center bg-gray-200 dark:bg-gray-800 p-4 mb-4">
+        <button
+          onClick={() => router.back()}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Back to Documents
+        </button>
+        <h1 className="text-xl font-bold text-center">{docData.fileName}</h1>
+        <button
+          onClick={handleViewFull}
+          className="bg-green-500 text-white px-4 py-2 rounded"
+        >
+          Edit/Print
+        </button>
+      </header>
 
-      <h1 className="text-3xl font-bold mb-4">{document.fileName}</h1>
-
+      {/* Document Viewer */}
       {fileExtension === "pdf" ? (
         <iframe
-          src={document.fileUrl}
+          src={docData.fileUrl}
           className="w-full h-screen"
-          title={document.fileName}
+          title={docData.fileName}
         />
       ) : supportedExtensions.includes(fileExtension) ? (
         <iframe
           src={`https://docs.google.com/gview?url=${encodeURIComponent(
-            document.fileUrl
+            docData.fileUrl
           )}&embedded=true`}
           className="w-full h-screen"
-          title={document.fileName}
+          title={docData.fileName}
         />
       ) : (
         <div>
@@ -78,11 +95,11 @@ export default function ViewDocument() {
             below.
           </p>
           <a
-            href={document.fileUrl}
+            href={docData.fileUrl}
             className="text-blue-600 underline"
             download
           >
-            Download {document.fileName}
+            Download {docData.fileName}
           </a>
         </div>
       )}
