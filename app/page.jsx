@@ -9,6 +9,7 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  getDoc,
 } from "firebase/firestore";
 import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -80,55 +81,97 @@ export default function Home() {
   useEffect(() => {
     const fetchFavorites = async () => {
       try {
-        const favoritesSnapshot = await getDocs(
-          collection(db, "favoriteFolders")
-        );
-        const favoriteList = favoritesSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setFavorites(favoriteList.map((folder) => folder.folderId)); // Store only the folder IDs
+        if (currentUser) {
+          const userDocRef = doc(db, "users", currentUser.uid); // Reference to the user's document
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setFavorites(userData.favoriteFolders || []); // Store the user's favorite folders
+          } else {
+            console.warn("User document does not exist");
+            setFavorites([]); // Reset favorites if no document found
+          }
+        }
       } catch (error) {
-        console.error("Error fetching favorites:", error);
+        console.error("Error fetching favorite folders:", error);
       }
     };
 
     const fetchFolders = async () => {
-      const folderList = [];
-      const folderSnapshot = await getDocs(collection(db, "folders"));
+      try {
+        const folderList = [];
+        const folderSnapshot = await getDocs(collection(db, "folders"));
 
-      folderSnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.name) {
-          folderList.push({
-            id: doc.id,
-            name: data.name,
-            createdAt: data.createdAt?.toDate(),
-          });
-        }
-      });
+        folderSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.name) {
+            folderList.push({
+              id: doc.id,
+              name: data.name,
+              createdAt: data.createdAt?.toDate(),
+            });
+          }
+        });
 
-      setFolders(folderList);
+        setFolders(folderList); // Update folders state
+      } catch (error) {
+        console.error("Error fetching folders:", error);
+      }
     };
+
+    const loadUserData = async () => {
+      if (currentUser) {
+        await fetchFavorites(); // Fetch favorite folders for the logged-in user
+      }
+    };
+
+    loadUserData();
 
     fetchFavorites(); // Fetch favorites on load
     fetchFolders();
   }, []);
 
-  const handleToggleFavorite = async (folderId, folderName) => {
+  const handleToggleFavorite = async (folderId) => {
     try {
-      const favoriteDocRef = doc(db, "favoriteFolders", folderId);
-      if (favorites.includes(folderId)) {
-        // If it's already a favorite, remove it
-        await deleteDoc(favoriteDocRef);
-        setFavorites(favorites.filter((id) => id !== folderId)); // Update local state
+      if (!currentUser) {
+        console.error("User is not logged in");
+        return;
+      }
+
+      const userDocRef = doc(db, "users", currentUser.uid); // Reference to the user's document
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const updatedFavorites = userData.favoriteFolders || [];
+
+        if (updatedFavorites.includes(folderId)) {
+          // Remove folder from favorites
+          const filteredFavorites = updatedFavorites.filter(
+            (id) => id !== folderId
+          );
+          await setDoc(
+            userDocRef,
+            { favoriteFolders: filteredFavorites },
+            { merge: true }
+          );
+          setFavorites(filteredFavorites); // Update local state
+        } else {
+          // Add folder to favorites
+          updatedFavorites.push(folderId);
+          await setDoc(
+            userDocRef,
+            { favoriteFolders: updatedFavorites },
+            { merge: true }
+          );
+          setFavorites(updatedFavorites); // Update local state
+        }
       } else {
-        // Add to Firestore and update local state
-        await setDoc(favoriteDocRef, { folderId, folderName });
-        setFavorites([...favorites, folderId]);
+        console.error("User document does not exist");
       }
     } catch (error) {
-      console.error("Error updating favorites:", error);
+      console.error("Error updating favorite folders:", error);
     }
   };
 
@@ -259,7 +302,7 @@ export default function Home() {
           <h3 className="text-lg font-bold mb-2">Favorited</h3>
           <ul className="space-y-2">
             {folders
-              .filter((folder) => favorites.includes(folder.id))
+              .filter((folder) => favorites.includes(folder.id)) // Filter folders based on favorites
               .map((folder) => (
                 <li key={folder.id} className="text-sm">
                   <Link
@@ -275,6 +318,50 @@ export default function Home() {
             0 && <p className="text-sm text-gray-500">No favorites yet.</p>}
         </div>
       </aside>
+
+      {/* Login Modal */}
+      {!currentUser && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+            <h2 className="text-2xl font-semibold mb-6 text-center">Log In</h2>
+
+            {/* Email Input */}
+            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+              Email
+            </label>
+            <input
+              type="email"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+              placeholder="Enter email"
+            />
+
+            {/* Password Input */}
+            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+              Password
+            </label>
+            <input
+              type="password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+              placeholder="Enter password"
+            />
+
+            {/* Error Message */}
+            {loginError && <p className="text-red-500 mb-4">{loginError}</p>}
+
+            {/* Buttons */}
+            <button
+              onClick={handleLogin}
+              className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
+            >
+              Log In
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <section className="flex-1 p-8 flex flex-col items-center justify-center">
@@ -292,7 +379,6 @@ export default function Home() {
         >
           Create Account
         </button>
-
 
         {/* Sign Up Modal */}
         {isSignUpModalOpen && (
