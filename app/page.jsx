@@ -42,15 +42,26 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        setCurrentUser(user); // User is logged in
+        setCurrentUser(user); // Set the logged-in user
+        await fetchFavorites(); // Fetch favorites as soon as user logs in
+        await fetchFolders(); // Fetch folders
       } else {
-        setCurrentUser(null); // No user logged in
+        clearState(); // Clear state on logout
+        console.log("User logged out.");
       }
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchFavorites(); // Re-fetch favorites whenever currentUser is updated
+    }
+  }, [currentUser]);
+
+  console.log("Favorites loaded:", favorites);
 
   const handleLogin = async () => {
     try {
@@ -69,68 +80,71 @@ export default function Home() {
     }
   };
 
+  const clearState = () => {
+    setFavorites([]);
+    setFolders([]);
+    setDownloadURL(null);
+    setSelectedFolder("");
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      setCurrentUser(null); // Clear the user state
+      clearState();
+      setCurrentUser(null);
+      console.log("User logged out and state reset.");
     } catch (error) {
       console.error("Error logging out:", error);
     }
   };
 
-  useEffect(() => {
-    const fetchFavorites = async () => {
-      try {
-        if (currentUser) {
-          const userDocRef = doc(db, "users", currentUser.uid); // Reference to the user's document
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setFavorites(userData.favoriteFolders || []); // Store the user's favorite folders
-          } else {
-            console.warn("User document does not exist");
-            setFavorites([]); // Reset favorites if no document found
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching favorite folders:", error);
-      }
-    };
-
-    const fetchFolders = async () => {
-      try {
-        const folderList = [];
-        const folderSnapshot = await getDocs(collection(db, "folders"));
-
-        folderSnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.name) {
-            folderList.push({
-              id: doc.id,
-              name: data.name,
-              createdAt: data.createdAt?.toDate(),
-            });
-          }
-        });
-
-        setFolders(folderList); // Update folders state
-      } catch (error) {
-        console.error("Error fetching folders:", error);
-      }
-    };
-
-    const loadUserData = async () => {
+  const fetchFavorites = async () => {
+    try {
       if (currentUser) {
-        await fetchFavorites(); // Fetch favorite folders for the logged-in user
+        const userDocRef = doc(db, "users", currentUser.uid); // Reference to the user's document
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          console.log("Fetched favorite folders:", userData.favoriteFolders);
+          setFavorites(userData.favoriteFolders || []); // Store the user's favorite folders
+        } else {
+          console.warn("User document does not exist");
+          setFavorites([]); // Reset favorites if no document found
+        }
       }
-    };
+    } catch (error) {
+      console.error("Error fetching favorite folders:", error);
+    }
+  };
 
-    loadUserData();
+  const fetchFolders = async () => {
+    try {
+      const folderList = [];
+      const folderSnapshot = await getDocs(collection(db, "folders"));
 
-    fetchFavorites(); // Fetch favorites on load
-    fetchFolders();
-  }, []);
+      folderSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.name) {
+          folderList.push({
+            id: doc.id,
+            name: data.name,
+            createdAt: data.createdAt?.toDate(),
+          });
+        }
+      });
+
+      setFolders(folderList); // Update folders state
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+    }
+  };
+
+  const loadUserData = async () => {
+    if (currentUser) {
+      await fetchFavorites(); // Fetch favorite folders for the logged-in user
+    }
+  };
 
   const handleToggleFavorite = async (folderId) => {
     try {
@@ -302,7 +316,7 @@ export default function Home() {
           <h3 className="text-lg font-bold mb-2">Favorited</h3>
           <ul className="space-y-2">
             {folders
-              .filter((folder) => favorites.includes(folder.id)) // Filter folders based on favorites
+              .filter((folder) => favorites.includes(folder.id)) // Show folders that are in favorites
               .map((folder) => (
                 <li key={folder.id} className="text-sm">
                   <Link
@@ -313,9 +327,11 @@ export default function Home() {
                   </Link>
                 </li>
               ))}
+            {folders.filter((folder) => favorites.includes(folder.id))
+              .length === 0 && (
+              <p className="text-sm text-gray-500">No favorites yet.</p>
+            )}
           </ul>
-          {folders.filter((folder) => favorites.includes(folder.id)).length ===
-            0 && <p className="text-sm text-gray-500">No favorites yet.</p>}
         </div>
       </aside>
 
