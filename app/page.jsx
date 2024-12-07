@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "./firebase/firebase"; // Adjust the path as necessary
+import { db, storage, auth } from "./firebase/firebase"; // Adjust the path as necessary
 import {
   collection,
   addDoc,
@@ -11,6 +11,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import Link from "next/link";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 
 export default function Home() {
   const [file, setFile] = useState(null);
@@ -23,6 +24,11 @@ export default function Home() {
   const [newFolderName, setNewFolderName] = useState("");
   const [isAscending, setIsAscending] = useState(true); // State for sorting direction
   const [favorites, setFavorites] = useState([]); // State to track favorite folders
+  const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupRole, setSignupRole] = useState("user");
+  const [signupError, setSignupError] = useState("");
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -146,13 +152,41 @@ export default function Home() {
     }
   };
 
+  const handleSignup = async (email, password, role = "user") => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      // Add user to Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email: user.email,
+        role: role, // Default role is "user"
+      });
+
+      console.log("User created and added to Firestore:", user.uid);
+
+      // Close the modal and reset inputs
+      setIsSignUpModalOpen(false);
+      setSignupEmail("");
+      setSignupPassword("");
+      setSignupRole("user");
+      setSignupError("");
+    } catch (error) {
+      console.error("Error signing up:", error);
+      setSignupError(error.message); // Display error message if sign-up fails
+    }
+  };
+
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
-      {/* Sidebar */}
       <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
-        <h2 className="text-xl font-semibold mb-4">Navigation</h2>
-
+        <h1 className="text-4xl font-bold mb-4">Piecify</h1>
         {/* Favorited Section */}
         <div className="mt-6">
           <h3 className="text-lg font-bold mb-2">Favorited</h3>
@@ -185,6 +219,81 @@ export default function Home() {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
           />
         </div>
+        <button
+          onClick={() => setIsSignUpModalOpen(true)}
+          className="bg-green-500 text-white px-4 py-2 rounded mb-4"
+        >
+          Create Account
+        </button>
+
+        {/* Sign Up Modal */}
+        {isSignUpModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+              <h2 className="text-2xl font-semibold mb-6 text-center">
+                Sign Up
+              </h2>
+
+              {/* Email Input */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Email
+              </label>
+              <input
+                type="email"
+                value={signupEmail}
+                onChange={(e) => setSignupEmail(e.target.value)}
+                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+                placeholder="Enter email"
+              />
+
+              {/* Password Input */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Password
+              </label>
+              <input
+                type="password"
+                value={signupPassword}
+                onChange={(e) => setSignupPassword(e.target.value)}
+                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+                placeholder="Enter password"
+              />
+
+              {/* Role Selection */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Role
+              </label>
+              <select
+                value={signupRole}
+                onChange={(e) => setSignupRole(e.target.value)}
+                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+
+              {/* Error Message */}
+              {signupError && (
+                <p className="text-red-500 mb-4">{signupError}</p>
+              )}
+
+              {/* Buttons */}
+              <button
+                onClick={() =>
+                  handleSignup(signupEmail, signupPassword, signupRole)
+                }
+                className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
+              >
+                Sign Up
+              </button>
+              <button
+                onClick={() => setIsSignUpModalOpen(false)}
+                className="w-full bg-red-500 text-white px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Display Folders */}
         <div className="w-full mb-8">

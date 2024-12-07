@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getStorage } from "firebase/storage";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics"; // Import if you're using analytics
+import { getAuth } from "firebase/auth"; // Import Firebase Auth
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,11 +14,13 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Add this line
 };
 
+// Initialize Firebase app
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase services
 const storage = getStorage(app);
 const db = getFirestore(app);
+const auth = getAuth(app); // Initialize Firebase Authentication
 const analytics = typeof window !== "undefined" ? getAnalytics(app) : null; // Initialize analytics if it's running in the browser
 
-export { storage, db, analytics };
+export { storage, db, auth, analytics };
