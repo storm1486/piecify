@@ -208,11 +208,14 @@ export default function Home() {
       );
       const user = userCredential.user;
 
-      // Add user to Firestore
+      // Add user to Firestore with default arrays
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         email: user.email,
         role: role, // Default role is "user"
+        favoriteFolders: [],
+        viewableFolders: [],
+        myFiles: [],
       });
 
       console.log("User created and added to Firestore:", user.uid);
@@ -290,51 +293,6 @@ export default function Home() {
           Create Account
         </button>
 
-        {/* Login Modal */}
-        {!currentUser && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-              <h2 className="text-2xl font-semibold mb-6 text-center">
-                Log In
-              </h2>
-
-              {/* Email Input */}
-              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-                Email
-              </label>
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-                placeholder="Enter email"
-              />
-
-              {/* Password Input */}
-              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-                Password
-              </label>
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-                placeholder="Enter password"
-              />
-
-              {/* Error Message */}
-              {loginError && <p className="text-red-500 mb-4">{loginError}</p>}
-
-              {/* Buttons */}
-              <button
-                onClick={handleLogin}
-                className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
-              >
-                Log In
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Sign Up Modal */}
         {isSignUpModalOpen && (
