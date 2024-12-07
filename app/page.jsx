@@ -12,6 +12,11 @@ import {
 } from "firebase/firestore";
 import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
 
 export default function Home() {
   const [file, setFile] = useState(null);
@@ -29,6 +34,48 @@ export default function Home() {
   const [signupPassword, setSignupPassword] = useState("");
   const [signupRole, setSignupRole] = useState("user");
   const [signupError, setSignupError] = useState("");
+
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user); // User is logged in
+      } else {
+        setCurrentUser(null); // No user logged in
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      setLoginError(""); // Clear previous errors
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        loginEmail,
+        loginPassword
+      );
+      setCurrentUser(userCredential.user); // Set the current user
+      setLoginEmail("");
+      setLoginPassword(""); // Clear the inputs
+    } catch (error) {
+      console.error("Error logging in:", error);
+      setLoginError(error.message); // Display error message
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setCurrentUser(null); // Clear the user state
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -185,8 +232,25 @@ export default function Home() {
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
+      {/* Sidebar */}
       <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
         <h1 className="text-4xl font-bold mb-4">Piecify</h1>
+
+        {currentUser ? (
+          <div className="mb-6">
+            <p className="text-sm">Logged in as:</p>
+            <p className="font-bold">{currentUser.email}</p>
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 text-white px-4 py-2 rounded mt-4"
+            >
+              Log Out
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm">Please log in to access your files.</p>
+        )}
+
         {/* Favorited Section */}
         <div className="mt-6">
           <h3 className="text-lg font-bold mb-2">Favorited</h3>
@@ -225,6 +289,52 @@ export default function Home() {
         >
           Create Account
         </button>
+
+        {/* Login Modal */}
+        {!currentUser && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+              <h2 className="text-2xl font-semibold mb-6 text-center">
+                Log In
+              </h2>
+
+              {/* Email Input */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Email
+              </label>
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+                placeholder="Enter email"
+              />
+
+              {/* Password Input */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Password
+              </label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+                placeholder="Enter password"
+              />
+
+              {/* Error Message */}
+              {loginError && <p className="text-red-500 mb-4">{loginError}</p>}
+
+              {/* Buttons */}
+              <button
+                onClick={handleLogin}
+                className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
+              >
+                Log In
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Sign Up Modal */}
         {isSignUpModalOpen && (
