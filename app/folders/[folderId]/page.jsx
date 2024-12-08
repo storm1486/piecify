@@ -37,19 +37,28 @@ export default function FolderPage() {
       filesSnapshot.forEach((doc) => {
         filesList.push({ id: doc.id, ...doc.data() });
       });
+
+      if (filesList.length === 0) {
+        console.warn(`No files found in folder ${folderId}`);
+      }
       setFiles(filesList); // Update state with the fetched files
 
       // Fetch folder name
       const folderDoc = await getDoc(doc(db, "folders", folderId)); // Fetch the folder document
       if (folderDoc.exists()) {
         setFolderName(folderDoc.data().name); // Set the folder name (from the name field)
+      } else {
+        console.error(`Folder with ID ${folderId} does not exist.`);
+        setFolderName("Unknown Folder");
       }
     } catch (error) {
       console.error("Error fetching files or folder:", error);
+      setError("Error loading folder data. Please try again later.");
     } finally {
       setLoading(false); // End loading
     }
   };
+  console.log("Folder ID:", folderId);
 
   const handleFileClick = (fileId) => {
     router.push(`/viewDocuments/${folderId}/${fileId}`); // Navigate to the document viewing page
@@ -85,6 +94,7 @@ export default function FolderPage() {
       setIsModalOpen(false);
       setFile(null);
     } catch (err) {
+      console.error("Upload failed:", err);
       setError("Upload failed. Please try again.");
     } finally {
       setUploading(false);

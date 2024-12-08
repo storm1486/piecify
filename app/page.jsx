@@ -61,8 +61,6 @@ export default function Home() {
     }
   }, [currentUser]);
 
-  console.log("Favorites loaded:", favorites);
-
   const handleLogin = async () => {
     try {
       setLoginError(""); // Clear previous errors
@@ -137,6 +135,9 @@ export default function Home() {
       setFolders(folderList); // Update folders state
     } catch (error) {
       console.error("Error fetching folders:", error);
+      setError(
+        "Unable to fetch folders. Please ensure you have the necessary permissions."
+      );
     }
   };
 
@@ -153,7 +154,7 @@ export default function Home() {
         return;
       }
 
-      const userDocRef = doc(db, "users", currentUser.uid); // Reference to the user's document
+      const userDocRef = doc(db, "users", currentUser.uid); // Correct document reference
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
@@ -168,7 +169,7 @@ export default function Home() {
           await setDoc(
             userDocRef,
             { favoriteFolders: filteredFavorites },
-            { merge: true }
+            { merge: true } // Ensures only 'favoriteFolders' is updated
           );
           setFavorites(filteredFavorites); // Update local state
         } else {
