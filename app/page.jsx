@@ -383,7 +383,7 @@ export default function Home() {
       {/* Main Content Area */}
       <section className="flex-1 p-8 flex flex-col items-center justify-center">
         {/* Search Bar */}
-        <div className="fixed top-0 left-64 w-[calc(100%-16rem)] dark:bg-gray-800 p-4 z-50">
+        <div className="w-full mb-6">
           <input
             type="text"
             placeholder="Search folders..."
@@ -465,9 +465,8 @@ export default function Home() {
             </div>
           </div>
         )}
-
         {/* Display Folders */}
-        <div className="w-full mb-8">
+        <div className="flex-grow w-full mb-8">
           <h2 className="text-2xl font-semibold mb-4">All Files</h2>
 
           {/* Filter/Description Header */}
