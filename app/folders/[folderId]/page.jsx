@@ -3,34 +3,46 @@
 import { useParams, useRouter } from "next/navigation"; // Use next/navigation for App Router
 import { useEffect, useState } from "react";
 import { collection, getDocs, getDoc, doc, addDoc } from "firebase/firestore"; // Import Firestore methods
-import { db, storage } from "../../firebase/firebase"; // Adjust the path based on your setup
+import { db, storage, auth } from "../../firebase/firebase"; // Adjust the path based on your setup
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Firebase storage methods
 import Link from "next/link";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function FolderPage() {
   const { folderId } = useParams(); // Get folderId from the dynamic route
   const [isReady, setIsReady] = useState(false);
   const [files, setFiles] = useState([]); // State to store the list of files
-  const [loading, setLoading] = useState(true); // Loading state
+  const [users, setUsers] = useState([]); // State to store the list of users
+  const [loadingFiles, setLoadingFiles] = useState(true); // Loading state for files
+  const [loadingUsers, setLoadingUsers] = useState(true); // Loading state for users
   const [folderName, setFolderName] = useState(""); // State to store the folder name
   const [isModalOpen, setIsModalOpen] = useState(false); // Modal state
   const [file, setFile] = useState(null); // Selected file state
   const [uploading, setUploading] = useState(false); // Upload state
-  const [error, setError] = useState(null); // Error state
+  const [fileError, setFileError] = useState(null); // File error state
+  const [userError, setUserError] = useState(null); // User error state
   const router = useRouter(); // For navigation
 
   useEffect(() => {
-    if (folderId) {
-      setIsReady(true); // Indicate that the page is ready to render
-      fetchFiles(); // Fetch files once folderId is available
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        await fetchUsers(user); // Call fetchUsers when a user is authenticated
+        if (folderId) {
+          await fetchFiles(); // Fetch files only after verifying authentication
+        }
+      } else {
+        setUserError("You must be logged in to access this data.");
+        setLoadingUsers(false);
+      }
+    });
+
+    return () => unsubscribe(); // Cleanup the listener on component unmount
   }, [folderId]);
 
   const fetchFiles = async () => {
-    setLoading(true);
+    setLoadingFiles(true);
     const filesList = [];
     try {
-      // Fetch files inside the folder
       const filesSnapshot = await getDocs(
         collection(db, "folders", folderId, "files")
       );
@@ -41,27 +53,55 @@ export default function FolderPage() {
       if (filesList.length === 0) {
         console.warn(`No files found in folder ${folderId}`);
       }
-      setFiles(filesList); // Update state with the fetched files
+      setFiles(filesList);
 
-      // Fetch folder name
-      const folderDoc = await getDoc(doc(db, "folders", folderId)); // Fetch the folder document
+      const folderDoc = await getDoc(doc(db, "folders", folderId));
       if (folderDoc.exists()) {
-        setFolderName(folderDoc.data().name); // Set the folder name (from the name field)
+        setFolderName(folderDoc.data().name);
       } else {
         console.error(`Folder with ID ${folderId} does not exist.`);
         setFolderName("Unknown Folder");
       }
     } catch (error) {
       console.error("Error fetching files or folder:", error);
-      setError("Error loading folder data. Please try again later.");
+      setFileError("Error loading folder data. Please try again later.");
     } finally {
-      setLoading(false); // End loading
+      setLoadingFiles(false);
     }
   };
-  console.log("Folder ID:", folderId);
+
+  const fetchUsers = async (currentUser) => {
+    setLoadingUsers(true);
+    try {
+      const currentUserRef = doc(db, "users", currentUser.uid); // Get the current user's document
+      const currentUserSnap = await getDoc(currentUserRef);
+
+      if (
+        !currentUserSnap.exists() ||
+        currentUserSnap.data().role !== "admin"
+      ) {
+        console.error("Access denied. Only admins can view all users.");
+        setUserError("You do not have permission to view this data.");
+        setLoadingUsers(false);
+        return;
+      }
+
+      const usersList = [];
+      const usersSnapshot = await getDocs(collection(db, "users")); // Fetch "users" collection
+      usersSnapshot.forEach((doc) => {
+        usersList.push({ id: doc.id, ...doc.data() });
+      });
+      setUsers(usersList); // Update users state
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      setUserError("Error loading user data. Please try again later.");
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   const handleFileClick = (fileId) => {
-    router.push(`/viewDocuments/${folderId}/${fileId}`); // Navigate to the document viewing page
+    router.push(`/viewDocuments/${folderId}/${fileId}`);
   };
 
   const handleFileChange = (event) => {
@@ -70,11 +110,11 @@ export default function FolderPage() {
 
   const handleUpload = async () => {
     if (!file) {
-      setError("Please select a file.");
+      setFileError("Please select a file.");
       return;
     }
     setUploading(true);
-    setError(null);
+    setFileError(null);
 
     try {
       const storageRef = ref(storage, `${folderId}/${file.name}`);
@@ -82,20 +122,18 @@ export default function FolderPage() {
 
       const url = await getDownloadURL(storageRef);
 
-      // Store file info in Firestore
       await addDoc(collection(db, "folders", folderId, "files"), {
         fileName: file.name,
         fileUrl: url,
         uploadedAt: new Date(),
       });
 
-      // Refresh file list after upload
       fetchFiles();
       setIsModalOpen(false);
       setFile(null);
     } catch (err) {
       console.error("Upload failed:", err);
-      setError("Upload failed. Please try again.");
+      setFileError("Upload failed. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -103,7 +141,6 @@ export default function FolderPage() {
 
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
-      {/* Sidebar */}
       <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
         <Link href="/">
           <div className="block p-2 bg-blue-500 text-white dark:bg-blue-700 rounded text-center">
@@ -112,13 +149,11 @@ export default function FolderPage() {
         </Link>
       </aside>
 
-      {/* Main Content Area */}
       <section className="flex-1 p-8">
         <h1 className="text-4xl font-bold mb-4 dark:text-white">
           {isReady ? `${folderName}` : "Loading..."}
         </h1>
 
-        {/* Upload File Button */}
         <button
           onClick={() => setIsModalOpen(true)}
           className="bg-green-500 text-white px-4 py-2 rounded mb-4"
@@ -126,7 +161,6 @@ export default function FolderPage() {
           Upload File
         </button>
 
-        {/* File Upload Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
@@ -154,25 +188,26 @@ export default function FolderPage() {
               >
                 Close
               </button>
-              {error && (
-                <p className="text-red-500 dark:text-red-300 mt-4">{error}</p>
+              {fileError && (
+                <p className="text-red-500 dark:text-red-300 mt-4">
+                  {fileError}
+                </p>
               )}
             </div>
           </div>
         )}
 
-        {/* Display loading state */}
-        {loading ? (
+        {/* File Loading */}
+        {loadingFiles ? (
           <p>Loading files...</p>
         ) : (
           <>
-            {/* Display list of files */}
             {files.length > 0 ? (
               <ul>
                 {files.map((file) => (
                   <li key={file.id} className="mb-4">
                     <button
-                      onClick={() => handleFileClick(file.id)} // Navigate on file click
+                      onClick={() => handleFileClick(file.id)}
                       className="text-blue-600 underline"
                     >
                       {file.fileName}
@@ -184,6 +219,24 @@ export default function FolderPage() {
               <p>No files found in this folder.</p>
             )}
           </>
+        )}
+
+        {/* Users Section */}
+        <h2 className="text-2xl font-bold mt-8 mb-4">Users</h2>
+        {loadingUsers ? (
+          <p>Loading users...</p>
+        ) : userError ? (
+          <p className="text-red-500">{userError}</p>
+        ) : users.length > 0 ? (
+          <ul>
+            {users.map((user) => (
+              <li key={user.id} className="mb-2">
+                {user.name || "Anonymous"} ({user.email || "No email provided"})
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No users found.</p>
         )}
       </section>
     </main>
