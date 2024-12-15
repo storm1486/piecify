@@ -29,40 +29,39 @@ export default function FolderPage() {
   const router = useRouter(); // For navigation
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        await fetchUsers(user); // Call fetchUsers when a user is authenticated
-        if (folderId) {
-          await fetchFiles(); // Fetch files only after verifying authentication
+    if (folderId) {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          await fetchUsers(user); // Call fetchUsers when a user is authenticated
+          await fetchFiles(); // Fetch folder files and name
+        } else {
+          setUserError("You must be logged in to access this data.");
+          setLoadingUsers(false);
         }
-      } else {
-        setUserError("You must be logged in to access this data.");
-        setLoadingUsers(false);
-      }
-    });
+      });
 
-    return () => unsubscribe(); // Cleanup the listener on component unmount
+      return () => unsubscribe(); // Cleanup the listener on component unmount
+    }
   }, [folderId]);
 
   const fetchFiles = async () => {
     setLoadingFiles(true);
-    const filesList = [];
     try {
+      // Fetch files in the folder
       const filesSnapshot = await getDocs(
         collection(db, "folders", folderId, "files")
       );
+      const filesList = [];
       filesSnapshot.forEach((doc) => {
         filesList.push({ id: doc.id, ...doc.data() });
       });
-
-      if (filesList.length === 0) {
-        console.warn(`No files found in folder ${folderId}`);
-      }
       setFiles(filesList);
 
+      // Fetch folder name
       const folderDoc = await getDoc(doc(db, "folders", folderId));
       if (folderDoc.exists()) {
-        setFolderName(folderDoc.data().name);
+        setFolderName(folderDoc.data().name || "Untitled Folder");
+        setIsReady(true); // Set isReady to true after fetching the folder name
       } else {
         console.error(`Folder with ID ${folderId} does not exist.`);
         setFolderName("Unknown Folder");
@@ -70,6 +69,7 @@ export default function FolderPage() {
     } catch (error) {
       console.error("Error fetching files or folder:", error);
       setFileError("Error loading folder data. Please try again later.");
+      setFolderName("Error Loading Folder");
     } finally {
       setLoadingFiles(false);
     }
@@ -127,6 +127,8 @@ export default function FolderPage() {
   const handleFileClick = (fileId) => {
     router.push(`/viewDocuments/${folderId}/${fileId}`); // Navigate to the file viewing page
   };
+
+  console.log(folderName);
 
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
