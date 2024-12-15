@@ -40,18 +40,33 @@ export default function Home() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false); // Check if the user is an admin
+  const [allFolders, setAllFolders] = useState([]); // Store all folders for admin
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user); // Set the logged-in user
-        await fetchFavorites(); // Fetch favorites as soon as user logs in
-        await fetchFolders(); // Fetch folders
+
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setIsAdmin(userData.role === "admin"); // Check if the user is an admin
+
+          if (userData.role === "admin") {
+            await fetchAllFolders(); // Fetch all folders for admin
+          }
+        }
+
+        await fetchFavorites(); // Fetch favorites
+        await fetchMyFiles(); // Fetch user's files
       } else {
         clearState(); // Clear state on logout
-        console.log("User logged out.");
       }
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -60,6 +75,27 @@ export default function Home() {
       fetchFavorites(); // Re-fetch favorites whenever currentUser is updated
     }
   }, [currentUser]);
+
+  const fetchAllFolders = async () => {
+    try {
+      const folderList = [];
+      const folderSnapshot = await getDocs(collection(db, "folders"));
+
+      folderSnapshot.forEach((doc) => {
+        const data = doc.data();
+        folderList.push({
+          id: doc.id,
+          name: data.name,
+          createdAt: data.createdAt?.toDate(),
+        });
+      });
+
+      setAllFolders(folderList); // Update state with all folders
+    } catch (error) {
+      console.error("Error fetching all folders:", error);
+      setError("Unable to fetch folders. Please try again.");
+    }
+  };
 
   const fetchMyFiles = async () => {
     try {
@@ -106,10 +142,11 @@ export default function Home() {
   };
 
   const clearState = () => {
+    setMyFiles([]);
+    setAllFolders([]);
+    setIsAdmin(false);
     setFavorites([]);
-    setFolders([]);
-    setDownloadURL(null);
-    setSelectedFolder("");
+    setCurrentUser(null);
   };
 
   const handleLogout = async () => {
@@ -494,59 +531,117 @@ export default function Home() {
         )}
         {/* Display Folders */}
         <div className="flex-grow w-full mb-8">
-          <h2 className="text-2xl font-semibold mb-4">All Files</h2>
+          <section className="flex-1 p-8">
+            <h2 className="text-2xl font-semibold mb-4">All Files</h2>
 
-          {/* Filter/Description Header */}
-          <div className="flex justify-between px-4 py-2 border-b border-gray-300 dark:border-gray-700 mb-4">
-            <span
-              className="font-bold cursor-pointer"
-              onClick={handleSortByName}
-            >
-              Name {isAscending ? "↑" : "↓"}
-            </span>
-            <span className="font-bold">Date Created</span>
-          </div>
+            {/* Filter/Description Header */}
+            <div className="flex justify-between px-4 py-2 border-b border-gray-300 dark:border-gray-700 mb-4">
+              <span
+                className="font-bold cursor-pointer"
+                onClick={handleSortByName}
+              >
+                Name {isAscending ? "↑" : "↓"}
+              </span>
+              <span className="font-bold">Date Created</span>
+            </div>
 
-          <ul className="space-y-2">
-            {myFiles.length > 0 ? (
-              <ul className="space-y-4">
-                {myFiles.map((file, index) => (
-                  <li
-                    key={index}
-                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
-                  >
-                    <a
-                      href={file.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline"
-                    >
-                      {file.fileName}
-                    </a>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {file.assignedAt
-                        ? new Date(
-                            file.assignedAt.seconds * 1000
-                          ).toLocaleDateString()
-                        : "No Date"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            {isAdmin ? (
+              <>
+                {/* Admin View: All Folders */}
+                <h3 className="text-xl font-semibold mb-4">All Folders</h3>
+                {allFolders.length > 0 ? (
+                  <ul className="space-y-4">
+                    {allFolders.map((folder) => (
+                      <li
+                        key={folder.id}
+                        className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                      >
+                        <span>{folder.name}</span>
+                        <a
+                          href={`/folders/${folder.id}`}
+                          className="text-blue-500 hover:underline"
+                        >
+                          View Files
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No folders available.
+                  </p>
+                )}
+
+                {/* Admin View: My Files */}
+                <h3 className="text-xl font-semibold mt-8 mb-4">My Files</h3>
+                {myFiles.length > 0 ? (
+                  <ul className="space-y-4">
+                    {myFiles.map((file, index) => (
+                      <li
+                        key={index}
+                        className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                      >
+                        <a
+                          href={file.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline"
+                        >
+                          {file.fileName}
+                        </a>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {file.assignedAt
+                            ? new Date(
+                                file.assignedAt.seconds * 1000
+                              ).toLocaleDateString()
+                            : "No Date"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No files found.
+                  </p>
+                )}
+              </>
             ) : (
-              <p className="text-gray-500 dark:text-gray-400">
-                No files found.
-              </p>
+              <>
+                {/* Non-Admin View: My Files */}
+                {myFiles.length > 0 ? (
+                  <ul className="space-y-4">
+                    {myFiles.map((file, index) => (
+                      <li
+                        key={index}
+                        className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                      >
+                        <a
+                          href={file.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline"
+                        >
+                          {file.fileName}
+                        </a>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {file.assignedAt
+                            ? new Date(
+                                file.assignedAt.seconds * 1000
+                              ).toLocaleDateString()
+                            : "No Date"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No files found.
+                  </p>
+                )}
+              </>
             )}
-            <li
-              className="border border-dashed border-gray-400 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 p-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
-              onClick={() => setIsFolderModalOpen(true)}
-            >
-              <div className="flex justify-center items-center text-gray-500 dark:text-gray-300">
-                + Create New Folder
-              </div>
-            </li>
-          </ul>
+          </section>
+
           {isFolderModalOpen && (
             <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
               <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
