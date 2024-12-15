@@ -35,7 +35,7 @@ export default function Home() {
   const [signupPassword, setSignupPassword] = useState("");
   const [signupRole, setSignupRole] = useState("user");
   const [signupError, setSignupError] = useState("");
-
+  const [myFiles, setMyFiles] = useState([]); // State for storing user's files
   const [currentUser, setCurrentUser] = useState(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -58,6 +58,33 @@ export default function Home() {
   useEffect(() => {
     if (currentUser) {
       fetchFavorites(); // Re-fetch favorites whenever currentUser is updated
+    }
+  }, [currentUser]);
+
+  const fetchMyFiles = async () => {
+    try {
+      if (currentUser) {
+        const userDocRef = doc(db, "users", currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setMyFiles(userData.myFiles || []); // Update state with `myFiles`
+        } else {
+          console.warn("User document does not exist.");
+          setMyFiles([]); // Reset files if no document is found
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user's files:", error);
+      setError("Unable to fetch files. Please try again.");
+    }
+  };
+
+  // Call `fetchMyFiles` after login or authentication state changes
+  useEffect(() => {
+    if (currentUser) {
+      fetchMyFiles(); // Fetch user's files
     }
   }, [currentUser]);
 
@@ -481,51 +508,36 @@ export default function Home() {
           </div>
 
           <ul className="space-y-2">
-            {folders.map((folder) => (
-              <li
-                key={folder.id}
-                className="border border-gray-300 dark:border-gray-700 rounded-lg"
-              >
-                <div
-                  className="flex justify-between items-center p-4 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg cursor-pointer"
-                  onClick={() =>
-                    (window.location.href = `/folders/${folder.id}`)
-                  } // Navigate on click
-                >
-                  <span>{folder.name}</span>
-
-                  <div className="flex items-center space-x-4">
-                    {/* Favorite Button with Invisible Background/Border */}
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation(); // Prevent folder navigation
-                        handleToggleFavorite(folder.id, folder.name);
-                      }}
-                      className={`p-2 border border-transparent bg-transparent rounded-lg text-xl ${
-                        favorites.includes(folder.id)
-                          ? "text-yellow-500"
-                          : "text-gray-400"
-                      } hover:text-yellow-500`} // Change color on hover
-                      aria-label={`Mark ${folder.name} as favorite`}
+            {myFiles.length > 0 ? (
+              <ul className="space-y-4">
+                {myFiles.map((file, index) => (
+                  <li
+                    key={index}
+                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                  >
+                    <a
+                      href={file.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
                     >
-                      ★
-                    </button>
-
-                    {/* Display formatted date */}
-                    <span>
-                      {folder.createdAt
-                        ? `${
-                            folder.createdAt.getMonth() + 1
-                          }/${folder.createdAt.getDate()}/${folder.createdAt
-                            .getFullYear()
-                            .toString()
-                            .slice(-2)}`
+                      {file.fileName}
+                    </a>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {file.assignedAt
+                        ? new Date(
+                            file.assignedAt.seconds * 1000
+                          ).toLocaleDateString()
                         : "No Date"}
                     </span>
-                  </div>
-                </div>
-              </li>
-            ))}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">
+                No files found.
+              </p>
+            )}
             <li
               className="border border-dashed border-gray-400 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 p-4 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600"
               onClick={() => setIsFolderModalOpen(true)}
