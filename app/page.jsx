@@ -42,6 +42,7 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false); // Check if the user is an admin
   const [allFolders, setAllFolders] = useState([]); // Store all folders for admin
+  const [activeTab, setActiveTab] = useState("all"); // Default tab is "All Files"
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -357,7 +358,6 @@ export default function Home() {
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
-      {/* Sidebar */}
       <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
         <h1 className="text-4xl font-bold mb-4">Piecify</h1>
 
@@ -532,81 +532,103 @@ export default function Home() {
         {/* Display Folders */}
         <div className="flex-grow w-full mb-8">
           <section className="flex-1 p-8">
-            <h2 className="text-2xl font-semibold mb-4">All Files</h2>
-
-            {/* Filter/Description Header */}
-            <div className="flex justify-between px-4 py-2 border-b border-gray-300 dark:border-gray-700 mb-4">
-              <span
-                className="font-bold cursor-pointer"
-                onClick={handleSortByName}
-              >
-                Name {isAscending ? "↑" : "↓"}
-              </span>
-              <span className="font-bold">Date Created</span>
-            </div>
-
             {isAdmin ? (
+              // Admin View with Tabs
               <>
-                {/* Admin View: All Folders */}
-                <h3 className="text-xl font-semibold mb-4">All Folders</h3>
-                {allFolders.length > 0 ? (
-                  <ul className="space-y-4">
-                    {allFolders.map((folder) => (
-                      <li
-                        key={folder.id}
-                        className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
-                      >
-                        <span>{folder.name}</span>
-                        <a
-                          href={`/folders/${folder.id}`}
-                          className="text-blue-500 hover:underline"
-                        >
-                          View Files
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">
-                    No folders available.
-                  </p>
+                {/* Tab Navigation */}
+                <div className="flex space-x-4 mb-6 border-b border-gray-300 dark:border-gray-700">
+                  <button
+                    className={`px-4 py-2 font-semibold ${
+                      activeTab === "all"
+                        ? "border-b-2 border-blue-500"
+                        : "text-gray-500"
+                    }`}
+                    onClick={() => setActiveTab("all")}
+                  >
+                    All Files
+                  </button>
+                  <button
+                    className={`px-4 py-2 font-semibold ${
+                      activeTab === "my"
+                        ? "border-b-2 border-blue-500"
+                        : "text-gray-500"
+                    }`}
+                    onClick={() => setActiveTab("my")}
+                  >
+                    My Files
+                  </button>
+                </div>
+
+                {/* Tab Content */}
+                {activeTab === "all" && (
+                  <div>
+                    {/* Admin View: All Folders */}
+                    {allFolders.length > 0 ? (
+                      <ul className="space-y-4">
+                        {allFolders.map((folder) => (
+                          <li
+                            key={folder.id}
+                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                          >
+                            <span>{folder.name}</span>
+                            <a
+                              href={`/folders/${folder.id}`}
+                              className="text-blue-500 hover:underline"
+                            >
+                              View Files
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-500 dark:text-gray-400">
+                        No folders available.
+                      </p>
+                    )}
+                  </div>
                 )}
 
-                {/* Admin View: My Files */}
-                <h3 className="text-xl font-semibold mt-8 mb-4">My Files</h3>
-                {myFiles.length > 0 ? (
-                  <ul className="space-y-4">
-                    {myFiles.map((file, index) => (
-                      <li
-                        key={index}
-                        className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
-                      >
-                        <a
-                          href={file.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:underline"
-                        >
-                          {file.fileName}
-                        </a>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.assignedAt
-                            ? new Date(
-                                file.assignedAt.seconds * 1000
-                              ).toLocaleDateString()
-                            : "No Date"}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500 dark:text-gray-400">
-                    No files found.
-                  </p>
+                {activeTab === "my" && (
+                  <div>
+                    {/* Admin View: My Files */}
+                    {myFiles.length > 0 ? (
+                      <ul className="space-y-4">
+                        {myFiles.map((file, index) => (
+                          <li
+                            key={index}
+                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                          >
+                            <a
+                              href={file.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:underline"
+                            >
+                              {file.fileName}
+                            </a>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              {file.assignedAt
+                                ? new Date(
+                                    file.assignedAt.seconds * 1000
+                                  ).toLocaleDateString()
+                                : "No Date"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-500 dark:text-gray-400">
+                        No files found.
+                      </p>
+                    )}
+                  </div>
                 )}
               </>
             ) : (
+              // Non-Admin View
               <>
+                <h2 className="text-2xl font-semibold mb-4">All Files</h2>
+
                 {/* Non-Admin View: My Files */}
                 {myFiles.length > 0 ? (
                   <ul className="space-y-4">
