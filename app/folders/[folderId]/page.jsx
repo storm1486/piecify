@@ -112,6 +112,7 @@ export default function FolderPage() {
         myFiles: arrayUnion({
           fileName: file.fileName,
           fileUrl: file.fileUrl,
+          fileId: file.id,
           assignedAt: new Date(),
         }),
       });

@@ -568,15 +568,14 @@ export default function Home() {
                         {allFolders.map((folder) => (
                           <li
                             key={folder.id}
-                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                           >
-                            <span>{folder.name}</span>
-                            <a
+                            <Link
                               href={`/folders/${folder.id}`}
-                              className="text-blue-500 hover:underline"
+                              className="flex justify-between items-center"
                             >
-                              View Files
-                            </a>
+                              <span>{folder.name}</span>
+                            </Link>
                           </li>
                         ))}
                       </ul>
@@ -588,31 +587,29 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* Admin View: My Files */}
                 {activeTab === "my" && (
                   <div>
-                    {/* Admin View: My Files */}
                     {myFiles.length > 0 ? (
                       <ul className="space-y-4">
                         {myFiles.map((file, index) => (
                           <li
                             key={index}
-                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                           >
-                            <a
-                              href={file.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:underline"
+                            <Link
+                              href={`/files/${file.fileName}`} // Update to your file-specific route structure
+                              className="flex justify-between items-center"
                             >
-                              {file.fileName}
-                            </a>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {file.assignedAt
-                                ? new Date(
-                                    file.assignedAt.seconds * 1000
-                                  ).toLocaleDateString()
-                                : "No Date"}
-                            </span>
+                              <span>{file.fileName}</span>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {file.assignedAt
+                                  ? new Date(
+                                      file.assignedAt.seconds * 1000
+                                    ).toLocaleDateString()
+                                  : "No Date"}
+                              </span>
+                            </Link>
                           </li>
                         ))}
                       </ul>
@@ -629,29 +626,27 @@ export default function Home() {
               <>
                 <h2 className="text-2xl font-semibold mb-4">All Files</h2>
 
-                {/* Non-Admin View: My Files */}
+                {/* Non-Admin View */}
                 {myFiles.length > 0 ? (
                   <ul className="space-y-4">
                     {myFiles.map((file, index) => (
                       <li
                         key={index}
-                        className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center bg-white dark:bg-gray-800"
+                        className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                       >
-                        <a
-                          href={file.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:underline"
+                        <Link
+                          href={`/files/${file.fileName}`} // Update to your file-specific route structure
+                          className="flex justify-between items-center"
                         >
-                          {file.fileName}
-                        </a>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {file.assignedAt
-                            ? new Date(
-                                file.assignedAt.seconds * 1000
-                              ).toLocaleDateString()
-                            : "No Date"}
-                        </span>
+                          <span>{file.fileName}</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {file.assignedAt
+                              ? new Date(
+                                  file.assignedAt.seconds * 1000
+                                ).toLocaleDateString()
+                              : "No Date"}
+                          </span>
+                        </Link>
                       </li>
                     ))}
                   </ul>
