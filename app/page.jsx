@@ -18,8 +18,18 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
+import { useUser } from "@/src/context/UserContext";
 
 export default function Home() {
+  const {
+    user,
+    setUser,
+    loading,
+    isLoginModalOpen,
+    openLoginModal,
+    closeLoginModal,
+  } = useUser();
+
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [downloadURL, setDownloadURL] = useState(null);
@@ -29,101 +39,26 @@ export default function Home() {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [isAscending, setIsAscending] = useState(true); // State for sorting direction
-  const [favorites, setFavorites] = useState([]); // State to track favorite folders
   const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupRole, setSignupRole] = useState("user");
   const [signupError, setSignupError] = useState("");
-  const [myFiles, setMyFiles] = useState([]); // State for storing user's files
   const [currentUser, setCurrentUser] = useState(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false); // Check if the user is an admin
-  const [allFolders, setAllFolders] = useState([]); // Store all folders for admin
   const [activeTab, setActiveTab] = useState("all"); // Default tab is "All Files"
+  const allFolders = user?.allFolders || [];
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user); // Set the logged-in user
+  if (loading) {
+    return <p>Loading...</p>; // Show a loading state while fetching user data
+  }
 
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setIsAdmin(userData.role === "admin"); // Check if the user is an admin
-
-          if (userData.role === "admin") {
-            await fetchAllFolders(); // Fetch all folders for admin
-          }
-        }
-
-        await fetchFavorites(); // Fetch favorites
-        await fetchMyFiles(); // Fetch user's files
-      } else {
-        clearState(); // Clear state on logout
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      fetchFavorites(); // Re-fetch favorites whenever currentUser is updated
-    }
-  }, [currentUser]);
-
-  const fetchAllFolders = async () => {
-    try {
-      const folderList = [];
-      const folderSnapshot = await getDocs(collection(db, "folders"));
-
-      folderSnapshot.forEach((doc) => {
-        const data = doc.data();
-        folderList.push({
-          id: doc.id,
-          name: data.name,
-          createdAt: data.createdAt?.toDate(),
-        });
-      });
-
-      setAllFolders(folderList); // Update state with all folders
-    } catch (error) {
-      console.error("Error fetching all folders:", error);
-      setError("Unable to fetch folders. Please try again.");
-    }
+  const handleLogout = () => {
+    setUser(null); // Clear user state
+    openLoginModal(); // Show the login modal
   };
-
-  const fetchMyFiles = async () => {
-    try {
-      if (currentUser) {
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setMyFiles(userData.myFiles || []); // Update state with `myFiles`
-        } else {
-          console.warn("User document does not exist.");
-          setMyFiles([]); // Reset files if no document is found
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching user's files:", error);
-      setError("Unable to fetch files. Please try again.");
-    }
-  };
-
-  // Call `fetchMyFiles` after login or authentication state changes
-  useEffect(() => {
-    if (currentUser) {
-      fetchMyFiles(); // Fetch user's files
-    }
-  }, [currentUser]);
 
   const handleLogin = async () => {
     try {
@@ -139,119 +74,6 @@ export default function Home() {
     } catch (error) {
       console.error("Error logging in:", error);
       setLoginError(error.message); // Display error message
-    }
-  };
-
-  const clearState = () => {
-    setMyFiles([]);
-    setAllFolders([]);
-    setIsAdmin(false);
-    setFavorites([]);
-    setCurrentUser(null);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      clearState();
-      setCurrentUser(null);
-      console.log("User logged out and state reset.");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
-  const fetchFavorites = async () => {
-    try {
-      if (currentUser) {
-        const userDocRef = doc(db, "users", currentUser.uid); // Reference to the user's document
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          console.log("Fetched favorite folders:", userData.favoriteFolders);
-          setFavorites(userData.favoriteFolders || []); // Store the user's favorite folders
-        } else {
-          console.warn("User document does not exist");
-          setFavorites([]); // Reset favorites if no document found
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching favorite folders:", error);
-    }
-  };
-
-  const fetchFolders = async () => {
-    try {
-      const folderList = [];
-      const folderSnapshot = await getDocs(collection(db, "folders"));
-
-      folderSnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.name) {
-          folderList.push({
-            id: doc.id,
-            name: data.name,
-            createdAt: data.createdAt?.toDate(),
-          });
-        }
-      });
-
-      setFolders(folderList); // Update folders state
-    } catch (error) {
-      console.error("Error fetching folders:", error);
-      setError(
-        "Unable to fetch folders. Please ensure you have the necessary permissions."
-      );
-    }
-  };
-
-  const loadUserData = async () => {
-    if (currentUser) {
-      await fetchFavorites(); // Fetch favorite folders for the logged-in user
-    }
-  };
-
-  const handleToggleFavorite = async (folderId) => {
-    try {
-      if (!currentUser) {
-        console.error("User is not logged in");
-        return;
-      }
-
-      const userDocRef = doc(db, "users", currentUser.uid); // Correct document reference
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const updatedFavorites = userData.favoriteFolders || [];
-
-        if (updatedFavorites.includes(folderId)) {
-          // Remove folder from favorites
-          const filteredFavorites = updatedFavorites.filter(
-            (id) => id !== folderId
-          );
-          await setDoc(
-            userDocRef,
-            { favoriteFolders: filteredFavorites },
-            { merge: true } // Ensures only 'favoriteFolders' is updated
-          );
-          setFavorites(filteredFavorites); // Update local state
-        } else {
-          // Add folder to favorites
-          updatedFavorites.push(folderId);
-          await setDoc(
-            userDocRef,
-            { favoriteFolders: updatedFavorites },
-            { merge: true }
-          );
-          setFavorites(updatedFavorites); // Update local state
-        }
-      } else {
-        console.error("User document does not exist");
-      }
-    } catch (error) {
-      console.error("Error updating favorite folders:", error);
     }
   };
 
@@ -288,7 +110,7 @@ export default function Home() {
 
       // Store the file information in Firestore under the selected folder
       await addDoc(collection(db, "folders", selectedFolder, "files"), {
-        userId: "user's-uid", // Replace with actual user ID
+        userId: user.uid, // Replace with actual user ID
         fileName: file.name,
         fileUrl: url,
         uploadedAt: new Date(),
@@ -361,10 +183,10 @@ export default function Home() {
       <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
         <h1 className="text-4xl font-bold mb-4">Piecify</h1>
 
-        {currentUser ? (
+        {user ? (
           <div className="mb-6">
             <p className="text-sm">Logged in as:</p>
-            <p className="font-bold">{currentUser.email}</p>
+            <p className="font-bold">{user.email}</p>
             <button
               onClick={handleLogout}
               className="bg-red-500 text-white px-4 py-2 rounded mt-4"
@@ -401,7 +223,7 @@ export default function Home() {
       </aside>
 
       {/* Login Modal */}
-      {!currentUser && (
+      {!user && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
             <h2 className="text-2xl font-semibold mb-6 text-center">Log In</h2>
@@ -532,7 +354,7 @@ export default function Home() {
         {/* Display Folders */}
         <div className="flex-grow w-full mb-8">
           <section className="flex-1 p-8">
-            {isAdmin ? (
+            {user?.role === "admin" ?  (
               // Admin View with Tabs
               <>
                 {/* Tab Navigation */}
@@ -566,15 +388,12 @@ export default function Home() {
                     {allFolders.length > 0 ? (
                       <ul className="space-y-4">
                         {allFolders.map((folder) => (
-                          <li
-                            key={folder.id}
-                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                          >
+                          <li key={folder.id} className="text-sm">
                             <Link
                               href={`/folders/${folder.id}`}
-                              className="flex justify-between items-center"
+                              className="text-blue-500 hover:underline"
                             >
-                              <span>{folder.name}</span>
+                              {folder.name}
                             </Link>
                           </li>
                         ))}
@@ -590,25 +409,15 @@ export default function Home() {
                 {/* Admin View: My Files */}
                 {activeTab === "my" && (
                   <div>
-                    {myFiles.length > 0 ? (
+                    {user?.myFiles.length > 0 ? (
                       <ul className="space-y-4">
-                        {myFiles.map((file, index) => (
-                          <li
-                            key={index}
-                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                          >
+                        {user?.myFiles.map((file) => (
+                          <li key={file.fileId} className="text-sm">
                             <Link
-                              href={`/files/${file.fileName}`} // Update to your file-specific route structure
-                              className="flex justify-between items-center"
+                              href={`/viewFile/${file.fileId}`}
+                              className="text-blue-500 hover:underline"
                             >
-                              <span>{file.fileName}</span>
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {file.assignedAt
-                                  ? new Date(
-                                      file.assignedAt.seconds * 1000
-                                    ).toLocaleDateString()
-                                  : "No Date"}
-                              </span>
+                              {file.fileName}
                             </Link>
                           </li>
                         ))}
@@ -627,25 +436,15 @@ export default function Home() {
                 <h2 className="text-2xl font-semibold mb-4">All Files</h2>
 
                 {/* Non-Admin View */}
-                {myFiles.length > 0 ? (
+                {user?.myFiles.length > 0 ? (
                   <ul className="space-y-4">
-                    {myFiles.map((file, index) => (
+                    {user?.myFiles.map((file, index) => (
                       <li
                         key={index}
                         className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                       >
-                        <Link
-                          href={`/files/${file.fileName}`} // Update to your file-specific route structure
-                          className="flex justify-between items-center"
-                        >
+                        <Link href={`/viewFile/${file.fileId}`}>
                           <span>{file.fileName}</span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {file.assignedAt
-                              ? new Date(
-                                  file.assignedAt.seconds * 1000
-                                ).toLocaleDateString()
-                              : "No Date"}
-                          </span>
                         </Link>
                       </li>
                     ))}
