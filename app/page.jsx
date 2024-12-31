@@ -354,7 +354,7 @@ export default function Home() {
         {/* Display Folders */}
         <div className="flex-grow w-full mb-8">
           <section className="flex-1 p-8">
-            {user?.role === "admin" ?  (
+            {user?.role === "admin" ? (
               // Admin View with Tabs
               <>
                 {/* Tab Navigation */}
@@ -388,12 +388,15 @@ export default function Home() {
                     {allFolders.length > 0 ? (
                       <ul className="space-y-4">
                         {allFolders.map((folder) => (
-                          <li key={folder.id} className="text-sm">
+                          <li
+                            key={folder.id}
+                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          >
                             <Link
                               href={`/folders/${folder.id}`}
-                              className="text-blue-500 hover:underline"
+                              className="flex justify-between items-center"
                             >
-                              {folder.name}
+                              <span>{folder.name}</span>
                             </Link>
                           </li>
                         ))}
@@ -411,13 +414,23 @@ export default function Home() {
                   <div>
                     {user?.myFiles.length > 0 ? (
                       <ul className="space-y-4">
-                        {user?.myFiles.map((file) => (
-                          <li key={file.fileId} className="text-sm">
+                        {user?.myFiles.map((file, index) => (
+                          <li
+                            key={index}
+                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          >
                             <Link
-                              href={`/viewFile/${file.fileId}`}
-                              className="text-blue-500 hover:underline"
+                              href={`/files/${file.fileName}`} // Update to your file-specific route structure
+                              className="flex justify-between items-center"
                             >
-                              {file.fileName}
+                              <span>{file.fileName}</span>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {file.assignedAt
+                                  ? new Date(
+                                      file.assignedAt.seconds * 1000
+                                    ).toLocaleDateString()
+                                  : "No Date"}
+                              </span>
                             </Link>
                           </li>
                         ))}
@@ -443,8 +456,18 @@ export default function Home() {
                         key={index}
                         className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                       >
-                        <Link href={`/viewFile/${file.fileId}`}>
+                        <Link
+                          href={`/files/${file.fileName}`} // Update to your file-specific route structure
+                          className="flex justify-between items-center"
+                        >
                           <span>{file.fileName}</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {file.assignedAt
+                              ? new Date(
+                                  file.assignedAt.seconds * 1000
+                                ).toLocaleDateString()
+                              : "No Date"}
+                          </span>
                         </Link>
                       </li>
                     ))}
