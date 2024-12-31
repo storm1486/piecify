@@ -420,7 +420,7 @@ export default function Home() {
                             className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                           >
                             <Link
-                              href={`/files/${file.fileName}`} // Update to your file-specific route structure
+                              href={`/viewFile/${file.fileId}`} // Update to your file-specific route structure
                               className="flex justify-between items-center"
                             >
                               <span>{file.fileName}</span>
@@ -457,7 +457,7 @@ export default function Home() {
                         className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                       >
                         <Link
-                          href={`/files/${file.fileName}`} // Update to your file-specific route structure
+                          href={`/viewFile/${file.fileId}`} // Update to your file-specific route structure
                           className="flex justify-between items-center"
                         >
                           <span>{file.fileName}</span>

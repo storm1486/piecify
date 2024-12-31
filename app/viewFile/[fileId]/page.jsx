@@ -3,23 +3,21 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "../../firebase/firebase"; // Adjust the path as necessary
 import { doc, getDoc } from "firebase/firestore";
+import { useUser } from "@/src/context/UserContext";
 
 export default function ViewFile() {
   const { fileId } = useParams(); // Retrieve the fileId from the URL
   const router = useRouter();
   const [docData, setDocData] = useState(null);
+  const { user } = useUser();
+  const currentUserId = user?.uid;
 
   useEffect(() => {
     const fetchFile = async () => {
       try {
-        const currentUserId = "user-id"; // Replace with actual user ID logic
-        console.log("Current User ID:", currentUserId);
-
         const userDocRef = doc(db, "users", currentUserId); // Reference to the user's document
-        console.log("User Document Reference:", userDocRef);
 
         const userDocSnap = await getDoc(userDocRef);
-        console.log("User Document Snapshot:", userDocSnap);
 
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data();
