@@ -50,6 +50,33 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [activeTab, setActiveTab] = useState("all"); // Default tab is "All Files"
   const allFolders = user?.allFolders || [];
+  const [searchQuery, setSearchQuery] = useState(""); // For search input
+  const [searchResults, setSearchResults] = useState([]); // For storing search results
+  const [searching, setSearching] = useState(false); // Loading state for search
+  const [userRole, setUserRole] = useState(null); // To store the user's role
+  const [userFiles, setUserFiles] = useState([]); // To store the user's files (for non-admins)
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user) return;
+
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserRole(userData.role);
+
+          if (userData.role !== "admin") {
+            setUserFiles(userData.myFiles || []);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserData();
+  }, [user]);
 
   if (loading) {
     return <p>Loading...</p>; // Show a loading state while fetching user data
@@ -177,6 +204,57 @@ export default function Home() {
     }
   };
 
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    setSearching(true);
+
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
+    try {
+      if (userRole === "admin") {
+        // Admin: Search all files in the `folders` collection
+        const foldersSnapshot = await getDocs(collection(db, "folders"));
+        const allFiles = [];
+
+        for (const folderDoc of foldersSnapshot.docs) {
+          const folderId = folderDoc.id;
+          const filesSnapshot = await getDocs(
+            collection(db, "folders", folderId, "files")
+          );
+
+          filesSnapshot.forEach((fileDoc) => {
+            allFiles.push({
+              ...fileDoc.data(),
+              id: fileDoc.id,
+              folderId,
+              folderName: folderDoc.data().name,
+            });
+          });
+        }
+
+        // Filter files based on the query
+        const filteredFiles = allFiles.filter((file) =>
+          file.fileName.toLowerCase().includes(query.toLowerCase())
+        );
+        setSearchResults(filteredFiles);
+      } else {
+        // Regular User: Search only in their `myFiles` array
+        const filteredFiles = userFiles.filter((file) =>
+          file.fileName.toLowerCase().includes(query.toLowerCase())
+        );
+        setSearchResults(filteredFiles);
+      }
+    } catch (error) {
+      console.error("Error searching files:", error);
+    } finally {
+      setSearching(false);
+    }
+  };
+
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
@@ -269,13 +347,70 @@ export default function Home() {
       {/* Main Content Area */}
       <section className="flex-1 p-8 flex flex-col items-center justify-center">
         {/* Search Bar */}
-        <div className="w-full mb-6">
+        <div className="relative w-full flex items-center mb-10">
+          {/* Search Icon */}
+          <div className="absolute left-3 text-gray-500 dark:text-gray-400">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="size-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+              />
+            </svg>
+          </div>
+
+          {/* Search Input */}
           <input
             type="text"
-            placeholder="Search folders..."
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+            placeholder="Search files..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
           />
+
+          {/* Search Results */}
+          {searchQuery && (
+            <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto z-50">
+              {searching ? (
+                <p className="p-4 text-gray-500">Searching...</p>
+              ) : searchResults.length > 0 ? (
+                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {searchResults.map((file) => (
+                    <li
+                      key={file.id}
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    >
+                      {userRole === "admin" ? (
+                        <Link
+                          href={`/folders/${file.folderId}/files/${file.id}`}
+                        >
+                          <div className="flex justify-between">
+                            <span className="font-bold">{file.fileName}</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              {file.folderName || "Unnamed Folder"}
+                            </span>
+                          </div>
+                        </Link>
+                      ) : (
+                        <span className="font-bold">{file.fileName}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="p-4 text-gray-500">No files match your search.</p>
+              )}
+            </div>
+          )}
         </div>
+
         <button
           onClick={() => setIsSignUpModalOpen(true)}
           className="bg-green-500 text-white px-4 py-2 rounded mb-4"
