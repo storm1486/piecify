@@ -255,6 +255,7 @@ export default function Home() {
     }
   };
 
+console.log(searchResults[0])
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
@@ -382,14 +383,15 @@ export default function Home() {
                 <p className="p-4 text-gray-500">Searching...</p>
               ) : searchResults.length > 0 ? (
                 <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {searchResults.map((file) => (
+                  {searchResults.map((file, index) => (
                     <li
-                      key={file.id}
+                      key={index}
                       className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                     >
                       {userRole === "admin" ? (
                         <Link
-                          href={`/folders/${file.folderId}/files/${file.id}`}
+                          href={`/viewDocuments/${file.folderId}/${file.id}`}
+                          className="block"
                         >
                           <div className="flex justify-between">
                             <span className="font-bold">{file.fileName}</span>
@@ -399,7 +401,14 @@ export default function Home() {
                           </div>
                         </Link>
                       ) : (
-                        <span className="font-bold">{file.fileName}</span>
+                        <Link
+                          href={`/viewFile/${file.fileId}`}
+                          className="block"
+                        >
+                          <div className="flex justify-between">
+                            <span className="font-bold">{file.fileName}</span>
+                          </div>
+                        </Link>
                       )}
                     </li>
                   ))}
