@@ -150,24 +150,32 @@ export default function FolderPage() {
         {loadingFiles ? (
           <p>Loading files...</p>
         ) : (
-          <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {files.length > 0 ? (
-              <ul>
-                {files.map((file) => (
-                  <li key={file.id} className="mb-4">
-                    <button
-                      onClick={() => handleFileClick(file.id)}
-                      className="text-blue-600 underline"
-                    >
-                      {file.fileName}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              files
+                .slice() // Create a shallow copy to avoid mutating the original array
+                .sort((a, b) => a.fileName.localeCompare(b.fileName)) // Sort alphabetically by fileName
+                .map((file) => (
+                  <div
+                    key={file.id}
+                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    onClick={() => handleFileClick(file.id)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span
+                        className="font-bold text-gray-900 dark:text-gray-100 truncate"
+                        style={{ maxWidth: "75%" }}
+                        title={file.fileName}
+                      >
+                        {file.fileName}
+                      </span>
+                    </div>
+                  </div>
+                ))
             ) : (
               <p>No files found in this folder.</p>
             )}
-          </>
+          </div>
         )}
 
         {/* Users Section */}
