@@ -159,8 +159,8 @@ export default function Home() {
         email: user.email,
         role: role, // Default role is "user"
         favoriteFolders: [],
-        viewableFolders: [],
         myFiles: [],
+        favoriteFiles: [],
       });
 
       console.log("User created and added to Firestore:", user.uid);

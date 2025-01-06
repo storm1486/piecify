@@ -1,113 +1,111 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation"; // Use next/navigation for App Router
 import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import {
   collection,
   getDocs,
-  getDoc,
   doc,
+  getDoc,
   updateDoc,
   arrayUnion,
-} from "firebase/firestore"; // Firestore methods
-import { db, auth } from "../../firebase/firebase"; // Firebase setup
+} from "firebase/firestore";
 import Link from "next/link";
-import { onAuthStateChanged } from "firebase/auth";
+import { db } from "../../firebase/firebase";
+import { useUser } from "@/src/context/UserContext";
 
 export default function FolderPage() {
-  const { folderId } = useParams(); // Get folderId from the dynamic route
-  const [isReady, setIsReady] = useState(false);
-  const [files, setFiles] = useState([]); // State to store the list of files
-  const [users, setUsers] = useState([]); // State to store the list of users
-  const [loadingFiles, setLoadingFiles] = useState(true); // Loading state for files
-  const [loadingUsers, setLoadingUsers] = useState(true); // Loading state for users
-  const [folderName, setFolderName] = useState(""); // State to store the folder name
-  const [isModalOpen, setIsModalOpen] = useState(false); // Modal state
-  const [fileError, setFileError] = useState(null); // File error state
-  const [userError, setUserError] = useState(null); // User error state
-  const [selectedUser, setSelectedUser] = useState(null); // To store the selected user ID
-  const router = useRouter(); // For navigation
+  const { folderId } = useParams();
+  const router = useRouter();
+  const { user, fetchMyFiles, loading } = useUser(); // Access user context
+  const [folderName, setFolderName] = useState("");
+  const [files, setFiles] = useState([]);
+  const [fileError, setFileError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [users, setUsers] = useState([]); // List of users fetched from Firestore
+  const [selectedFile, setSelectedFile] = useState(null); // Selected file ID
+  const [assignMessage, setAssignMessage] = useState(null); // To show success or error messages
 
   useEffect(() => {
-    if (folderId) {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          await fetchUsers(user); // Call fetchUsers when a user is authenticated
-          await fetchFiles(); // Fetch folder files and name
-        } else {
-          setUserError("You must be logged in to access this data.");
-          setLoadingUsers(false);
-        }
-      });
-
-      return () => unsubscribe(); // Cleanup the listener on component unmount
+    if (!loading && user && folderId) {
+      fetchFolderData();
     }
-  }, [folderId]);
+  }, [loading, user, folderId]);
 
-  const fetchFiles = async () => {
-    setLoadingFiles(true);
-    try {
-      // Fetch files in the folder
-      const filesSnapshot = await getDocs(
-        collection(db, "folders", folderId, "files")
-      );
-      const filesList = [];
-      filesSnapshot.forEach((doc) => {
-        filesList.push({ id: doc.id, ...doc.data() });
-      });
-      setFiles(filesList);
-
-      // Fetch folder name
-      const folderDoc = await getDoc(doc(db, "folders", folderId));
-      if (folderDoc.exists()) {
-        setFolderName(folderDoc.data().name || "Untitled Folder");
-        setIsReady(true); // Set isReady to true after fetching the folder name
-      } else {
-        console.error(`Folder with ID ${folderId} does not exist.`);
-        setFolderName("Unknown Folder");
-      }
-    } catch (error) {
-      console.error("Error fetching files or folder:", error);
-      setFileError("Error loading folder data. Please try again later.");
-      setFolderName("Error Loading Folder");
-    } finally {
-      setLoadingFiles(false);
+  useEffect(() => {
+    if (isModalOpen && user && user.role === "admin") {
+      fetchUsers();
     }
-  };
+  }, [isModalOpen, user]);
 
-  const fetchUsers = async (currentUser) => {
-    setLoadingUsers(true);
+  const fetchUsers = async () => {
     try {
-      const currentUserRef = doc(db, "users", currentUser.uid); // Get the current user's document
-      const currentUserSnap = await getDoc(currentUserRef);
-
-      if (
-        !currentUserSnap.exists() ||
-        currentUserSnap.data().role !== "admin"
-      ) {
-        console.error("Access denied. Only admins can view all users.");
-        setUserError("You do not have permission to view this data.");
-        setLoadingUsers(false);
-        return;
-      }
-
-      const usersList = [];
-      const usersSnapshot = await getDocs(collection(db, "users")); // Fetch "users" collection
-      usersSnapshot.forEach((doc) => {
-        usersList.push({ id: doc.id, ...doc.data() });
-      });
-      setUsers(usersList); // Update users state
+      const usersSnapshot = await getDocs(collection(db, "users"));
+      const usersList = usersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setUsers(usersList);
     } catch (error) {
       console.error("Error fetching users:", error);
       setUserError("Error loading user data. Please try again later.");
-    } finally {
-      setLoadingUsers(false);
+    }
+  };
+
+  const fetchFolderData = async () => {
+    try {
+      const folderDoc = await getDoc(doc(db, "folders", folderId));
+      if (folderDoc.exists()) {
+        setFolderName(folderDoc.data().name || "Untitled Folder");
+      } else {
+        setFolderName("Unknown Folder");
+        console.error(`Folder with ID ${folderId} does not exist.`);
+        return;
+      }
+
+      const filesSnapshot = await getDocs(
+        collection(db, "folders", folderId, "files")
+      );
+      const filesList = filesSnapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+        .sort((a, b) => a.fileName.localeCompare(b.fileName)); // Sort files alphabetically by fileName
+
+      setFiles(filesList);
+    } catch (error) {
+      console.error("Error fetching folder data:", error);
+      setFileError("Failed to load folder data.");
     }
   };
 
   const handleAssignFileToUser = async (userId, file) => {
     try {
-      const userRef = doc(db, "users", userId); // Reference to the user's document
+      const userRef = doc(db, "users", userId);
+      const userSnapshot = await getDoc(userRef);
+
+      if (userSnapshot.exists()) {
+        const userData = userSnapshot.data();
+
+        // Check if the file is already in the user's `myFiles`
+        const isFileAlreadyAssigned = userData.myFiles?.some(
+          (assignedFile) => assignedFile.fileId === file.id
+        );
+
+        if (isFileAlreadyAssigned) {
+          setAssignMessage({
+            type: "error",
+            text: `File "${file.fileName}" is already assigned to ${
+              userData.name || "this user"
+            }.`,
+          });
+          return;
+        }
+      }
+
+      // Add the file to the user's `myFiles`
       await updateDoc(userRef, {
         myFiles: arrayUnion({
           fileName: file.fileName,
@@ -117,139 +115,189 @@ export default function FolderPage() {
         }),
       });
 
-      alert(`File "${file.fileName}" successfully assigned to ${userId}.`);
-      setIsModalOpen(false); // Close the modal after assigning
+      setAssignMessage({
+        type: "success",
+        text: `File "${file.fileName}" successfully assigned to ${
+          userSnapshot.data()?.name || "this user"
+        }.`,
+      });
     } catch (err) {
       console.error("Error assigning file to user:", err);
-      setFileError("Failed to assign file. Please try again.");
+      setAssignMessage({
+        type: "error",
+        text: "Failed to assign file. Please try again.",
+      });
     }
   };
 
   const handleFileClick = (fileId) => {
-    router.push(`/viewDocuments/${folderId}/${fileId}`); // Navigate to the file viewing page
+    router.push(`/viewDocuments/${folderId}/${fileId}`);
   };
 
-  console.log(folderName);
+  if (loading) {
+    return <p>Loading...</p>;
+  }
+
+  if (!user) {
+    return <p>Please log in to access this page.</p>;
+  }
 
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
-      <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
+      <aside className="w-64 bg-gray-200 dark:bg-gray-800 p-4">
         <Link href="/">
-          <div className="block p-2 bg-blue-500 text-white dark:bg-blue-700 rounded text-center">
+          <div className="block p-2 bg-blue-500 text-white rounded text-center">
             Home
           </div>
         </Link>
       </aside>
 
       <section className="flex-1 p-8">
-        <h1 className="text-4xl font-bold mb-4 dark:text-white">
-          {isReady ? `${folderName}` : "Loading..."}
+        <h1 className="text-4xl font-bold mb-4">
+          {folderName || "Loading..."}
         </h1>
 
-        {/* File Loading */}
-        {loadingFiles ? (
-          <p>Loading files...</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {files.length > 0 ? (
-              files
-                .slice() // Create a shallow copy to avoid mutating the original array
-                .sort((a, b) => a.fileName.localeCompare(b.fileName)) // Sort alphabetically by fileName
-                .map((file) => (
-                  <div
-                    key={file.id}
-                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    onClick={() => handleFileClick(file.id)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span
-                        className="font-bold text-gray-900 dark:text-gray-100 truncate"
-                        style={{ maxWidth: "75%" }}
-                        title={file.fileName}
-                      >
-                        {file.fileName}
-                      </span>
-                    </div>
-                  </div>
-                ))
-            ) : (
-              <p>No files found in this folder.</p>
-            )}
-          </div>
+        {/* Assign Users Section */}
+        {user.role === "admin" && (
+          <>
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Assign Users files from {folderName}
+            </button>
+          </>
         )}
 
-        {/* Users Section */}
-        <h2 className="text-2xl font-bold mt-8 mb-4">Users</h2>
+        {/* Files Section */}
+        <h2 className="text-2xl font-bold mt-8 mb-4">All Files</h2>
 
-        {users.length > 0 ? (
-          <ul>
-            {users.map((user) => (
-              <li key={user.id} className="mb-4">
-                <div>
-                  <p>
-                    {user.name || "Anonymous"} (
-                    {user.email || "No email provided"})
-                  </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {files.length > 0 ? (
+            files.map((file) => (
+              <div
+                key={file.id}
+                className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                onClick={() => handleFileClick(file.id)}
+              >
+                <div className="flex justify-between items-center">
+                  <span
+                    className="font-bold text-gray-900 dark:text-gray-100 truncate"
+                    style={{ maxWidth: "75%" }}
+                    title={file.fileName}
+                  >
+                    {file.fileName}
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p>No files found in this folder.</p>
+          )}
+        </div>
+
+        {user.role === "admin" && (
+          <>
+            {isModalOpen && (
+              <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+                  <h2 className="text-2xl font-semibold mb-6 text-center">
+                    Assign File
+                  </h2>
+
+                  {/* User Selection */}
+                  <div className="mb-4">
+                    <label
+                      htmlFor="user-select"
+                      className="block mb-2 text-lg font-medium"
+                    >
+                      Select User
+                    </label>
+                    <select
+                      id="user-select"
+                      className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedUser || ""}
+                      onChange={(e) => setSelectedUser(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        -- Select a User --
+                      </option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name || user.email || "Unnamed User"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* File Selection */}
+                  <div className="mb-4">
+                    <label
+                      htmlFor="file-select"
+                      className="block mb-2 text-lg font-medium"
+                    >
+                      Select File
+                    </label>
+                    <select
+                      id="file-select"
+                      className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedFile || ""}
+                      onChange={(e) => setSelectedFile(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        -- Select a File --
+                      </option>
+                      {files.map((file) => (
+                        <option key={file.id} value={file.id}>
+                          {file.fileName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Assign Button */}
                   <button
-                    onClick={() => {
-                      setSelectedUser(user.id); // Set the selected user ID
-                      setIsModalOpen(true); // Open the modal
+                    onClick={async () => {
+                      const file = files.find(
+                        (file) => file.id === selectedFile
+                      );
+                      if (file) {
+                        await handleAssignFileToUser(selectedUser, file);
+                      }
                     }}
-                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                    className="w-full bg-green-500 text-white px-4 py-2 rounded"
+                    disabled={!selectedUser || !selectedFile}
                   >
                     Assign File
                   </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No users found.</p>
-        )}
 
-        {/* Assign File Modal */}
-        {isModalOpen && selectedUser && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-              <h2 className="text-2xl font-semibold mb-6 text-center">
-                Assign File to{" "}
-                {users.find((user) => user.id === selectedUser)?.name || "User"}
-              </h2>
-              {files.length > 0 ? (
-                <ul className="mb-4">
-                  {files.map((file) => (
-                    <li
-                      key={file.id}
-                      className="mb-2 flex justify-between items-center"
+                  {/* Success or Error Message */}
+                  {assignMessage && (
+                    <p
+                      className={`mt-4 text-center ${
+                        assignMessage.type === "success"
+                          ? "text-green-500"
+                          : "text-red-500"
+                      }`}
                     >
-                      <span>{file.fileName}</span>
-                      <button
-                        onClick={() =>
-                          handleAssignFileToUser(selectedUser, file)
-                        }
-                        className="bg-green-500 text-white px-4 py-2 rounded"
-                      >
-                        Assign
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No files available to assign.</p>
-              )}
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="w-full bg-red-500 text-white px-4 py-2 rounded"
-              >
-                Close
-              </button>
-              {fileError && (
-                <p className="text-red-500 dark:text-red-300 mt-4">
-                  {fileError}
-                </p>
-              )}
-            </div>
-          </div>
+                      {assignMessage.text}
+                    </p>
+                  )}
+
+                  {/* Close Modal */}
+                  <button
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setAssignMessage(null); // Clear the message on close
+                    }}
+                    className="w-full bg-red-500 text-white px-4 py-2 rounded mt-4"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </section>
     </main>
