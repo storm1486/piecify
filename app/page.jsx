@@ -8,7 +8,7 @@ import {
   getDocs,
   doc,
   setDoc,
-  deleteDoc,
+  onSnapshot,
   getDoc,
 } from "firebase/firestore";
 import Link from "next/link";
@@ -56,6 +56,7 @@ export default function Home() {
   const [searching, setSearching] = useState(false); // Loading state for search
   const [userRole, setUserRole] = useState(null); // To store the user's role
   const [userFiles, setUserFiles] = useState([]); // To store the user's files (for non-admins)
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -172,20 +173,31 @@ export default function Home() {
     }
   };
 
-  const handleSignup = async (email, password, role = "user") => {
+  const handleSignup = async () => {
+    if (!signupEmail || !signupPassword) {
+      setSignupError("Email and password are required.");
+      return;
+    }
+
+    if (isSigningUp) return; // Prevent duplicate submissions
+    setIsSigningUp(true);
+
     try {
+      setSignupError(""); // Clear previous errors
+      setIsSignUpModalOpen(false); // Close the modal immediately
       const userCredential = await createUserWithEmailAndPassword(
         auth,
-        email,
-        password
+        signupEmail,
+        signupPassword
       );
+
       const user = userCredential.user;
 
       // Add user to Firestore with default arrays
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         email: user.email,
-        role: role, // Default role is "user"
+        role: signupRole, // Default role
         favoriteFolders: [],
         myFiles: [],
         favoriteFiles: [],
@@ -193,15 +205,15 @@ export default function Home() {
 
       console.log("User created and added to Firestore:", user.uid);
 
-      // Close the modal and reset inputs
-      setIsSignUpModalOpen(false);
+      // Reset the inputs
       setSignupEmail("");
       setSignupPassword("");
       setSignupRole("user");
-      setSignupError("");
     } catch (error) {
       console.error("Error signing up:", error);
-      setSignupError(error.message); // Display error message if sign-up fails
+      setSignupError(error.message); // Display error message
+    } finally {
+      setIsSigningUp(false); // Re-enable the button
     }
   };
 
@@ -362,7 +374,8 @@ export default function Home() {
           <SignUpModal
             isOpen={isSignUpModalOpen}
             onClose={() => setIsSignUpModalOpen(false)}
-            onSignUp={handleSignup}
+            onSignUp={handleSignup} // Pass the function reference
+            disabled={isSigningUp}
             email={signupEmail}
             password={signupPassword}
             role={signupRole}
@@ -449,74 +462,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Sign Up Modal */}
-        {isSignUpModalOpen && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-              <h2 className="text-2xl font-semibold mb-6 text-center">
-                Sign Up
-              </h2>
-
-              {/* Email Input */}
-              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-                Email
-              </label>
-              <input
-                type="email"
-                value={signupEmail}
-                onChange={(e) => setSignupEmail(e.target.value)}
-                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-                placeholder="Enter email"
-              />
-
-              {/* Password Input */}
-              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-                Password
-              </label>
-              <input
-                type="password"
-                value={signupPassword}
-                onChange={(e) => setSignupPassword(e.target.value)}
-                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-                placeholder="Enter password"
-              />
-
-              {/* Role Selection */}
-              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-                Role
-              </label>
-              <select
-                value={signupRole}
-                onChange={(e) => setSignupRole(e.target.value)}
-                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-
-              {/* Error Message */}
-              {signupError && (
-                <p className="text-red-500 mb-4">{signupError}</p>
-              )}
-
-              {/* Buttons */}
-              <button
-                onClick={() =>
-                  handleSignup(signupEmail, signupPassword, signupRole)
-                }
-                className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
-              >
-                Sign Up
-              </button>
-              <button
-                onClick={() => setIsSignUpModalOpen(false)}
-                className="w-full bg-red-500 text-white px-4 py-2 rounded"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
         {/* Display Folders */}
         <div className="flex-grow w-full mb-8">
           <section className="flex-1 p-8">

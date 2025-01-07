@@ -11,6 +11,7 @@ export default function SignUpModal({
   onPasswordChange,
   onRoleChange,
   error,
+  disabled
 }) {
   if (!isOpen) return null;
 
@@ -62,9 +63,12 @@ export default function SignUpModal({
         {/* Buttons */}
         <button
           onClick={onSignUp}
-          className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
+          disabled={disabled}
+          className={`w-full px-4 py-2 rounded mb-5 ${
+            disabled ? "bg-gray-500" : "bg-blue-500"
+          }`}
         >
-          Sign Up
+          {disabled ? "Signing Up..." : "Sign Up"}
         </button>
         <button
           onClick={onClose}
