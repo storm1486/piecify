@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "../../firebase/firebase"; // Adjust the path as necessary
@@ -14,9 +15,13 @@ export default function ViewFile() {
 
   useEffect(() => {
     const fetchFile = async () => {
+      if (!currentUserId) {
+        console.error("User ID is not available");
+        return;
+      }
+
       try {
         const userDocRef = doc(db, "users", currentUserId); // Reference to the user's document
-
         const userDocSnap = await getDoc(userDocRef);
 
         if (userDocSnap.exists()) {
@@ -37,8 +42,11 @@ export default function ViewFile() {
       }
     };
 
-    fetchFile();
-  }, [fileId]);
+    // Only fetch if currentUserId is defined
+    if (currentUserId) {
+      fetchFile();
+    }
+  }, [currentUserId, fileId]);
 
   if (!docData) {
     return <p>Loading...</p>;

@@ -255,7 +255,6 @@ export default function Home() {
     }
   };
 
-console.log(searchResults[0])
   return (
     <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
       {/* Sidebar */}
