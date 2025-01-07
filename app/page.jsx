@@ -19,6 +19,7 @@ import {
   signOut,
 } from "firebase/auth";
 import { useUser } from "@/src/context/UserContext";
+import SignUpModal from "@/components/SignUpModal";
 
 export default function Home() {
   const {
@@ -333,14 +334,34 @@ export default function Home() {
             {/* Error Message */}
             {loginError && <p className="text-red-500 mb-4">{loginError}</p>}
 
-            {/* Buttons */}
+            {/* Login Button */}
             <button
               onClick={handleLogin}
               className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
             >
               Log In
             </button>
+
+            {/* Create Account Button */}
+            <button
+              onClick={() => setIsSignUpModalOpen(true)}
+              className="w-full bg-green-500 text-white px-4 py-2 rounded"
+            >
+              Create Account
+            </button>
           </div>
+          <SignUpModal
+            isOpen={isSignUpModalOpen}
+            onClose={() => setIsSignUpModalOpen(false)}
+            onSignUp={handleSignup}
+            email={signupEmail}
+            password={signupPassword}
+            role={signupRole}
+            onEmailChange={(e) => setSignupEmail(e.target.value)}
+            onPasswordChange={(e) => setSignupPassword(e.target.value)}
+            onRoleChange={(e) => setSignupRole(e.target.value)}
+            error={signupError}
+          />
         </div>
       )}
 
@@ -418,13 +439,6 @@ export default function Home() {
             </div>
           )}
         </div>
-
-        <button
-          onClick={() => setIsSignUpModalOpen(true)}
-          className="bg-green-500 text-white px-4 py-2 rounded mb-4"
-        >
-          Create Account
-        </button>
 
         {/* Sign Up Modal */}
         {isSignUpModalOpen && (
