@@ -299,6 +299,15 @@ export default function Home() {
             )}
           </ul>
         </div>
+
+        {/* New "Current Team" Option */}
+        <div className="mt-6">
+          <Link href="/team">
+            <div className="p-2 bg-blue-500 text-white rounded text-center cursor-pointer">
+              Current Team
+            </div>
+          </Link>
+        </div>
       </aside>
 
       {/* Login Modal */}
