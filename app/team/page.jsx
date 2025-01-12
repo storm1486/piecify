@@ -1,9 +1,9 @@
 "use client";
-
+import Link from "next/link"; // Import Link from Next.js
 import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
-import { useRouter } from "next/navigation";
 import { db } from "../firebase/firebase";
+import { useRouter } from "next/navigation";
 
 export default function CurrentTeam() {
   const [users, setUsers] = useState([]);
@@ -45,13 +45,15 @@ export default function CurrentTeam() {
       <h1 className="text-4xl font-bold mb-6">Current Team</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {users.map((user) => (
-          <div
+          <Link
             key={user.id}
-            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800"
+            href={`/user-documents/${user.id}`} // Dynamic route for user documents
           >
-            <p className="font-bold">{user.email}</p>
-            <p className="text-sm text-gray-500">{user.role || "User"}</p>
-          </div>
+            <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 cursor-pointer hover:shadow-lg">
+              <p className="font-bold">{user.email}</p>
+              <p className="text-sm text-gray-500">{user.role || "User"}</p>
+            </div>
+          </Link>
         ))}
       </div>
     </main>
