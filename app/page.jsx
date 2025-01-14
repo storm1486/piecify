@@ -490,6 +490,16 @@ export default function Home() {
                   >
                     My Files
                   </button>
+                  <button
+                    className={`px-4 py-2 font-semibold ${
+                      activeTab === "team"
+                        ? "border-b-2 border-blue-500"
+                        : "text-gray-500"
+                    }`}
+                    onClick={() => setActiveTab("team")}
+                  >
+                    Team Files
+                  </button>
                 </div>
 
                 {/* Tab Content */}
