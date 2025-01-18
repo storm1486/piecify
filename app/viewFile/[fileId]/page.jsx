@@ -10,6 +10,7 @@ export default function ViewFile() {
   const { fileId } = useParams(); // Retrieve the fileId from the URL
   const router = useRouter();
   const [docData, setDocData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // State to track loading
   const { user } = useUser();
   const currentUserId = user?.uid;
 
@@ -21,6 +22,7 @@ export default function ViewFile() {
       }
 
       try {
+        setIsLoading(true); // Start loading
         const userDocRef = doc(db, "users", currentUserId); // Reference to the user's document
         const userDocSnap = await getDoc(userDocRef);
 
@@ -39,6 +41,8 @@ export default function ViewFile() {
         }
       } catch (error) {
         console.error("Error fetching file:", error);
+      } finally {
+        setIsLoading(false); // Stop loading
       }
     };
 
@@ -48,8 +52,17 @@ export default function ViewFile() {
     }
   }, [currentUserId, fileId]);
 
+  // Show loading spinner while the document is being loaded
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+      </div>
+    );
+  }
+
   if (!docData) {
-    return <p>Loading...</p>;
+    return <p>File not found!</p>;
   }
 
   const fileExtension = docData.fileName.split(".").pop().toLowerCase();
@@ -95,6 +108,7 @@ export default function ViewFile() {
           src={docData.fileUrl}
           className="w-full h-screen"
           title={docData.fileName}
+          onLoad={() => setIsLoading(false)} // Set loading to false when iframe finishes loading
         />
       ) : supportedExtensions.includes(fileExtension) ? (
         <iframe
@@ -103,6 +117,7 @@ export default function ViewFile() {
           )}&embedded=true`}
           className="w-full h-screen"
           title={docData.fileName}
+          onLoad={() => setIsLoading(false)} // Set loading to false when iframe finishes loading
         />
       ) : (
         <div>

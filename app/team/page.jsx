@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 export default function CurrentTeam() {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // State to track loading
   const router = useRouter(); // Use router for navigation
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function CurrentTeam() {
       } catch (error) {
         console.error("Error fetching users:", error);
       } finally {
-        setLoading(false);
+        setLoading(false); // Stop loading after fetch
       }
     };
 
@@ -30,7 +30,11 @@ export default function CurrentTeam() {
   }, []);
 
   if (loading) {
-    return <p>Loading...</p>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+      </div>
+    );
   }
 
   return (

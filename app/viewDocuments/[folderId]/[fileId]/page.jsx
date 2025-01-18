@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "../../../firebase/firebase"; // Adjust the path as necessary
@@ -7,13 +8,14 @@ import { doc, getDoc } from "firebase/firestore";
 export default function ViewDocument() {
   const { folderId, fileId } = useParams(); // Retrieve both folderId and fileId from the URL parameters
   const router = useRouter();
-  const [docData, setDocData] = useState(null); // Renamed from "document" to "docData"
+  const [docData, setDocData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // Track loading state
 
   useEffect(() => {
     const fetchDocument = async () => {
       if (folderId && fileId) {
         try {
-          // Construct the path to the document in the Firestore database
+          setIsLoading(true); // Start loading
           const docRef = doc(db, "folders", folderId, "files", fileId);
           const docSnap = await getDoc(docRef);
 
@@ -25,6 +27,8 @@ export default function ViewDocument() {
           }
         } catch (error) {
           console.error("Error fetching document:", error);
+        } finally {
+          setIsLoading(false); // Stop loading
         }
       }
     };
@@ -32,8 +36,16 @@ export default function ViewDocument() {
     fetchDocument();
   }, [folderId, fileId]);
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+      </div>
+    );
+  }
+
   if (!docData) {
-    return <p>Loading...</p>;
+    return <p>Document not found!</p>;
   }
 
   const fileExtension = docData.fileName.split(".").pop().toLowerCase();
@@ -79,6 +91,7 @@ export default function ViewDocument() {
           src={docData.fileUrl}
           className="w-full h-screen"
           title={docData.fileName}
+          onLoad={() => setIsLoading(false)} // Stop loading when iframe finishes loading
         />
       ) : supportedExtensions.includes(fileExtension) ? (
         <iframe
@@ -87,6 +100,7 @@ export default function ViewDocument() {
           )}&embedded=true`}
           className="w-full h-screen"
           title={docData.fileName}
+          onLoad={() => setIsLoading(false)} // Stop loading when iframe finishes loading
         />
       ) : (
         <div>

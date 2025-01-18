@@ -17,15 +17,16 @@ import { useUser } from "@/src/context/UserContext";
 export default function FolderPage() {
   const { folderId } = useParams();
   const router = useRouter();
-  const { user, fetchMyFiles, loading } = useUser(); // Access user context
+  const { user, fetchMyFiles, loading } = useUser();
   const [folderName, setFolderName] = useState("");
   const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [users, setUsers] = useState([]); // List of users fetched from Firestore
-  const [selectedFile, setSelectedFile] = useState(null); // Selected file ID
-  const [assignMessage, setAssignMessage] = useState(null); // To show success or error messages
+  const [users, setUsers] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [assignMessage, setAssignMessage] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // State for managing spinner
 
   useEffect(() => {
     if (!loading && user && folderId) {
@@ -49,12 +50,12 @@ export default function FolderPage() {
       setUsers(usersList);
     } catch (error) {
       console.error("Error fetching users:", error);
-      setUserError("Error loading user data. Please try again later.");
     }
   };
 
   const fetchFolderData = async () => {
     try {
+      setIsLoading(true); // Start spinner
       const folderDoc = await getDoc(doc(db, "folders", folderId));
       if (folderDoc.exists()) {
         setFolderName(folderDoc.data().name || "Untitled Folder");
@@ -72,12 +73,13 @@ export default function FolderPage() {
           id: doc.id,
           ...doc.data(),
         }))
-        .sort((a, b) => a.fileName.localeCompare(b.fileName)); // Sort files alphabetically by fileName
-
+        .sort((a, b) => a.fileName.localeCompare(b.fileName));
       setFiles(filesList);
     } catch (error) {
       console.error("Error fetching folder data:", error);
       setFileError("Failed to load folder data.");
+    } finally {
+      setIsLoading(false); // Stop spinner
     }
   };
 
@@ -88,8 +90,6 @@ export default function FolderPage() {
 
       if (userSnapshot.exists()) {
         const userData = userSnapshot.data();
-
-        // Check if the file is already in the user's `myFiles`
         const isFileAlreadyAssigned = userData.myFiles?.some(
           (assignedFile) => assignedFile.fileId === file.id
         );
@@ -105,7 +105,6 @@ export default function FolderPage() {
         }
       }
 
-      // Add the file to the user's `myFiles`
       await updateDoc(userRef, {
         myFiles: arrayUnion({
           fileName: file.fileName,
@@ -134,8 +133,12 @@ export default function FolderPage() {
     router.push(`/viewDocuments/${folderId}/${fileId}`);
   };
 
-  if (loading) {
-    return <p>Loading...</p>;
+  if (isLoading || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+      </div>
+    );
   }
 
   if (!user) {
@@ -157,19 +160,15 @@ export default function FolderPage() {
           {folderName || "Loading..."}
         </h1>
 
-        {/* Assign Users Section */}
         {user.role === "admin" && (
-          <>
-            <button
-              className="bg-blue-500 text-white px-4 py-2 rounded"
-              onClick={() => setIsModalOpen(true)}
-            >
-              Assign Users files from {folderName}
-            </button>
-          </>
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded"
+            onClick={() => setIsModalOpen(true)}
+          >
+            Assign Users files from {folderName}
+          </button>
         )}
 
-        {/* Files Section */}
         <h2 className="text-2xl font-bold mt-8 mb-4">All Files</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
