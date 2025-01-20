@@ -143,6 +143,8 @@ export default function Home() {
         fileName: file.name,
         fileUrl: url,
         uploadedAt: new Date(),
+        tags: [],
+        events: [],
       });
     } catch (err) {
       setError("Upload failed. Please try again.");
@@ -563,6 +565,67 @@ export default function Home() {
                     )}
                   </div>
                 )}
+                <section className="flex-1 p-8 flex flex-col items-center justify-center">
+                  {/* Upload Section */}
+                  <div className="mb-6 w-full">
+                    <h2 className="text-xl font-bold mb-4">Upload a File</h2>
+                    <div className="flex items-center space-x-4">
+                      {/* Folder Selector */}
+                      <select
+                        className="p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+                        value={selectedFolder}
+                        onChange={(e) => setSelectedFolder(e.target.value)}
+                      >
+                        <option value="" disabled>
+                          Select a folder
+                        </option>
+                        {allFolders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* File Input */}
+                      <input
+                        type="file"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+
+                      {/* Upload Button */}
+                      <button
+                        onClick={handleUpload}
+                        disabled={uploading}
+                        className={`px-4 py-2 rounded ${
+                          uploading
+                            ? "bg-gray-500 text-white cursor-not-allowed"
+                            : "bg-blue-500 text-white hover:bg-blue-600"
+                        }`}
+                      >
+                        {uploading ? "Uploading..." : "Upload"}
+                      </button>
+                    </div>
+
+                    {/* Error Message */}
+                    {error && <p className="text-red-500 mt-2">{error}</p>}
+
+                    {/* Success Message */}
+                    {downloadURL && (
+                      <p className="text-green-500 mt-2">
+                        File uploaded successfully!{" "}
+                        <a
+                          href={downloadURL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 underline"
+                        >
+                          View file
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </section>
               </>
             ) : (
               // Non-Admin View
