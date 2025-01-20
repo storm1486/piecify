@@ -112,26 +112,31 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Toggle favorite folder
   const toggleFavorite = async (folderId: string) => {
     if (!user) return;
 
     try {
       const userDocRef = doc(db, "users", user.uid);
       const updatedFavorites = user.favoriteFolders.includes(folderId)
-        ? user.favoriteFolders.filter((id) => id !== folderId)
-        : [...user.favoriteFolders, folderId];
+        ? user.favoriteFolders.filter((id) => id !== folderId) // Remove favorite
+        : [...user.favoriteFolders, folderId]; // Add favorite
 
+      // Update Firestore
       await setDoc(
         userDocRef,
         { favoriteFolders: updatedFavorites },
         { merge: true }
       );
 
-      setUser((prevUser) => ({
-        ...prevUser!,
-        favoriteFolders: updatedFavorites,
-      }));
+      // Update local state ensuring the User type structure
+      setUser((prevUser) => {
+        if (!prevUser) return null; // Safeguard against null state
+
+        return {
+          ...prevUser,
+          favoriteFolders: updatedFavorites,
+        };
+      });
     } catch (error) {
       console.error("Error toggling favorite:", error);
     }
