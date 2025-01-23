@@ -15,6 +15,9 @@ interface User {
   email: string;
   role: string;
   uid: string;
+  firstName: string; // New field
+  lastName: string; // New field
+  graduationYear: number | null; // New field (nullable)
   myFiles: Array<any>;
   favoriteFolders: Array<string>;
   allFolders: Array<any>;
@@ -53,6 +56,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             email: email || "",
             role: "user",
             uid,
+            firstName: "", // Default value
+            lastName: "", // Default value
+            graduationYear: null, // Default value
             myFiles: [],
             favoriteFolders: [],
             allFolders: [],
@@ -63,6 +69,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             userData = {
               ...userData,
               role: data.role || "user",
+              firstName: data.firstName || "", // Fetch firstName
+              lastName: data.lastName || "", // Fetch lastName
+              graduationYear: data.graduationYear || null, // Fetch graduationYear
               favoriteFolders: data.favoriteFolders || [],
               myFiles: data.myFiles || [],
             };

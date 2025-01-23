@@ -59,6 +59,9 @@ export default function Home() {
   const [userFiles, setUserFiles] = useState([]); // To store the user's files (for non-admins)
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [graduationYear, setGraduationYear] = useState("");
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -178,8 +181,14 @@ export default function Home() {
   };
 
   const handleSignup = async () => {
-    if (!signupEmail || !signupPassword) {
-      setSignupError("Email and password are required.");
+    if (
+      !signupEmail ||
+      !signupPassword ||
+      !firstName ||
+      !lastName ||
+      !graduationYear
+    ) {
+      setSignupError("All fields are required.");
       return;
     }
 
@@ -189,6 +198,7 @@ export default function Home() {
     try {
       setSignupError(""); // Clear previous errors
       setIsSignUpModalOpen(false); // Close the modal immediately
+
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         signupEmail,
@@ -197,7 +207,7 @@ export default function Home() {
 
       const user = userCredential.user;
 
-      // Add user to Firestore with default arrays
+      // Add user to Firestore with new fields
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         email: user.email,
@@ -205,6 +215,9 @@ export default function Home() {
         favoriteFolders: [],
         myFiles: [],
         favoriteFiles: [],
+        firstName, // Add firstName
+        lastName, // Add lastName
+        graduationYear, // Add graduationYear
       });
 
       console.log("User created and added to Firestore:", user.uid);
@@ -212,6 +225,9 @@ export default function Home() {
       // Reset the inputs
       setSignupEmail("");
       setSignupPassword("");
+      setFirstName("");
+      setLastName("");
+      setGraduationYear("");
       setSignupRole("user");
     } catch (error) {
       console.error("Error signing up:", error);
@@ -281,7 +297,12 @@ export default function Home() {
         {user ? (
           <div className="mb-6">
             <p className="text-sm">Logged in as:</p>
-            <p className="font-bold">{user.email}</p>
+            <p className="font-bold">
+              {user.firstName && user.lastName
+                ? `${user.firstName} ${user.lastName}` // Show first and last name if available
+                : user.email}
+              {/* Fallback to email */}
+            </p>
             <button
               onClick={handleLogout}
               className="bg-red-500 text-white px-4 py-2 rounded mt-4"
@@ -386,15 +407,21 @@ export default function Home() {
           <SignUpModal
             isOpen={isSignUpModalOpen}
             onClose={() => setIsSignUpModalOpen(false)}
-            onSignUp={handleSignup} // Pass the function reference
-            disabled={isSigningUp}
+            onSignUp={handleSignup}
             email={signupEmail}
             password={signupPassword}
+            firstName={firstName}
+            lastName={lastName}
+            graduationYear={graduationYear}
             role={signupRole}
             onEmailChange={(e) => setSignupEmail(e.target.value)}
             onPasswordChange={(e) => setSignupPassword(e.target.value)}
+            onFirstNameChange={(e) => setFirstName(e.target.value)}
+            onLastNameChange={(e) => setLastName(e.target.value)}
+            onGraduationYearChange={(e) => setGraduationYear(e.target.value)}
             onRoleChange={(e) => setSignupRole(e.target.value)}
             error={signupError}
+            disabled={isSigningUp}
           />
         </div>
       )}
@@ -689,26 +716,29 @@ export default function Home() {
                   <div>
                     {user?.myFiles.length > 0 ? (
                       <ul className="space-y-4">
-                        {user?.myFiles.map((file, index) => (
-                          <li
-                            key={index}
-                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                          >
-                            <Link
-                              href={`/viewFile/${file.fileId}`} // Update to your file-specific route structure
-                              className="flex justify-between items-center"
+                        {user?.myFiles
+                          .slice()
+                          .sort((a, b) => a.fileName.localeCompare(b.fileName)) // Sort alphabetically
+                          .map((file, index) => (
+                            <li
+                              key={index}
+                              className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                             >
-                              <span>{file.fileName}</span>
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {file.assignedAt
-                                  ? new Date(
-                                      file.assignedAt.seconds * 1000
-                                    ).toLocaleDateString()
-                                  : "No Date"}
-                              </span>
-                            </Link>
-                          </li>
-                        ))}
+                              <Link
+                                href={`/viewFile/${file.fileId}`} // Update to your file-specific route structure
+                                className="flex justify-between items-center"
+                              >
+                                <span>{file.fileName}</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">
+                                  {file.assignedAt
+                                    ? new Date(
+                                        file.assignedAt.seconds * 1000
+                                      ).toLocaleDateString()
+                                    : "No Date"}
+                                </span>
+                              </Link>
+                            </li>
+                          ))}
                       </ul>
                     ) : (
                       <p className="text-gray-500 dark:text-gray-400">
@@ -726,26 +756,29 @@ export default function Home() {
                 {/* Non-Admin View */}
                 {user?.myFiles.length > 0 ? (
                   <ul className="space-y-4">
-                    {user?.myFiles.map((file, index) => (
-                      <li
-                        key={index}
-                        className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                      >
-                        <Link
-                          href={`/viewFile/${file.fileId}`} // Update to your file-specific route structure
-                          className="flex justify-between items-center"
+                    {user?.myFiles
+                      .slice()
+                      .sort((a, b) => a.fileName.localeCompare(b.fileName)) // Sort alphabetically
+                      .map((file, index) => (
+                        <li
+                          key={index}
+                          className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                         >
-                          <span>{file.fileName}</span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {file.assignedAt
-                              ? new Date(
-                                  file.assignedAt.seconds * 1000
-                                ).toLocaleDateString()
-                              : "No Date"}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
+                          <Link
+                            href={`/viewFile/${file.fileId}`} // Update to your file-specific route structure
+                            className="flex justify-between items-center"
+                          >
+                            <span>{file.fileName}</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              {file.assignedAt
+                                ? new Date(
+                                    file.assignedAt.seconds * 1000
+                                  ).toLocaleDateString()
+                                : "No Date"}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
                   </ul>
                 ) : (
                   <p className="text-gray-500 dark:text-gray-400">
