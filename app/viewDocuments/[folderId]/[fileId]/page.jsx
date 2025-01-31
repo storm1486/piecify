@@ -67,9 +67,9 @@ export default function ViewDocument() {
   };
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4">
-      {/* Header */}
-      <header className="w-full flex justify-between items-center bg-gray-200 dark:bg-gray-800 p-4 mb-4">
+    <main className="flex flex-col items-center justify-start min-h-screen p-4 pt-20">
+      {/* Fixed Header */}
+      <header className="fixed top-0 left-0 w-full flex justify-between items-center bg-gray-200 dark:bg-gray-800 p-4 shadow-md z-10">
         <button
           onClick={() => router.back()}
           className="bg-blue-500 text-white px-4 py-2 rounded"
