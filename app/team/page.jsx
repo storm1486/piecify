@@ -54,7 +54,10 @@ export default function CurrentTeam() {
             href={`/user-documents/${user.id}`} // Dynamic route for user documents
           >
             <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 cursor-pointer hover:shadow-lg">
-              <p className="font-bold">{user.email}</p>
+              {user.firstName && user.lastName
+                ? `${user.firstName} ${user.lastName}` // Show first and last name if available
+                : user.email}
+              {/* Fallback to email */}
               <p className="text-sm text-gray-500">{user.role || "User"}</p>
             </div>
           </Link>

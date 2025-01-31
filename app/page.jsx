@@ -639,51 +639,59 @@ export default function Home() {
                   <div>
                     {/* Admin View: All Folders */}
                     {allFolders.map((folder) => (
-                      <div
-                        key={folder.id}
-                        className="border mt-3 border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
-                      >
-                        {/* Folder Details */}
-                        <div>
-                          <h3 className="font-semibold">{folder.name}</h3>
-                          <p className="text-sm text-gray-500">
-                            Created:{" "}
-                            {folder.createdAt?.seconds
-                              ? new Date(
-                                  folder.createdAt.seconds * 1000
-                                ).toLocaleDateString()
-                              : "Unknown"}
-                          </p>
-                        </div>
-
-                        {/* Favorite Button Positioned at the End */}
-                        <button
-                          onClick={() => toggleFavorite(folder.id)} // Call toggleFavorite function
-                          className={`p-2 rounded-full ml-auto ${
-                            user.favoriteFolders.includes(folder.id) // Check if folder is favorited
-                              ? "text-red-500" // Favorited: red heart
-                              : "text-gray-500" // Not favorited: gray heart
-                          } hover:text-red-500`}
+                      <div key={folder.id} className="block">
+                        <Link
+                          href={`/folders/${folder.id}`} // Navigate to the folder
+                          passHref
+                          className="block" // Makes the container pressable
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill={
-                              user.favoriteFolders.includes(folder.id)
-                                ? "currentColor"
-                                : "none"
-                            } // Dynamically set fill
-                            viewBox="0 0 24 24"
-                            strokeWidth="2"
-                            stroke="currentColor"
-                            className="w-6 h-6"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M12 21l-1.45-1.34C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.16L12 21z"
-                            />
-                          </svg>
-                        </button>
+                          <div className="border mt-3 border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                            {/* Folder Details */}
+                            <div>
+                              <h3 className="font-semibold">{folder.name}</h3>
+                              <p className="text-sm text-gray-500">
+                                Created:{" "}
+                                {folder.createdAt?.seconds
+                                  ? new Date(
+                                      folder.createdAt.seconds * 1000
+                                    ).toLocaleDateString()
+                                  : "Unknown"}
+                              </p>
+                            </div>
+
+                            {/* Favorite Button */}
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault(); // Prevent Link navigation
+                                toggleFavorite(folder.id); // Toggle favorite
+                              }}
+                              className={`p-2 rounded-full ml-auto ${
+                                user.favoriteFolders.includes(folder.id)
+                                  ? "text-red-500"
+                                  : "text-gray-500"
+                              } hover:text-red-500`}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill={
+                                  user.favoriteFolders.includes(folder.id)
+                                    ? "currentColor"
+                                    : "none"
+                                }
+                                viewBox="0 0 24 24"
+                                strokeWidth="2"
+                                stroke="currentColor"
+                                className="w-6 h-6"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M12 21l-1.45-1.34C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.16L12 21z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </Link>
                       </div>
                     ))}
 

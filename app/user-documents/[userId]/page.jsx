@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { db } from "../../firebase/firebase";
+import { useUser } from "@/src/context/UserContext";
 
 export default function UserDocuments({ params }) {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { user } = useUser();
   const { userId } = params; // Retrieve userId from params
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function UserDocuments({ params }) {
         Back to Team
       </button>
       <h1 className="text-4xl font-bold mb-6">
-        Documents for User ID: {userId}
+        Pieces for: {user.firstName}{" "}{user.lastName}
       </h1>
       {documents.length === 0 ? (
         <p>No documents found for this user.</p>
