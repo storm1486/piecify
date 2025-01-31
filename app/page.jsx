@@ -132,26 +132,39 @@ export default function Home() {
       setError("Please select a file and a folder.");
       return;
     }
+
     setUploading(true);
     setError(null);
 
     try {
+      // Generate a storage reference based on the folder and file name
       const storageRef = ref(storage, `${selectedFolder}/${file.name}`);
+
+      // Upload the file to Firebase Storage
       await uploadBytes(storageRef, file);
 
+      // Get the download URL of the uploaded file
       const url = await getDownloadURL(storageRef);
-      setDownloadURL(url);
 
-      // Store the file information in Firestore under the selected folder
-      await addDoc(collection(db, "folders", selectedFolder, "files"), {
-        userId: user.uid, // Replace with actual user ID
-        fileName: file.name,
-        fileUrl: url,
-        uploadedAt: new Date(),
-        tags: [],
-        events: [],
-      });
+      // Firestore Reference
+      const fileDocRef = await addDoc(
+        collection(db, "folders", selectedFolder, "files"),
+        {
+          fileName: file.name,
+          fileUrl: url,
+          uploadedAt: new Date(),
+
+          // New Fields
+          previouslyOwned: [], // Empty initially, will store user IDs of past owners
+          previousVersions: [], // Empty initially, will store previous version URLs or references
+          trackRecord: [], // Empty initially, will store tournament performance data later
+        }
+      );
+
+      console.log("File uploaded successfully:", fileDocRef.id);
+      setDownloadURL(url);
     } catch (err) {
+      console.error("Error uploading file:", err);
       setError("Upload failed. Please try again.");
     } finally {
       setUploading(false);

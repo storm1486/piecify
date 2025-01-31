@@ -53,6 +53,8 @@ export default function FolderPage() {
     }
   };
 
+  console.log("selecteduser", selectedUser);
+
   const fetchFolderData = async () => {
     try {
       setIsLoading(true); // Start spinner
@@ -87,7 +89,17 @@ export default function FolderPage() {
     try {
       const userRef = doc(db, "users", userId);
       const userSnapshot = await getDoc(userRef);
+      const fileRef = doc(db, "folders", folderId, "files", file.id);
+      const fileSnapshot = await getDoc(fileRef);
 
+      if (!fileSnapshot.exists()) {
+        console.error("File does not exist in Firestore.");
+        return;
+      }
+
+      const fileData = fileSnapshot.data();
+
+      console.log("filedata", fileData);
       if (userSnapshot.exists()) {
         const userData = userSnapshot.data();
         const isFileAlreadyAssigned = userData.myFiles?.some(
@@ -105,6 +117,22 @@ export default function FolderPage() {
         }
       }
 
+      // Store previous owner details with dateGiven
+      const previousOwnerEntry = fileData.userId
+        ? {
+            userId: fileData.userId, // Previous owner's ID
+            dateGiven: new Date().toISOString(), // Timestamp of when file was reassigned
+          }
+        : null;
+
+      // Update the file in Firestore to store previous owners with dateGiven
+      await updateDoc(fileRef, {
+        previouslyOwned: previousOwnerEntry
+          ? arrayUnion(previousOwnerEntry) // Append if there's a previous owner
+          : fileData.previouslyOwned || [], // Keep empty array if no previous owner
+      });
+
+      // Update the user's `myFiles` array to include the new file
       await updateDoc(userRef, {
         myFiles: arrayUnion({
           fileName: file.fileName,
@@ -120,6 +148,10 @@ export default function FolderPage() {
           userSnapshot.data()?.name || "this user"
         }.`,
       });
+
+      console.log(
+        `File assigned to new user ${userId} and previous owner stored.`
+      );
     } catch (err) {
       console.error("Error assigning file to user:", err);
       setAssignMessage({
