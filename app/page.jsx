@@ -158,6 +158,7 @@ export default function Home() {
           previouslyOwned: [], // Empty initially, will store user IDs of past owners
           previousVersions: [], // Empty initially, will store previous version URLs or references
           trackRecord: [], // Empty initially, will store tournament performance data later
+          pieceDescription: file.pieceDescription || "No description provided.", // Add this line
         }
       );
 

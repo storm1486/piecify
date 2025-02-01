@@ -99,7 +99,6 @@ export default function FolderPage() {
 
       const fileData = fileSnapshot.data();
 
-      console.log("filedata", fileData);
       if (userSnapshot.exists()) {
         const userData = userSnapshot.data();
         const isFileAlreadyAssigned = userData.myFiles?.some(
@@ -117,19 +116,22 @@ export default function FolderPage() {
         }
       }
 
-      // Store previous owner details with dateGiven
+      // Prepare the previous owner entry
       const previousOwnerEntry = fileData.userId
         ? {
             userId: fileData.userId, // Previous owner's ID
-            dateGiven: new Date().toISOString(), // Timestamp of when file was reassigned
+            dateGiven: new Date().toISOString(), // Timestamp of reassignment
           }
         : null;
 
-      // Update the file in Firestore to store previous owners with dateGiven
+      // Update the file in Firestore to add previous owner
       await updateDoc(fileRef, {
         previouslyOwned: previousOwnerEntry
-          ? arrayUnion(previousOwnerEntry) // Append if there's a previous owner
-          : fileData.previouslyOwned || [], // Keep empty array if no previous owner
+          ? arrayUnion(previousOwnerEntry) // Append the previous owner
+          : arrayUnion({
+              userId: user.uid,
+              dateGiven: new Date().toISOString(),
+            }), // Add a default entry if empty
       });
 
       // Update the user's `myFiles` array to include the new file
@@ -138,6 +140,8 @@ export default function FolderPage() {
           fileName: file.fileName,
           fileUrl: file.fileUrl,
           fileId: file.id,
+          previouslyOwned: file.previouslyOwned,
+          pieceDescription: file.pieceDescription,
           assignedAt: new Date(),
         }),
       });
