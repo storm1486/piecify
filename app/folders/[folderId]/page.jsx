@@ -60,6 +60,7 @@ export default function FolderPage() {
   const fetchFolderData = async () => {
     try {
       setIsLoading(true); // Start spinner
+
       const folderDoc = await getDoc(doc(db, "folders", folderId));
       if (folderDoc.exists()) {
         setFolderName(folderDoc.data().name || "Untitled Folder");
@@ -69,16 +70,33 @@ export default function FolderPage() {
         return;
       }
 
+      // Fetch files from the folder collection (but resolve their references)
       const filesSnapshot = await getDocs(
         collection(db, "folders", folderId, "files")
       );
-      const filesList = filesSnapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .sort((a, b) => a.fileName.localeCompare(b.fileName));
-      setFiles(filesList);
+
+      const filePromises = filesSnapshot.docs.map(async (fileDoc) => {
+        const fileRefPath = fileDoc.data().fileRef; // Get the reference to top-level file
+
+        if (fileRefPath) {
+          const fileDocRef = doc(db, fileRefPath);
+          const fileSnapshot = await getDoc(fileDocRef);
+
+          return fileSnapshot.exists()
+            ? { id: fileSnapshot.id, ...fileSnapshot.data() }
+            : null;
+        }
+
+        return null; // Return null if there's no fileRef
+      });
+
+      const resolvedFiles = (await Promise.all(filePromises)).filter(
+        (file) => file !== null
+      );
+
+      setFiles(
+        resolvedFiles.sort((a, b) => a.fileName.localeCompare(b.fileName))
+      );
     } catch (error) {
       console.error("Error fetching folder data:", error);
       setFileError("Failed to load folder data.");
@@ -92,22 +110,19 @@ export default function FolderPage() {
       const userRef = doc(db, "users", userId);
       const userSnapshot = await getDoc(userRef);
 
-      // References for files at different levels
-      const folderFileRef = doc(db, "folders", folderId, "files", file.id); // File inside folder
-      const topLevelFileRef = doc(db, "files", file.id); // Top-level file
-      const fileSnapshot = await getDoc(folderFileRef);
+      // Reference to the top-level file
+      const topLevelFileRef = doc(db, "files", file.id);
+      const fileSnapshot = await getDoc(topLevelFileRef);
 
       if (!fileSnapshot.exists()) {
-        console.error("File does not exist in folder Firestore path.");
+        console.error("File does not exist in top-level Firestore path.");
         return;
       }
-
-      const fileData = fileSnapshot.data();
 
       if (userSnapshot.exists()) {
         const userData = userSnapshot.data();
         const isFileAlreadyAssigned = userData.myFiles?.some(
-          (assignedFile) => assignedFile.fileId === file.id
+          (assignedFileRef) => assignedFileRef.path === topLevelFileRef.path
         );
 
         if (isFileAlreadyAssigned) {
@@ -123,31 +138,18 @@ export default function FolderPage() {
 
       // Prepare the previous owner entry
       const previousOwnerEntry = {
-        userId: user.uid,
+        userId: userId,
         dateGiven: new Date().toISOString(),
       };
 
-      // Update the file in folders/{folderId}/files/{fileId}
-      await updateDoc(folderFileRef, {
-        previouslyOwned: arrayUnion(previousOwnerEntry),
-      });
-
-      // Update the file in top-level files/{fileId}
+      // Update previouslyOwned in top-level files/{fileId}
       await updateDoc(topLevelFileRef, {
         previouslyOwned: arrayUnion(previousOwnerEntry),
       });
 
-      // Update the user's `myFiles` array to include the new file
+      // Add the file reference to the user's `myFiles` array
       await updateDoc(userRef, {
-        myFiles: arrayUnion({
-          fileName: file.fileName,
-          fileUrl: file.fileUrl,
-          fileId: file.id,
-          folderId: file.folderId,
-          previouslyOwned: [previousOwnerEntry], // Ensure previouslyOwned is consistent
-          pieceDescription: file.pieceDescription,
-          assignedAt: new Date(),
-        }),
+        myFiles: arrayUnion(topLevelFileRef),
       });
 
       setAssignMessage({
@@ -158,7 +160,7 @@ export default function FolderPage() {
       });
 
       console.log(
-        `File assigned to new user ${userId} and previous owner stored across all levels.`
+        `File assigned to new user ${userId} with file reference stored in myFiles.`
       );
     } catch (err) {
       console.error("Error assigning file to user:", err);

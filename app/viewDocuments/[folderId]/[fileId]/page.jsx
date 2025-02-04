@@ -6,7 +6,7 @@ import { db } from "../../../firebase/firebase"; // Adjust the path as necessary
 import { doc, getDoc } from "firebase/firestore";
 
 export default function ViewDocument() {
-  const { folderId, fileId } = useParams(); // Retrieve both folderId and fileId from the URL parameters
+  const { folderId, fileId } = useParams(); // Retrieve folderId and fileId from URL
   const router = useRouter();
   const [docData, setDocData] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Track loading state
@@ -15,20 +15,36 @@ export default function ViewDocument() {
     const fetchDocument = async () => {
       if (folderId && fileId) {
         try {
-          setIsLoading(true); // Start loading
-          const docRef = doc(db, "folders", folderId, "files", fileId);
-          const docSnap = await getDoc(docRef);
+          setIsLoading(true); // Start loading spinner
 
-          if (docSnap.exists()) {
-            console.log("Document Data:", docSnap.data());
-            setDocData(docSnap.data()); // Set the fetched document data
+          // Step 1: Fetch file reference from the folder
+          const folderFileRef = doc(db, "folders", folderId, "files", fileId);
+          const folderFileSnap = await getDoc(folderFileRef);
+
+          if (folderFileSnap.exists()) {
+            const folderFileData = folderFileSnap.data();
+            const fileRefPath = folderFileData.fileRef; // Get the reference path to the top-level file
+
+            if (fileRefPath) {
+              // Step 2: Fetch actual file data from the top-level 'files' collection
+              const fileDocRef = doc(db, fileRefPath);
+              const fileDocSnap = await getDoc(fileDocRef);
+
+              if (fileDocSnap.exists()) {
+                setDocData(fileDocSnap.data()); // Set the fetched file data
+              } else {
+                console.error("No such file document in top-level collection!");
+              }
+            } else {
+              console.error("No fileRef found in folder document!");
+            }
           } else {
-            console.error("No such document!");
+            console.error("No such document in folder!");
           }
         } catch (error) {
           console.error("Error fetching document:", error);
         } finally {
-          setIsLoading(false); // Stop loading
+          setIsLoading(false); // Stop loading spinner
         }
       }
     };
@@ -36,6 +52,7 @@ export default function ViewDocument() {
     fetchDocument();
   }, [folderId, fileId]);
 
+  // Loading Spinner
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -44,10 +61,12 @@ export default function ViewDocument() {
     );
   }
 
+  // Handle document not found
   if (!docData) {
     return <p>Document not found!</p>;
   }
 
+  // File Extension Logic
   const fileExtension = docData.fileName.split(".").pop().toLowerCase();
   const supportedExtensions = [
     "pdf",
@@ -63,7 +82,7 @@ export default function ViewDocument() {
     const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(
       docData.fileUrl
     )}&embedded=false`;
-    window.open(viewerUrl, "_blank"); // Opens the full Google Docs Viewer
+    window.open(viewerUrl, "_blank"); // Open full Google Docs Viewer
   };
 
   return (
@@ -103,8 +122,8 @@ export default function ViewDocument() {
           onLoad={() => setIsLoading(false)} // Stop loading when iframe finishes loading
         />
       ) : (
-        <div>
-          <p>
+        <div className="mt-10">
+          <p className="text-lg text-gray-700 dark:text-gray-300">
             Preview is not available for this file type. You can download it
             below.
           </p>

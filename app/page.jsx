@@ -143,9 +143,9 @@ export default function Home() {
       const fileUrl = await getDownloadURL(storageRef);
 
       // Step 2: Generate a consistent fileId
-      const fileId = doc(collection(db, "files")).id; // Generates a unique fileId for both collections
+      const fileId = doc(collection(db, "files")).id; // Unique fileId for both collections
 
-      // Step 3: Prepare file data
+      // Step 3: Prepare file metadata
       const fileData = {
         fileId,
         fileName: file.name,
@@ -158,14 +158,13 @@ export default function Home() {
         folderId: selectedFolder, // Track which folder the file is in
       };
 
-      // Step 4: Add file to folders/{selectedFolder}/files/{fileId}
-      await setDoc(
-        doc(db, "folders", selectedFolder, "files", fileId),
-        fileData
-      );
-
-      // Step 5: Add file to top-level files/{fileId}
+      // Step 4: Store full file data in top-level collection `/files/{fileId}`
       await setDoc(doc(db, "files", fileId), fileData);
+
+      // Step 5: Store only a reference in `/folders/{folderId}/files/{fileId}`
+      await setDoc(doc(db, "folders", selectedFolder, "files", fileId), {
+        fileRef: `/files/${fileId}`,
+      });
 
       console.log("File uploaded successfully with fileId:", fileId);
       setDownloadURL(fileUrl);
