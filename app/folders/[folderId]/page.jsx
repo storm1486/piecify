@@ -53,7 +53,7 @@ export default function FolderPage() {
     }
   };
 
-  console.log(users)
+  console.log(users);
 
   console.log("selecteduser", selectedUser);
 
@@ -91,11 +91,14 @@ export default function FolderPage() {
     try {
       const userRef = doc(db, "users", userId);
       const userSnapshot = await getDoc(userRef);
-      const fileRef = doc(db, "folders", folderId, "files", file.id);
-      const fileSnapshot = await getDoc(fileRef);
+
+      // References for files at different levels
+      const folderFileRef = doc(db, "folders", folderId, "files", file.id); // File inside folder
+      const topLevelFileRef = doc(db, "files", file.id); // Top-level file
+      const fileSnapshot = await getDoc(folderFileRef);
 
       if (!fileSnapshot.exists()) {
-        console.error("File does not exist in Firestore.");
+        console.error("File does not exist in folder Firestore path.");
         return;
       }
 
@@ -119,21 +122,19 @@ export default function FolderPage() {
       }
 
       // Prepare the previous owner entry
-      const previousOwnerEntry = fileData.userId
-        ? {
-            userId: fileData.userId, // Previous owner's ID
-            dateGiven: new Date().toISOString(), // Timestamp of reassignment
-          }
-        : null;
+      const previousOwnerEntry = {
+        userId: user.uid,
+        dateGiven: new Date().toISOString(),
+      };
 
-      // Update the file in Firestore to add previous owner
-      await updateDoc(fileRef, {
-        previouslyOwned: previousOwnerEntry
-          ? arrayUnion(previousOwnerEntry) // Append the previous owner
-          : arrayUnion({
-              userId: user.uid,
-              dateGiven: new Date().toISOString(),
-            }), // Add a default entry if empty
+      // Update the file in folders/{folderId}/files/{fileId}
+      await updateDoc(folderFileRef, {
+        previouslyOwned: arrayUnion(previousOwnerEntry),
+      });
+
+      // Update the file in top-level files/{fileId}
+      await updateDoc(topLevelFileRef, {
+        previouslyOwned: arrayUnion(previousOwnerEntry),
       });
 
       // Update the user's `myFiles` array to include the new file
@@ -143,7 +144,7 @@ export default function FolderPage() {
           fileUrl: file.fileUrl,
           fileId: file.id,
           folderId: file.folderId,
-          previouslyOwned: file.previouslyOwned,
+          previouslyOwned: [previousOwnerEntry], // Ensure previouslyOwned is consistent
           pieceDescription: file.pieceDescription,
           assignedAt: new Date(),
         }),
@@ -157,7 +158,7 @@ export default function FolderPage() {
       });
 
       console.log(
-        `File assigned to new user ${userId} and previous owner stored.`
+        `File assigned to new user ${userId} and previous owner stored across all levels.`
       );
     } catch (err) {
       console.error("Error assigning file to user:", err);
