@@ -12,7 +12,7 @@ export default function ViewFile() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
   const [previousOwners, setPreviousOwners] = useState([]);
-  const { user } = useUser();
+  const { user, setUser } = useUser();
   const currentUserId = user?.uid;
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [newDescription, setNewDescription] = useState("");
@@ -25,7 +25,7 @@ export default function ViewFile() {
     }
   }, [docData]);
 
-  console.log("folderID", folderId, "fileId", fileId)
+  console.log("folderId", folderId, "fileId", fileId);
 
   // Dropdown state and ref for closing menu on outside click
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -106,7 +106,7 @@ export default function ViewFile() {
     }
   };
 
-  console.log(docData);
+  console.log("docData", docData);
 
   const handleOpenPieceDetails = async () => {
     await fetchPreviousOwners();
@@ -119,34 +119,65 @@ export default function ViewFile() {
         throw new Error("File ID is missing in the URL!");
       }
 
-      let fileRef;
+      const effectiveFolderId = folderId || docData.folderId;
 
-      // Check if folderId is present in the URL
-      if (folderId) {
-        // When accessing from viewDocuments/{folderId}/{fileId}
-        fileRef = doc(db, "folders", folderId, "files", fileId);
-      } else {
-        // When accessing from viewFile/{fileId}
-        fileRef = doc(db, "files", fileId);
+      // References to all three locations
+      const folderFileRef = effectiveFolderId
+        ? doc(db, "folders", effectiveFolderId, "files", fileId)
+        : null;
+      const topLevelFileRef = doc(db, "files", fileId);
+      const userDocRef = doc(db, "users", currentUserId);
+
+      // Update the file in the folder's subcollection (if applicable)
+      if (folderFileRef) {
+        await updateDoc(folderFileRef, {
+          pieceDescription: newDescription,
+        });
+        console.log("Folder file description updated.");
       }
 
-      console.log("Updating file at path:", fileRef.path);
-
-      await updateDoc(fileRef, {
+      // Update the file in the top-level files collection
+      await updateDoc(topLevelFileRef, {
         pieceDescription: newDescription,
       });
+      console.log("Top-level file description updated.");
 
-      // Update local state to reflect the change
-      setDocData((prevData) => ({
-        ...prevData,
-        pieceDescription: newDescription,
-      }));
+      // Update the file in the user's myFiles array
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        const updatedFiles = userData.myFiles.map((file) =>
+          file.fileId === fileId
+            ? { ...file, pieceDescription: newDescription }
+            : file
+        );
 
-      setIsEditingDescription(false);
-      alert("Description updated successfully!");
+        await updateDoc(userDocRef, { myFiles: updatedFiles });
+        console.log("User's myFiles description updated.");
+
+        // Update local state
+        setDocData((prevData) => ({
+          ...prevData,
+          pieceDescription: newDescription,
+        }));
+
+        // Update user context
+        setUser((prevUser) => {
+          if (!prevUser) return null;
+          return {
+            ...prevUser,
+            myFiles: updatedFiles,
+          };
+        });
+
+        setIsEditingDescription(false);
+        alert("Description updated successfully in all locations!");
+      } else {
+        throw new Error("User document not found!");
+      }
     } catch (error) {
       console.error("Error updating description:", error);
-      alert("Failed to update description.");
+      alert("Failed to update description in all locations.");
     }
   };
 

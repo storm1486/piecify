@@ -53,6 +53,8 @@ export default function FolderPage() {
     }
   };
 
+  console.log(users)
+
   console.log("selecteduser", selectedUser);
 
   const fetchFolderData = async () => {
@@ -140,6 +142,7 @@ export default function FolderPage() {
           fileName: file.fileName,
           fileUrl: file.fileUrl,
           fileId: file.id,
+          folderId: file.folderId,
           previouslyOwned: file.previouslyOwned,
           pieceDescription: file.pieceDescription,
           assignedAt: new Date(),

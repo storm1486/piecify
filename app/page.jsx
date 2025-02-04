@@ -137,33 +137,38 @@ export default function Home() {
     setError(null);
 
     try {
-      // Generate a storage reference based on the folder and file name
+      // Step 1: Upload the file to Firebase Storage
       const storageRef = ref(storage, `${selectedFolder}/${file.name}`);
-
-      // Upload the file to Firebase Storage
       await uploadBytes(storageRef, file);
+      const fileUrl = await getDownloadURL(storageRef);
 
-      // Get the download URL of the uploaded file
-      const url = await getDownloadURL(storageRef);
+      // Step 2: Generate a consistent fileId
+      const fileId = doc(collection(db, "files")).id; // Generates a unique fileId for both collections
 
-      // Firestore Reference
-      const fileDocRef = await addDoc(
-        collection(db, "folders", selectedFolder, "files"),
-        {
-          fileName: file.name,
-          fileUrl: url,
-          uploadedAt: new Date(),
+      // Step 3: Prepare file data
+      const fileData = {
+        fileId,
+        fileName: file.name,
+        fileUrl,
+        uploadedAt: new Date(),
+        pieceDescription: "No description provided.",
+        previouslyOwned: [],
+        previousVersions: [],
+        trackRecord: [],
+        folderId: selectedFolder, // Track which folder the file is in
+      };
 
-          // New Fields
-          previouslyOwned: [], // Empty initially, will store user IDs of past owners
-          previousVersions: [], // Empty initially, will store previous version URLs or references
-          trackRecord: [], // Empty initially, will store tournament performance data later
-          pieceDescription: file.pieceDescription || "No description provided.", // Add this line
-        }
+      // Step 4: Add file to folders/{selectedFolder}/files/{fileId}
+      await setDoc(
+        doc(db, "folders", selectedFolder, "files", fileId),
+        fileData
       );
 
-      console.log("File uploaded successfully:", fileDocRef.id);
-      setDownloadURL(url);
+      // Step 5: Add file to top-level files/{fileId}
+      await setDoc(doc(db, "files", fileId), fileData);
+
+      console.log("File uploaded successfully with fileId:", fileId);
+      setDownloadURL(fileUrl);
     } catch (err) {
       console.error("Error uploading file:", err);
       setError("Upload failed. Please try again.");
