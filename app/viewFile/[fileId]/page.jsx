@@ -2,11 +2,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "../../firebase/firebase"; // Adjust the path as necessary
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext";
 
 export default function ViewFile() {
-  const { fileId } = useParams();
+  const { folderId, fileId } = useParams();
   const router = useRouter();
   const [docData, setDocData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -14,6 +14,18 @@ export default function ViewFile() {
   const [previousOwners, setPreviousOwners] = useState([]);
   const { user } = useUser();
   const currentUserId = user?.uid;
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [newDescription, setNewDescription] = useState("");
+  const [isMenu2Open, setIsMenu2Open] = useState(false);
+  const menu2Ref = useRef(null);
+
+  useEffect(() => {
+    if (docData && docData.pieceDescription !== undefined) {
+      setNewDescription(docData.pieceDescription);
+    }
+  }, [docData]);
+
+  console.log("folderID", folderId, "fileId", fileId)
 
   // Dropdown state and ref for closing menu on outside click
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -60,6 +72,9 @@ export default function ViewFile() {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setIsMenuOpen(false);
       }
+      if (menu2Ref.current && !menu2Ref.current.contains(event.target)) {
+        setIsMenu2Open(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -96,6 +111,43 @@ export default function ViewFile() {
   const handleOpenPieceDetails = async () => {
     await fetchPreviousOwners();
     setIsPieceDetailsOpen(true);
+  };
+
+  const handleUpdateDescription = async () => {
+    try {
+      if (!fileId) {
+        throw new Error("File ID is missing in the URL!");
+      }
+
+      let fileRef;
+
+      // Check if folderId is present in the URL
+      if (folderId) {
+        // When accessing from viewDocuments/{folderId}/{fileId}
+        fileRef = doc(db, "folders", folderId, "files", fileId);
+      } else {
+        // When accessing from viewFile/{fileId}
+        fileRef = doc(db, "files", fileId);
+      }
+
+      console.log("Updating file at path:", fileRef.path);
+
+      await updateDoc(fileRef, {
+        pieceDescription: newDescription,
+      });
+
+      // Update local state to reflect the change
+      setDocData((prevData) => ({
+        ...prevData,
+        pieceDescription: newDescription,
+      }));
+
+      setIsEditingDescription(false);
+      alert("Description updated successfully!");
+    } catch (error) {
+      console.error("Error updating description:", error);
+      alert("Failed to update description.");
+    }
   };
 
   if (isLoading) {
@@ -246,12 +298,82 @@ export default function ViewFile() {
       {isPieceDetailsOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
-            <h2 className="text-xl font-bold mb-4">Piece Details</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Piece Details</h2>
+
+              {/* Show Admin Menu if User is Admin */}
+              {user?.role === "admin" && (
+                <div className="relative" ref={menu2Ref}>
+                  <button
+                    onClick={() => setIsMenu2Open(!isMenu2Open)}
+                    className="p-2 rounded-full hover:bg-gray-300 dark:hover:bg-gray-700"
+                  >
+                    {/* Vertical Ellipsis Icon */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                      className="w-5 h-5 text-gray-700 dark:text-white"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* Admin Dropdown Menu */}
+                  {isMenu2Open && (
+                    <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 shadow-lg rounded-lg z-30">
+                      <ul className="py-2 text-gray-800 dark:text-white">
+                        <li
+                          className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
+                          onClick={() => {
+                            setIsMenu2Open(false);
+                            setIsEditingDescription(true);
+                          }}
+                        >
+                          Edit Description
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Piece Description */}
-            <p className="mb-4">
-              <strong>Description:</strong> {docData.pieceDescription}
-            </p>
+            <div className="mb-4">
+              <strong>Description:</strong>
+              {isEditingDescription ? (
+                <>
+                  <textarea
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+                  />
+                  <div className="flex justify-end space-x-2 mt-2">
+                    <button
+                      onClick={() => setIsEditingDescription(false)}
+                      className="bg-gray-500 text-white px-3 py-1 rounded"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={async () => await handleUpdateDescription()}
+                      className="bg-blue-500 text-white px-3 py-1 rounded"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p>{docData.pieceDescription || "No description provided."}</p>
+              )}
+            </div>
 
             {/* Previous Owners */}
             <h3 className="text-lg font-semibold mb-2">Previous Owners:</h3>
