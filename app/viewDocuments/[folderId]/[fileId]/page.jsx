@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "../../../firebase/firebase"; // Adjust the path as necessary
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext";
 
 export default function ViewDocument() {
@@ -20,6 +20,12 @@ export default function ViewDocument() {
   const menu2Ref = useRef(null);
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
   const [previousOwners, setPreviousOwners] = useState([]);
+
+  useEffect(() => {
+    if (docData && docData.pieceDescription !== undefined) {
+      setNewDescription(docData.pieceDescription);
+    }
+  }, [docData]);
 
   // Close menu when clicking outside
   useEffect(() => {
