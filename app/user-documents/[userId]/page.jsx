@@ -1,17 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  query,
+  where,
+  collection,
+  getDocs,
+} from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { db } from "../../firebase/firebase";
-import { useUser } from "@/src/context/UserContext";
 
 export default function UserDocuments({ params }) {
-  const [documents, setDocuments] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null); // Store clicked user details
+  const [documents, setDocuments] = useState([]); // Store resolved file details
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const { user } = useUser();
-  const { userId } = params; // Retrieve userId from params
+  const { userId } = params; // Retrieve clicked user ID from params
 
   useEffect(() => {
     if (!userId) {
@@ -20,31 +26,44 @@ export default function UserDocuments({ params }) {
       return;
     }
 
-    const fetchDocuments = async () => {
+    const fetchUserAndDocuments = async () => {
       try {
-        // Query the "users" collection for the user document
-        const userQuery = query(
-          collection(db, "users"),
-          where("uid", "==", userId)
-        );
-        const userSnapshot = await getDocs(userQuery);
+        // Fetch selected user's details
+        const userDocRef = doc(db, "users", userId);
+        const userDocSnap = await getDoc(userDocRef);
 
-        if (!userSnapshot.empty) {
-          // Extract the "myFiles" array from the user document
-          const userDoc = userSnapshot.docs[0].data();
-          const files = userDoc.myFiles || [];
-          setDocuments(files);
-        } else {
-          console.error("No user found with the provided user ID.");
+        if (!userDocSnap.exists()) {
+          console.error("User not found.");
+          setLoading(false);
+          return;
         }
+
+        const userData = userDocSnap.data();
+        setSelectedUser(userData);
+
+        // Resolve file references from `myFiles` array
+        const fileRefs = userData.myFiles || [];
+        const filePromises = fileRefs.map(async (fileRef) => {
+          if (!fileRef?.path) return null; // Ensure it has a valid path
+
+          const fileDocRef = doc(db, fileRef.path); // Get actual file doc
+          const fileDocSnapshot = await getDoc(fileDocRef);
+
+          return fileDocSnapshot.exists()
+            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data() }
+            : null;
+        });
+
+        const resolvedFiles = (await Promise.all(filePromises)).filter(Boolean); // Remove null values
+        setDocuments(resolvedFiles);
       } catch (error) {
-        console.error("Error fetching documents:", error);
+        console.error("Error fetching user or documents:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDocuments();
+    fetchUserAndDocuments();
   }, [userId]);
 
   if (loading) {
@@ -60,20 +79,23 @@ export default function UserDocuments({ params }) {
         Back to Team
       </button>
       <h1 className="text-4xl font-bold mb-6">
-        Pieces for: {user.firstName}{" "}{user.lastName}
+        Pieces for: {" "}
+        {selectedUser?.firstName && selectedUser?.lastName
+          ? `${selectedUser?.firstName} ${selectedUser?.lastName}`
+          : selectedUser?.email || "Unknown User"}
       </h1>
       {documents.length === 0 ? (
         <p>No documents found for this user.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {documents.map((file, index) => (
+          {documents.map((file) => (
             <div
-              key={index}
+              key={file.id}
               className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800"
             >
               <p className="font-bold">{file.fileName || "Untitled File"}</p>
               <p className="text-sm text-gray-500">
-                {file.description || "No description available"}
+                {file.pieceDescription || "No description available"}
               </p>
             </div>
           ))}

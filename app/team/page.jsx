@@ -29,6 +29,8 @@ export default function CurrentTeam() {
     fetchUsers();
   }, []);
 
+  console.log(users)
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
