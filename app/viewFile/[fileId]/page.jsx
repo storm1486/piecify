@@ -25,46 +25,21 @@ export default function ViewFile() {
     }
   }, [docData]);
 
-  console.log("folderId", folderId, "fileId", fileId);
-
   // Dropdown state and ref for closing menu on outside click
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
-    const fetchFile = async () => {
-      if (!currentUserId) {
-        console.error("User ID is not available");
-        return;
+    if (user && fileId) {
+      const file = user.myFiles.find((f) => f.id === fileId);
+      if (file) {
+        setDocData(file);
+      } else {
+        console.error("File not found in user's myFiles!");
       }
-
-      try {
-        setIsLoading(true);
-        const userDocRef = doc(db, "users", currentUserId);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          const file = userData.myFiles?.find((f) => f.fileId === fileId);
-          if (file) {
-            setDocData(file);
-          } else {
-            console.error("No such file found in user's myFiles!");
-          }
-        } else {
-          console.error("No such user document!");
-        }
-      } catch (error) {
-        console.error("Error fetching file:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (currentUserId) {
-      fetchFile();
+      setIsLoading(false);
     }
-  }, [currentUserId, fileId]);
+  }, [user, fileId]);
 
   // Close menu when clicking outside
   useEffect(() => {

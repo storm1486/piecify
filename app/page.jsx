@@ -29,6 +29,7 @@ export default function Home() {
     isLoginModalOpen,
     openLoginModal,
     toggleFavorite,
+    fetchMyFiles,
     closeLoginModal,
   } = useUser();
 
@@ -83,6 +84,12 @@ export default function Home() {
     };
 
     fetchUserData();
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchMyFiles();
+    }
   }, [user]);
 
   if (loading) {
@@ -742,23 +749,29 @@ export default function Home() {
                   <div>
                     {user?.myFiles.length > 0 ? (
                       <ul className="space-y-4">
-                        {user?.myFiles
+                        {user.myFiles
                           .slice()
-                          .sort((a, b) => a.fileName.localeCompare(b.fileName)) // Sort alphabetically
+                          .filter((file) => file?.fileName) // Ensure fileName exists
+                          .sort((a, b) =>
+                            a.fileName && b.fileName
+                              ? a.fileName.localeCompare(b.fileName)
+                              : 0
+                          ) // Handle undefined values
                           .map((file, index) => (
                             <li
                               key={index}
                               className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                             >
                               <Link
-                                href={`/viewFile/${file.fileId}`} // Update to your file-specific route structure
+                                href={`/viewFile/${file.id}`}
                                 className="flex justify-between items-center"
                               >
-                                <span>{file.fileName}</span>
+                                <span>{file.fileName || "Untitled File"}</span>{" "}
+                                {/* Ensure there's always text */}
                                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                                  {file.assignedAt
+                                  {file.uploadedAt
                                     ? new Date(
-                                        file.assignedAt.seconds * 1000
+                                        file.uploadedAt.seconds * 1000
                                       ).toLocaleDateString()
                                     : "No Date"}
                                 </span>

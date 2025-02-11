@@ -111,9 +111,22 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
       if (userDoc.exists()) {
         const data = userDoc.data();
+        const fileRefs = data.myFiles || [];
+        // Resolve file references
+        const filePromises = fileRefs.map(async (fileRef: { path: string; }) => {
+          const fileDocRef = doc(db, fileRef.path); // Get the actual document using the path
+          const fileDocSnapshot = await getDoc(fileDocRef);
+          return fileDocSnapshot.exists()
+            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data() }
+            : null;
+        });
+        const resolvedFiles = (await Promise.all(filePromises)).filter(
+          (file) => file !== null
+        );
+
         setUser((prevUser) => ({
           ...prevUser!,
-          myFiles: data.myFiles || [],
+          myFiles: resolvedFiles, // Set resolved files
         }));
       }
     } catch (error) {
