@@ -57,7 +57,7 @@ export default function PieceDetails({ fileId, onClose }) {
             const userSnap = await getDoc(userRef);
             return {
               name: userSnap.exists()
-                ? userSnap.data().firstName || userSnap.data().email
+                ? `${userSnap.data().firstName} ${userSnap.data().lastName}`|| userSnap.data().email
                 : "Unknown User",
               dateGiven: owner.dateGiven,
             };
@@ -71,6 +71,8 @@ export default function PieceDetails({ fileId, onClose }) {
 
     fetchPreviousOwners();
   }, [docData]);
+
+  console.log(previousOwners)
 
   const handleUpdateDescription = async () => {
     try {
