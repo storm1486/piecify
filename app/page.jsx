@@ -96,9 +96,13 @@ export default function Home() {
     return <p>Loading...</p>; // Show a loading state while fetching user data
   }
 
-  const handleLogout = () => {
-    setUser(null); // Clear user state
-    openLoginModal(); // Show the login modal
+  const handleLogout = async () => {
+    try {
+      await signOut(auth); // Ensure Firebase logs out the user
+      setUser(null); // Reset user state safely
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
   };
 
   const handleLogin = async () => {
@@ -343,7 +347,7 @@ export default function Home() {
           <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
             Favorited Folders
           </h3>
-          {user?.favoriteFolders.length > 0 ? (
+          {user?.favoriteFolders?.length > 0 ? (
             <div className="grid gap-4">
               {allFolders
                 .filter((folder) => user.favoriteFolders.includes(folder.id))
@@ -747,7 +751,7 @@ export default function Home() {
                 {/* Admin View: My Files */}
                 {activeTab === "my" && (
                   <div>
-                    {user?.myFiles.length > 0 ? (
+                    {user?.myFiles?.length > 0 ? (
                       <ul className="space-y-4">
                         {user.myFiles
                           .slice()
@@ -793,11 +797,13 @@ export default function Home() {
                 <h2 className="text-2xl font-semibold mb-4">All Files</h2>
 
                 {/* Non-Admin View */}
-                {user?.myFiles.length > 0 ? (
+                {user?.myFiles?.length > 0 ? (
                   <ul className="space-y-4">
                     {user?.myFiles
                       .slice()
-                      .sort((a, b) => a.fileName.localeCompare(b.fileName)) // Sort alphabetically
+                      ?.sort((a, b) =>
+                        (a?.fileName || "").localeCompare(b?.fileName || "")
+                      )
                       .map((file, index) => (
                         <li
                           key={index}

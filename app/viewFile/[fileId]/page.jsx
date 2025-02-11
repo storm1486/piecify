@@ -94,65 +94,24 @@ export default function ViewFile() {
         throw new Error("File ID is missing in the URL!");
       }
 
-      const effectiveFolderId = folderId || docData.folderId;
-
-      // References to all three locations
-      const folderFileRef = effectiveFolderId
-        ? doc(db, "folders", effectiveFolderId, "files", fileId)
-        : null;
       const topLevelFileRef = doc(db, "files", fileId);
-      const userDocRef = doc(db, "users", currentUserId);
 
-      // Update the file in the folder's subcollection (if applicable)
-      if (folderFileRef) {
-        await updateDoc(folderFileRef, {
-          pieceDescription: newDescription,
-        });
-        console.log("Folder file description updated.");
-      }
+      // Update the file in Firestore
+      await updateDoc(topLevelFileRef, { pieceDescription: newDescription });
 
-      // Update the file in the top-level files collection
-      await updateDoc(topLevelFileRef, {
-        pieceDescription: newDescription,
-      });
       console.log("Top-level file description updated.");
 
-      // Update the file in the user's myFiles array
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        const updatedFiles = userData.myFiles.map((file) =>
-          file.fileId === fileId
-            ? { ...file, pieceDescription: newDescription }
-            : file
-        );
+      // Ensure local state updates with the latest changes
+      setDocData((prevData) => ({
+        ...prevData,
+        pieceDescription: newDescription,
+      }));
 
-        await updateDoc(userDocRef, { myFiles: updatedFiles });
-        console.log("User's myFiles description updated.");
-
-        // Update local state
-        setDocData((prevData) => ({
-          ...prevData,
-          pieceDescription: newDescription,
-        }));
-
-        // Update user context
-        setUser((prevUser) => {
-          if (!prevUser) return null;
-          return {
-            ...prevUser,
-            myFiles: updatedFiles,
-          };
-        });
-
-        setIsEditingDescription(false);
-        alert("Description updated successfully in all locations!");
-      } else {
-        throw new Error("User document not found!");
-      }
+      setIsEditingDescription(false);
+      alert("Description updated successfully!");
     } catch (error) {
       console.error("Error updating description:", error);
-      alert("Failed to update description in all locations.");
+      alert("Failed to update description.");
     }
   };
 
@@ -168,7 +127,9 @@ export default function ViewFile() {
     return <p>File not found!</p>;
   }
 
-  const fileExtension = docData.fileName.split(".").pop().toLowerCase();
+  const fileExtension = docData?.fileName?.includes(".")
+    ? docData.fileName.split(".").pop().toLowerCase()
+    : "";
   const supportedExtensions = [
     "pdf",
     "doc",
@@ -267,7 +228,7 @@ export default function ViewFile() {
       </header>
 
       {/* Document Viewer */}
-      <div className="mt-20 w-full flex-grow flex items-center justify-center">
+      <div className="w-full flex-grow flex items-center justify-center">
         {fileExtension === "pdf" ? (
           <iframe
             src={docData.fileUrl}
