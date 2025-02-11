@@ -7,7 +7,11 @@ import {
   useEffect,
 } from "react";
 import { auth, db } from "../../app/firebase/firebase"; // Adjust path to your Firebase setup
-import { onAuthStateChanged } from "firebase/auth";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
 import { doc, getDoc, collection, getDocs, setDoc } from "firebase/firestore";
 
 // Define the shape of the user data
@@ -33,6 +37,8 @@ interface UserContextProps {
   closeLoginModal: () => void;
   fetchMyFiles: () => Promise<void>;
   toggleFavorite: (folderId: string) => Promise<void>;
+  handleLogin: (email: string, password: string) => Promise<void>; // 🔹 Added
+  handleLogout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextProps | undefined>(undefined);
@@ -166,6 +172,62 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const firebaseUser = userCredential.user;
+
+      // Fetch user document from Firestore
+      const userDocRef = doc(db, "users", firebaseUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+
+        const userData: User = {
+          email: firebaseUser.email || "",
+          role: data.role || "user",
+          uid: firebaseUser.uid,
+          firstName: data.firstName || "",
+          lastName: data.lastName || "",
+          graduationYear: data.graduationYear || null,
+          myFiles: data.myFiles || [],
+          favoriteFolders: data.favoriteFolders || [],
+          allFolders: [],
+        };
+
+        // Fetch all folders for admin users
+        if (userData.role === "admin") {
+          const folderSnapshot = await getDocs(collection(db, "folders"));
+          userData.allFolders = folderSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+        }
+
+        setUser(userData); // Update context state
+        closeLoginModal(); // Close login modal after successful login
+      } else {
+        throw new Error("User document not found in Firestore.");
+      }
+    } catch (error) {
+      console.error("Error logging in:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth); // Ensure Firebase logs out the user
+      setUser(null); // Reset user state safely
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
   return (
     <UserContext.Provider
       value={{
@@ -177,6 +239,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         closeLoginModal: () => setIsLoginModalOpen(false),
         fetchMyFiles,
         toggleFavorite,
+        handleLogout,
+        handleLogin,
       }}
     >
       {children}
@@ -191,3 +255,6 @@ export const useUser = () => {
   }
   return context;
 };
+function closeLoginModal() {
+  throw new Error("Function not implemented.");
+}

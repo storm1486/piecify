@@ -2,22 +2,9 @@
 import { useState, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, auth } from "./firebase/firebase"; // Adjust the path as necessary
-import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  setDoc,
-  onSnapshot,
-  getDoc,
-} from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
 import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
 import { useUser } from "@/src/context/UserContext";
 import SignUpModal from "@/components/SignUpModal";
 
@@ -26,11 +13,10 @@ export default function Home() {
     user,
     setUser,
     loading,
-    isLoginModalOpen,
-    openLoginModal,
     toggleFavorite,
     fetchMyFiles,
-    closeLoginModal,
+    handleLogout,
+    handleLogin,
   } = useUser();
 
   const [file, setFile] = useState(null);
@@ -65,28 +51,6 @@ export default function Home() {
   const [graduationYear, setGraduationYear] = useState("");
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (!user) return;
-
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUserRole(userData.role);
-
-          if (userData.role !== "admin") {
-            setUserFiles(userData.myFiles || []);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      }
-    };
-
-    fetchUserData();
-  }, [user]);
-
-  useEffect(() => {
     if (user) {
       fetchMyFiles();
     }
@@ -96,30 +60,10 @@ export default function Home() {
     return <p>Loading...</p>; // Show a loading state while fetching user data
   }
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth); // Ensure Firebase logs out the user
-      setUser(null); // Reset user state safely
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
-  const handleLogin = async () => {
-    try {
-      setLoginError(""); // Clear previous errors
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        loginEmail,
-        loginPassword
-      );
-      setCurrentUser(userCredential.user); // Set the current user
-      setLoginEmail("");
-      setLoginPassword(""); // Clear the inputs
-    } catch (error) {
-      console.error("Error logging in:", error);
-      setLoginError(error.message); // Display error message
-    }
+  const handleLoginClick = async () => {
+    await handleLogin(loginEmail, loginPassword);
+    setLoginEmail(""); // Clear input fields
+    setLoginPassword("");
   };
 
   const handleSortByName = () => {
@@ -419,7 +363,7 @@ export default function Home() {
 
             {/* Login Button */}
             <button
-              onClick={handleLogin}
+              onClick={handleLoginClick}
               className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
             >
               Log In
