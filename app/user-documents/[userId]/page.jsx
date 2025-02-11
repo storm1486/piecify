@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  doc,
-  getDoc,
-  query,
-  where,
-  collection,
-  getDocs,
-} from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { db } from "../../firebase/firebase";
 
@@ -79,7 +72,7 @@ export default function UserDocuments({ params }) {
         Back to Team
       </button>
       <h1 className="text-4xl font-bold mb-6">
-        Pieces for: {" "}
+        Pieces for:{" "}
         {selectedUser?.firstName && selectedUser?.lastName
           ? `${selectedUser?.firstName} ${selectedUser?.lastName}`
           : selectedUser?.email || "Unknown User"}

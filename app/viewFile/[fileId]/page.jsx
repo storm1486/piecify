@@ -80,9 +80,7 @@ export default function ViewFile() {
       console.error("Error fetching previous owners:", error);
     }
   };
-
-  console.log("docData", docData);
-
+  
   const handleOpenPieceDetails = async () => {
     await fetchPreviousOwners();
     setIsPieceDetailsOpen(true);
