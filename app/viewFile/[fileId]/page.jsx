@@ -5,6 +5,8 @@ import { db } from "../../firebase/firebase"; // Adjust the path as necessary
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext";
 import PieceDetails from "@/components/PieceDetails";
+import OtherVersions from "@/components/OtherVersions";
+import UploadFileModal from "@/components/UploadFileModal";
 
 export default function ViewFile() {
   const { folderId, fileId } = useParams();
@@ -17,6 +19,13 @@ export default function ViewFile() {
   const menu2Ref = useRef(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const [isUploadFileModalOpen, setIsUploadFileModalOpen] = useState(false);
+  const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
+
+  const handleOpenModal = () => setIsUploadFileModalOpen(true);
+  const handleCloseModal = () => setIsUploadFileModalOpen(false);
+  const handleOpenVersionsModal = () => setIsVersionsModalOpen(true);
+  const handleCloseVersionsModal = () => setIsVersionsModalOpen(false);
 
   useEffect(() => {
     if (user && fileId) {
@@ -95,6 +104,18 @@ export default function ViewFile() {
         </button>
         <h1 className="text-xl font-bold text-center">{docData.fileName}</h1>
         <div className="flex items-center space-x-2">
+          {/* Upload Edited Version */}
+          <button
+            onClick={handleOpenModal}
+            className="bg-yellow-500 text-white px-4 py-2 rounded"
+          >
+            Upload Edited Version
+          </button>
+          <UploadFileModal
+            fileId={fileId}
+            isOpen={isUploadFileModalOpen}
+            onClose={handleCloseModal}
+          />
           <button
             onClick={handleViewFull}
             className="bg-green-500 text-white px-4 py-2 rounded"
@@ -133,10 +154,10 @@ export default function ViewFile() {
                     className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
                     onClick={() => {
                       setIsMenuOpen(false);
-                      alert("Version History Clicked");
+                      handleOpenVersionsModal();
                     }}
                   >
-                    Version History
+                    Edited Versions
                   </li>
                   <li
                     className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
@@ -202,6 +223,13 @@ export default function ViewFile() {
         <PieceDetails
           fileId={fileId}
           onClose={() => setIsPieceDetailsOpen(false)}
+        />
+      )}
+      {isVersionsModalOpen && (
+        <OtherVersions
+          fileId={fileId}
+          isOpen={isVersionsModalOpen}
+          onClose={handleCloseVersionsModal}
         />
       )}
     </main>

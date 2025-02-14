@@ -108,7 +108,7 @@ export default function Home() {
         uploadedAt: new Date(),
         pieceDescription: "No description provided.",
         previouslyOwned: [],
-        previousVersions: [],
+        editedVersions: [],
         trackRecord: [],
         folderId: selectedFolder, // Track which folder the file is in
       };
