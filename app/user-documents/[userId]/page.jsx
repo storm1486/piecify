@@ -34,20 +34,33 @@ export default function UserDocuments({ params }) {
         const userData = userDocSnap.data();
         setSelectedUser(userData);
 
-        // Resolve file references from `myFiles` array
+        // Resolve file references from `myFiles`
         const fileRefs = userData.myFiles || [];
-        const filePromises = fileRefs.map(async (fileRef) => {
-          if (!fileRef?.path) return null; // Ensure it has a valid path
 
-          const fileDocRef = doc(db, fileRef.path); // Get actual file doc
+        const filePromises = fileRefs.map(async (fileEntry) => {
+          let filePath, dateGiven;
+
+          if (typeof fileEntry === "string") {
+            // Old structure: direct reference
+            filePath = fileEntry;
+            dateGiven = null;
+          } else if (fileEntry?.fileRef?.path) {
+            // New structure: { fileRef, dateGiven }
+            filePath = fileEntry.fileRef.path;
+            dateGiven = fileEntry.dateGiven;
+          } else {
+            return null; // Skip invalid entries
+          }
+
+          const fileDocRef = doc(db, filePath);
           const fileDocSnapshot = await getDoc(fileDocRef);
 
           return fileDocSnapshot.exists()
-            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data() }
+            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
             : null;
         });
 
-        const resolvedFiles = (await Promise.all(filePromises)).filter(Boolean); // Remove null values
+        const resolvedFiles = (await Promise.all(filePromises)).filter(Boolean);
         setDocuments(resolvedFiles);
       } catch (error) {
         console.error("Error fetching user or documents:", error);
@@ -89,6 +102,12 @@ export default function UserDocuments({ params }) {
               <p className="font-bold">{file.fileName || "Untitled File"}</p>
               <p className="text-sm text-gray-500">
                 {file.pieceDescription || "No description available"}
+              </p>
+              <p className="text-xs text-gray-400">
+                Given on:{" "}
+                {file.dateGiven
+                  ? new Date(file.dateGiven).toLocaleDateString()
+                  : "Unknown"}
               </p>
             </div>
           ))}
