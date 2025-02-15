@@ -121,8 +121,12 @@ export default function FolderPage() {
 
       if (userSnapshot.exists()) {
         const userData = userSnapshot.data();
-        const isFileAlreadyAssigned = userData.myFiles?.some(
-          (assignedFileRef) => assignedFileRef.path === topLevelFileRef.path
+
+        // Ensure myFiles exists and is an array
+        const myFiles = Array.isArray(userData.myFiles) ? userData.myFiles : [];
+
+        const isFileAlreadyAssigned = myFiles.some(
+          (assignedFile) => assignedFile?.fileRef?.path === topLevelFileRef.path
         );
 
         if (isFileAlreadyAssigned) {
@@ -136,20 +140,15 @@ export default function FolderPage() {
         }
       }
 
-      // Prepare the previous owner entry
-      const previousOwnerEntry = {
-        userId: userId,
-        dateGiven: new Date().toISOString(),
+      // Prepare the file entry with dateGiven
+      const fileEntry = {
+        fileRef: topLevelFileRef, // Store the document reference
+        dateGiven: new Date().toISOString(), // Store the timestamp
       };
 
-      // Update previouslyOwned in top-level files/{fileId}
-      await updateDoc(topLevelFileRef, {
-        previouslyOwned: arrayUnion(previousOwnerEntry),
-      });
-
-      // Add the file reference to the user's `myFiles` array
+      // Update user's myFiles array with the new file entry
       await updateDoc(userRef, {
-        myFiles: arrayUnion(topLevelFileRef),
+        myFiles: arrayUnion(fileEntry),
       });
 
       setAssignMessage({
@@ -160,7 +159,7 @@ export default function FolderPage() {
       });
 
       console.log(
-        `File assigned to new user ${userId} with file reference stored in myFiles.`
+        `File assigned to new user ${userId} with file reference and dateGiven stored in myFiles.`
       );
     } catch (err) {
       console.error("Error assigning file to user:", err);

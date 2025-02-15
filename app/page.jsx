@@ -695,37 +695,28 @@ export default function Home() {
                 {/* Admin View: My Files */}
                 {activeTab === "my" && (
                   <div>
-                    {user?.myFiles?.length > 0 ? (
+                    {user?.myFiles.length > 0 ? (
                       <ul className="space-y-4">
-                        {user.myFiles
-                          .slice()
-                          .filter((file) => file?.fileName) // Ensure fileName exists
-                          .sort((a, b) =>
-                            a.fileName && b.fileName
-                              ? a.fileName.localeCompare(b.fileName)
-                              : 0
-                          ) // Handle undefined values
-                          .map((file, index) => (
-                            <li
-                              key={index}
-                              className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        {user.myFiles.map((file, index) => (
+                          <li
+                            key={index}
+                            className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          >
+                            <Link
+                              href={`/viewFile/${file.id}`}
+                              className="flex justify-between items-center"
                             >
-                              <Link
-                                href={`/viewFile/${file.id}`}
-                                className="flex justify-between items-center"
-                              >
-                                <span>{file.fileName || "Untitled File"}</span>{" "}
-                                {/* Ensure there's always text */}
-                                <span className="text-sm text-gray-500 dark:text-gray-400">
-                                  {file.uploadedAt
-                                    ? new Date(
-                                        file.uploadedAt.seconds * 1000
-                                      ).toLocaleDateString()
-                                    : "No Date"}
-                                </span>
-                              </Link>
-                            </li>
-                          ))}
+                              <span>{file.fileName || "Unnamed File"}</span>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {file.dateGiven
+                                  ? new Date(
+                                      file.dateGiven
+                                    ).toLocaleDateString()
+                                  : "No Date"}
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
                       </ul>
                     ) : (
                       <p className="text-gray-500 dark:text-gray-400">

@@ -119,12 +119,21 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         const data = userDoc.data();
         const fileRefs = data.myFiles || [];
 
-        // Resolve file references to actual file data
-        const filePromises = fileRefs.map(async (fileRef: { path: string }) => {
-          const fileDocRef = doc(db, fileRef.path); // Get the actual document using the path
+        // Resolve file references to actual file data, including `dateGiven`
+        const filePromises = fileRefs.map(async (fileEntry: { fileRef: { path: any; }; dateGiven: any; }) => {
+          // Handle both old (string references) and new (object with fileRef and dateGiven)
+          const filePath =
+            typeof fileEntry === "string" ? fileEntry : fileEntry.fileRef?.path;
+          const dateGiven =
+            typeof fileEntry === "object" ? fileEntry.dateGiven : null;
+
+          if (!filePath) return null; // Skip if no valid path
+
+          const fileDocRef = doc(db, filePath);
           const fileDocSnapshot = await getDoc(fileDocRef);
+
           return fileDocSnapshot.exists()
-            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data() }
+            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
             : null;
         });
 
@@ -134,7 +143,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         setUser((prevUser) => ({
           ...prevUser!,
-          myFiles: resolvedFiles, // Store resolved files
+          myFiles: resolvedFiles, // Store resolved files with dateGiven
         }));
       }
     } catch (error) {
