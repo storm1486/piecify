@@ -119,6 +119,8 @@ export default function FolderPage() {
         return;
       }
 
+      const fileData = fileSnapshot.data();
+
       if (userSnapshot.exists()) {
         const userData = userSnapshot.data();
 
@@ -138,6 +140,18 @@ export default function FolderPage() {
           });
           return;
         }
+      }
+
+      // Store the previous owner (current user assigning the file)
+      if (user?.uid) {
+        const previousOwnerEntry = {
+          userId: user.uid,
+          dateGiven: new Date().toISOString(),
+        };
+
+        await updateDoc(topLevelFileRef, {
+          previouslyOwned: arrayUnion(previousOwnerEntry), // Append previous owner to Firestore
+        });
       }
 
       // Prepare the file entry with dateGiven
@@ -187,8 +201,8 @@ export default function FolderPage() {
   }
 
   return (
-    <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
-      <aside className="w-64 bg-gray-200 dark:bg-gray-800 p-4">
+    <main className="flex min-h-screen bg-mainBg text-white">
+      <aside className="w-64 bg-asideBg p-4">
         <Link href="/">
           <div className="block p-2 bg-blue-500 text-white rounded text-center">
             Home

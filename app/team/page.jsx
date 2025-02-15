@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useRouter } from "next/navigation";
@@ -10,8 +10,7 @@ import { useUser } from "@/src/context/UserContext"; // Import User Context
 export default function CurrentTeam() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(null); // Track which user's menu is open
-  const menuRef = useRef(null); // Ref for detecting clicks outside
+  const [menuOpen, setMenuOpen] = useState(null); // Store the open menu ID
   const router = useRouter();
   const { user } = useUser(); // Get logged-in user from context
 
@@ -57,7 +56,7 @@ export default function CurrentTeam() {
   // Detect clicks outside the menu
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      if (!event.target.closest(".dropdown-menu")) {
         setMenuOpen(null); // Close menu when clicking outside
       }
     };
@@ -103,7 +102,7 @@ export default function CurrentTeam() {
 
             {/* Ellipsis Menu */}
             {user?.role === "admin" && u.id !== user?.uid && (
-              <div className="relative" ref={menuRef}>
+              <div className="relative dropdown-menu">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -115,7 +114,7 @@ export default function CurrentTeam() {
                 </button>
 
                 {menuOpen === u.id && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg rounded-lg py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg rounded-lg py-2 z-50 dropdown-menu">
                     <button
                       onClick={() => toggleAdminRole(u.id, u.role)}
                       className="w-full text-left px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"

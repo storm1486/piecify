@@ -262,9 +262,9 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white">
+    <main className="flex min-h-screen bg-mainBg dark:text-white">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-200 text-black dark:bg-gray-800 dark:text-white p-4">
+      <aside className="w-64 bg-asideBg text-white p-4">
         <h1 className="text-4xl font-bold mb-4">Piecify</h1>
 
         {user ? (

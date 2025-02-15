@@ -77,7 +77,7 @@ export default function UserDocuments({ params }) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 text-black dark:bg-gray-900 dark:text-white p-8">
+    <main className="min-h-screen bg-mainBg text-white p-8">
       <button
         onClick={() => router.back()}
         className="bg-blue-500 text-white px-4 py-2 rounded mb-6"

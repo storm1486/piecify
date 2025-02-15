@@ -55,12 +55,18 @@ export default function PieceDetails({ fileId, onClose }) {
           docData.previouslyOwned.map(async (owner) => {
             const userRef = doc(db, "users", owner.userId);
             const userSnap = await getDoc(userRef);
-            return {
-              name: userSnap.exists()
-                ? `${userSnap.data().firstName} ${userSnap.data().lastName}`|| userSnap.data().email
-                : "Unknown User",
-              dateGiven: owner.dateGiven,
-            };
+
+            if (!userSnap.exists()) {
+              return { name: "Unknown User", dateGiven: owner.dateGiven };
+            }
+
+            const userData = userSnap.data();
+            const name =
+              userData.firstName && userData.lastName
+                ? `${userData.firstName} ${userData.lastName}`
+                : userData.email || "Unknown User"; // Fallback to email if name is missing
+
+            return { name, dateGiven: owner.dateGiven };
           })
         );
         setPreviousOwners(ownerDetails);
@@ -72,7 +78,7 @@ export default function PieceDetails({ fileId, onClose }) {
     fetchPreviousOwners();
   }, [docData]);
 
-  console.log(previousOwners)
+  console.log(previousOwners);
 
   const handleUpdateDescription = async () => {
     try {
