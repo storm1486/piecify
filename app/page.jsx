@@ -105,7 +105,7 @@ export default function Home() {
         fileId,
         fileName: file.name,
         fileUrl,
-        uploadedAt: new Date(),
+        uploadedAt: new Date().toISOString(),
         pieceDescription: "No description provided.",
         previouslyOwned: [],
         editedVersions: [],
@@ -140,11 +140,11 @@ export default function Home() {
     try {
       const docRef = await addDoc(collection(db, "folders"), {
         name: newFolderName,
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
       });
       setFolders([
         ...folders,
-        { id: docRef.id, name: newFolderName, createdAt: new Date() },
+        { id: docRef.id, name: newFolderName, createdAt: new Date().toISOString() },
       ]);
       setIsFolderModalOpen(false);
       setNewFolderName(""); // Reset folder name input
