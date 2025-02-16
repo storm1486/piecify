@@ -333,7 +333,12 @@ export default function Home() {
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
           <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
             <h2 className="text-2xl font-semibold mb-6 text-center">Log In</h2>
-
+            <form
+    onSubmit={(e) => {
+    e.preventDefault(); // Prevent page refresh
+    handleLoginClick();
+  }}
+>
             {/* Email Input */}
             <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
               Email
@@ -368,6 +373,7 @@ export default function Home() {
             >
               Log In
             </button>
+            </form>
 
             {/* Create Account Button */}
             <button

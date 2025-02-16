@@ -25,7 +25,12 @@ export default function SignUpModal({
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
       <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-4xl">
         <h2 className="text-2xl font-semibold mb-6 text-center">Sign Up</h2>
-
+        <form
+  onSubmit={(e) => {
+    e.preventDefault(); // Prevent page refresh
+    onSignUp();
+  }}
+>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* First Name */}
           <div>
@@ -136,6 +141,7 @@ export default function SignUpModal({
             Cancel
           </button>
         </div>
+        </form>
       </div>
     </div>
   );
