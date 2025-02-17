@@ -59,10 +59,6 @@ export default function FolderPage() {
     }
   };
 
-  console.log(users);
-
-  console.log("selecteduser", selectedUser);
-
   const handleFileChange = (event) => {
     setFile(event.target.files[0]);
   };
@@ -278,26 +274,42 @@ export default function FolderPage() {
         </h1>
 
         {user.role === "admin" && (
-          <>
-            <button
-              className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
-              onClick={() => setIsUploadModalOpen(true)}
-            >
-              Upload File to This Folder
-            </button>
-            <div className="pr-10" />
-            <button
-              className="bg-blue-500 text-white px-4 py-2 rounded"
-              onClick={() => setIsModalOpen(true)}
-            >
-              Assign Users files from {folderName}
-            </button>
-          </>
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded"
+            onClick={() => setIsModalOpen(true)}
+          >
+            Assign Users files from {folderName}
+          </button>
         )}
 
         <h2 className="text-2xl font-bold mt-8 mb-4">All Files</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Upload File Container - Always First */}
+          <div
+            className="border border-dashed border-gray-500 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-center gap-2"
+            onClick={() => setIsUploadModalOpen(true)}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-6 h-6 text-gray-500 dark:text-gray-400"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4.5v15m7.5-7.5h-15"
+              />
+            </svg>
+            <span className="font-bold text-gray-700 dark:text-gray-300">
+              Upload File
+            </span>
+          </div>
+
+          {/* Render Actual Files */}
           {files.length > 0 ? (
             files.map((file) => (
               <div
@@ -305,19 +317,11 @@ export default function FolderPage() {
                 className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                 onClick={() => handleFileClick(file.id)}
               >
-                <div className="flex justify-between items-center">
-                  <span
-                    className="font-bold text-gray-900 dark:text-gray-100 truncate"
-                    style={{ maxWidth: "75%" }}
-                    title={file.fileName}
-                  >
-                    {file.fileName}
-                  </span>
-                </div>
+                <span className="font-bold">{file.fileName}</span>
               </div>
             ))
           ) : (
-            <p>No files found in this folder.</p>
+            <></> // Don't show "No files found" because upload button is always there
           )}
         </div>
 
