@@ -59,7 +59,7 @@ export default function FolderPage() {
 
   const fetchFolderData = async () => {
     try {
-      setIsLoading(true); // Start spinner
+      setIsLoading(true); // Start loading indicator
 
       const folderDoc = await getDoc(doc(db, "folders", folderId));
       if (folderDoc.exists()) {
@@ -70,24 +70,31 @@ export default function FolderPage() {
         return;
       }
 
-      // Fetch files from the folder collection (but resolve their references)
+      // Fetch files from the folder subcollection
       const filesSnapshot = await getDocs(
         collection(db, "folders", folderId, "files")
       );
 
       const filePromises = filesSnapshot.docs.map(async (fileDoc) => {
-        const fileRefPath = fileDoc.data().fileRef; // Get the reference to top-level file
+        const fileData = fileDoc.data();
 
-        if (fileRefPath) {
-          const fileDocRef = doc(db, fileRefPath);
-          const fileSnapshot = await getDoc(fileDocRef);
+        if (fileData.fileRef) {
+          let fileRefDoc;
 
-          return fileSnapshot.exists()
-            ? { id: fileSnapshot.id, ...fileSnapshot.data() }
+          if (typeof fileData.fileRef === "object") {
+            // ✅ Properly resolve Firestore document reference
+            fileRefDoc = await getDoc(fileData.fileRef);
+          } else if (typeof fileData.fileRef === "string") {
+            // Handle old case where `fileRef` is stored as a string path (fallback)
+            fileRefDoc = await getDoc(doc(db, fileData.fileRef));
+          }
+
+          return fileRefDoc?.exists()
+            ? { id: fileRefDoc.id, ...fileRefDoc.data() }
             : null;
         }
 
-        return null; // Return null if there's no fileRef
+        return null; // Skip if there's no valid fileRef
       });
 
       const resolvedFiles = (await Promise.all(filePromises)).filter(
@@ -101,7 +108,7 @@ export default function FolderPage() {
       console.error("Error fetching folder data:", error);
       setFileError("Failed to load folder data.");
     } finally {
-      setIsLoading(false); // Stop spinner
+      setIsLoading(false); // Stop loading indicator
     }
   };
 
