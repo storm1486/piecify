@@ -53,7 +53,7 @@ export default function PieceDetails({ fileId, onClose }) {
       try {
         const ownerDetails = await Promise.all(
           docData.previouslyOwned.map(async (owner) => {
-            const userRef = doc(db, "users", owner.userId);
+            const userRef = doc(db, "users", owner.assignedUser);
             const userSnap = await getDoc(userRef);
 
             if (!userSnap.exists()) {

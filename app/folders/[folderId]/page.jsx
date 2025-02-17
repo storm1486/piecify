@@ -114,60 +114,53 @@ export default function FolderPage() {
 
   const handleAssignFileToUser = async (userId, file) => {
     try {
+      if (!userId || !file?.id) {
+        console.error("Invalid user or file data.");
+        return;
+      }
+
       const userRef = doc(db, "users", userId);
       const userSnapshot = await getDoc(userRef);
 
-      // Reference to the top-level file
       const topLevelFileRef = doc(db, "files", file.id);
       const fileSnapshot = await getDoc(topLevelFileRef);
 
       if (!fileSnapshot.exists()) {
-        console.error("File does not exist in top-level Firestore path.");
+        console.error("File does not exist in Firestore.");
         return;
       }
 
-      const fileData = fileSnapshot.data();
-
-      if (userSnapshot.exists()) {
-        const userData = userSnapshot.data();
-
-        // Ensure myFiles exists and is an array
-        const myFiles = Array.isArray(userData.myFiles) ? userData.myFiles : [];
-
-        const isFileAlreadyAssigned = myFiles.some(
-          (assignedFile) => assignedFile?.fileRef?.path === topLevelFileRef.path
-        );
-
-        if (isFileAlreadyAssigned) {
-          setAssignMessage({
-            type: "error",
-            text: `File "${file.fileName}" is already assigned to ${
-              userData.name || "this user"
-            }.`,
-          });
-          return;
-        }
+      if (!userSnapshot.exists()) {
+        console.error("Selected user does not exist.");
+        return;
       }
 
-      // Store the previous owner (current user assigning the file)
-      if (user?.uid) {
-        const previousOwnerEntry = {
-          userId: user.uid,
-          dateGiven: new Date().toISOString(),
-        };
+      const userData = userSnapshot.data();
 
-        await updateDoc(topLevelFileRef, {
-          previouslyOwned: arrayUnion(previousOwnerEntry), // Append previous owner to Firestore
-        });
-      }
-
-      // Prepare the file entry with dateGiven
-      const fileEntry = {
-        fileRef: topLevelFileRef, // Store the document reference
-        dateGiven: new Date().toISOString(), // Store the timestamp
+      // ✅ New structure for assignment history
+      const assignmentEntry = {
+        dateGiven: new Date().toISOString(),
+        userId: user.uid, // The admin/assigner who is making the assignment
+        assignedUser: userId, // The user receiving the file
       };
 
-      // Update user's myFiles array with the new file entry
+      console.log("Assigning file:", {
+        fileName: file.fileName,
+        assigner: user.uid,
+        assignedTo: userId,
+      });
+
+      // ✅ Update the file document with the new `previouslyOwned` entry
+      await updateDoc(topLevelFileRef, {
+        previouslyOwned: arrayUnion(assignmentEntry),
+      });
+
+      // ✅ Assign file reference to the selected user
+      const fileEntry = {
+        fileRef: topLevelFileRef, // Store the document reference
+        dateGiven: new Date().toISOString(),
+      };
+
       await updateDoc(userRef, {
         myFiles: arrayUnion(fileEntry),
       });
@@ -175,15 +168,16 @@ export default function FolderPage() {
       setAssignMessage({
         type: "success",
         text: `File "${file.fileName}" successfully assigned to ${
-          userSnapshot.data()?.name || "this user"
+          userData.name || userData.email || "this user"
         }.`,
       });
 
       console.log(
-        `File assigned to new user ${userId} with file reference and dateGiven stored in myFiles.`
+        `✅ File assigned to ${userId}. Assignment entry stored:`,
+        assignmentEntry
       );
     } catch (err) {
-      console.error("Error assigning file to user:", err);
+      console.error("❌ Error assigning file to user:", err);
       setAssignMessage({
         type: "error",
         text: "Failed to assign file. Please try again.",
