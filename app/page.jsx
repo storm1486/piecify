@@ -19,12 +19,7 @@ export default function Home() {
     handleLogin,
   } = useUser();
 
-  const [file, setFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [downloadURL, setDownloadURL] = useState(null);
-  const [error, setError] = useState(null);
   const [folders, setFolders] = useState([]);
-  const [selectedFolder, setSelectedFolder] = useState("");
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [isAscending, setIsAscending] = useState(true); // State for sorting direction
@@ -33,7 +28,6 @@ export default function Home() {
   const [signupPassword, setSignupPassword] = useState("");
   const [signupRole, setSignupRole] = useState("user");
   const [signupError, setSignupError] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -45,7 +39,6 @@ export default function Home() {
   const [userRole, setUserRole] = useState(null); // To store the user's role
   const [userFiles, setUserFiles] = useState([]); // To store the user's files (for non-admins)
   const [isSigningUp, setIsSigningUp] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
@@ -78,59 +71,6 @@ export default function Home() {
     setIsAscending(!isAscending); // Toggle the sorting order
   };
 
-  const handleFileChange = (event) => {
-    setFile(event.target.files[0]);
-  };
-
-  const handleUpload = async () => {
-    if (!file || !selectedFolder) {
-      setError("Please select a file and a folder.");
-      return;
-    }
-
-    setUploading(true);
-    setError(null);
-
-    try {
-      // Step 1: Upload the file to Firebase Storage
-      const storageRef = ref(storage, `${selectedFolder}/${file.name}`);
-      await uploadBytes(storageRef, file);
-      const fileUrl = await getDownloadURL(storageRef);
-
-      // Step 2: Generate a consistent fileId
-      const fileId = doc(collection(db, "files")).id; // Unique fileId for both collections
-
-      // Step 3: Prepare file metadata
-      const fileData = {
-        fileId,
-        fileName: file.name,
-        fileUrl,
-        uploadedAt: new Date().toISOString(),
-        pieceDescription: "No description provided.",
-        previouslyOwned: [],
-        editedVersions: [],
-        trackRecord: [],
-        folderId: selectedFolder, // Track which folder the file is in
-      };
-
-      // Step 4: Store full file data in top-level collection `/files/{fileId}`
-      await setDoc(doc(db, "files", fileId), fileData);
-
-      // Step 5: Store only a reference in `/folders/{folderId}/files/{fileId}`
-      await setDoc(doc(db, "folders", selectedFolder, "files", fileId), {
-        fileRef: `/files/${fileId}`,
-      });
-
-      console.log("File uploaded successfully with fileId:", fileId);
-      setDownloadURL(fileUrl);
-    } catch (err) {
-      console.error("Error uploading file:", err);
-      setError("Upload failed. Please try again.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleCreateNewFolder = async () => {
     if (!newFolderName.trim()) {
       alert("Folder name cannot be empty.");
@@ -144,7 +84,11 @@ export default function Home() {
       });
       setFolders([
         ...folders,
-        { id: docRef.id, name: newFolderName, createdAt: new Date().toISOString() },
+        {
+          id: docRef.id,
+          name: newFolderName,
+          createdAt: new Date().toISOString(),
+        },
       ]);
       setIsFolderModalOpen(false);
       setNewFolderName(""); // Reset folder name input
@@ -334,45 +278,45 @@ export default function Home() {
           <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
             <h2 className="text-2xl font-semibold mb-6 text-center">Log In</h2>
             <form
-    onSubmit={(e) => {
-    e.preventDefault(); // Prevent page refresh
-    handleLoginClick();
-  }}
->
-            {/* Email Input */}
-            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-              Email
-            </label>
-            <input
-              type="email"
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-              placeholder="Enter email"
-            />
-
-            {/* Password Input */}
-            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-              Password
-            </label>
-            <input
-              type="password"
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-              className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-              placeholder="Enter password"
-            />
-
-            {/* Error Message */}
-            {loginError && <p className="text-red-500 mb-4">{loginError}</p>}
-
-            {/* Login Button */}
-            <button
-              onClick={handleLoginClick}
-              className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
+              onSubmit={(e) => {
+                e.preventDefault(); // Prevent page refresh
+                handleLoginClick();
+              }}
             >
-              Log In
-            </button>
+              {/* Email Input */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Email
+              </label>
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+                placeholder="Enter email"
+              />
+
+              {/* Password Input */}
+              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+                Password
+              </label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
+                placeholder="Enter password"
+              />
+
+              {/* Error Message */}
+              {loginError && <p className="text-red-500 mb-4">{loginError}</p>}
+
+              {/* Login Button */}
+              <button
+                onClick={handleLoginClick}
+                className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
+              >
+                Log In
+              </button>
             </form>
 
             {/* Create Account Button */}
@@ -486,99 +430,6 @@ export default function Home() {
             {user?.role === "admin" ? (
               // Admin View with Tabs
               <>
-                <div className="w-full mb-6">
-                  <button
-                    onClick={() => setIsUploadModalOpen(true)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-gray-800 dark:text-gray-200 border-2 border-dashed border-gray-500 bg-transparent rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                      stroke="currentColor"
-                      className="w-5 h-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 4.5v15m7.5-7.5h-15"
-                      />
-                    </svg>
-                    Upload a File
-                  </button>
-                </div>
-
-                {isUploadModalOpen && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                    <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-                      <h2 className="text-2xl font-bold mb-4">Upload a File</h2>
-
-                      {/* Folder Selector */}
-                      <select
-                        className="w-full p-2 mb-4 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
-                        value={selectedFolder}
-                        onChange={(e) => setSelectedFolder(e.target.value)}
-                      >
-                        <option value="" disabled>
-                          Select a folder
-                        </option>
-                        {allFolders.map((folder) => (
-                          <option key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* File Input */}
-                      <input
-                        type="file"
-                        onChange={handleFileChange}
-                        className="block w-full mb-4 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      />
-
-                      {/* Upload Button */}
-                      <button
-                        onClick={handleUpload}
-                        disabled={uploading}
-                        className={`w-full px-4 py-2 rounded mb-4 ${
-                          uploading
-                            ? "bg-gray-500 text-white cursor-not-allowed"
-                            : "bg-blue-500 text-white hover:bg-blue-600"
-                        }`}
-                      >
-                        {uploading ? "Uploading..." : "Upload"}
-                      </button>
-
-                      {/* Error Message */}
-                      {error && <p className="text-red-500 mb-4">{error}</p>}
-
-                      {/* Success Message */}
-                      {downloadURL && (
-                        <p className="text-green-500 mb-4">
-                          File uploaded successfully!{" "}
-                          <a
-                            href={downloadURL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-500 underline"
-                          >
-                            View file
-                          </a>
-                        </p>
-                      )}
-
-                      {/* Close Modal Button */}
-                      <button
-                        onClick={() => setIsUploadModalOpen(false)}
-                        className="w-full bg-red-500 text-white px-4 py-2 rounded"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Tab Navigation */}
                 <div className="flex space-x-4 mb-6 border-b border-gray-300 dark:border-gray-700">
                   <button

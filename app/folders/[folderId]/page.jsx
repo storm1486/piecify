@@ -9,9 +9,11 @@ import {
   getDoc,
   updateDoc,
   arrayUnion,
+  setDoc,
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Link from "next/link";
-import { db } from "../../firebase/firebase";
+import { db, storage } from "../../firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 
 export default function FolderPage() {
@@ -25,6 +27,10 @@ export default function FolderPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [error, setError] = useState(null);
   const [assignMessage, setAssignMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // State for managing spinner
 
@@ -56,6 +62,61 @@ export default function FolderPage() {
   console.log(users);
 
   console.log("selecteduser", selectedUser);
+
+  const handleFileChange = (event) => {
+    setFile(event.target.files[0]);
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError("Please select a file.");
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      // ✅ Generate a unique fileId
+      const fileId = doc(collection(db, "files")).id;
+
+      // ✅ Ensure file is uploaded to the current folder
+      const storageRef = ref(storage, `${folderId}/${file.name}`);
+      await uploadBytes(storageRef, file);
+      const fileUrl = await getDownloadURL(storageRef);
+
+      // ✅ Modify `fileData` to ensure correct folder association
+      const fileData = {
+        fileId,
+        fileName: file.name,
+        fileUrl,
+        uploadedAt: new Date().toISOString(),
+        pieceDescription: "No description provided.",
+        previouslyOwned: [],
+        editedVersions: [],
+        trackRecord: [],
+        folderId: folderId, // ✅ Ensure the correct folder ID is stored
+      };
+
+      // ✅ Create Firestore reference for file
+      const fileRef = doc(db, "files", fileId);
+      await setDoc(fileRef, fileData);
+
+      // ✅ Store reference in the folder’s Firestore collection
+      await setDoc(doc(db, "folders", folderId, "files", fileId), {
+        fileRef: `/files/${fileId}`, // ✅ Store as a string path
+      });
+
+      console.log("File uploaded successfully:", fileId);
+      fetchFolderData(); // Refresh file list after upload
+      setIsUploadModalOpen(false);
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      setError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const fetchFolderData = async () => {
     try {
@@ -217,12 +278,21 @@ export default function FolderPage() {
         </h1>
 
         {user.role === "admin" && (
-          <button
-            className="bg-blue-500 text-white px-4 py-2 rounded"
-            onClick={() => setIsModalOpen(true)}
-          >
-            Assign Users files from {folderName}
-          </button>
+          <>
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+              onClick={() => setIsUploadModalOpen(true)}
+            >
+              Upload File to This Folder
+            </button>
+            <div className="pr-10" />
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Assign Users files from {folderName}
+            </button>
+          </>
         )}
 
         <h2 className="text-2xl font-bold mt-8 mb-4">All Files</h2>
@@ -348,6 +418,40 @@ export default function FolderPage() {
                     className="w-full bg-red-500 text-white px-4 py-2 rounded mt-4"
                   >
                     Close
+                  </button>
+                </div>
+              </div>
+            )}
+            {isUploadModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+                  <h2 className="text-2xl font-bold mb-4">Upload a File</h2>
+
+                  <input
+                    type="file"
+                    onChange={handleFileChange}
+                    className="block w-full mb-4 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+
+                  <button
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    className={`w-full px-4 py-2 rounded mb-4 ${
+                      uploading
+                        ? "bg-gray-500 text-white cursor-not-allowed"
+                        : "bg-blue-500 text-white hover:bg-blue-600"
+                    }`}
+                  >
+                    {uploading ? "Uploading..." : "Upload"}
+                  </button>
+
+                  {error && <p className="text-red-500 mb-4">{error}</p>}
+
+                  <button
+                    onClick={() => setIsUploadModalOpen(false)}
+                    className="w-full bg-red-500 text-white px-4 py-2 rounded"
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>
