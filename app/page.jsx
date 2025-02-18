@@ -2,7 +2,15 @@
 import { useState, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage, auth } from "./firebase/firebase"; // Adjust the path as necessary
-import { collection, addDoc, getDocs, doc, setDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  setDoc,
+  updateDoc,
+  arrayUnion,
+} from "firebase/firestore";
 import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useUser } from "@/src/context/UserContext";
@@ -42,6 +50,10 @@ export default function Home() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const [file, setFile] = useState([]);
 
   useEffect(() => {
     if (user) {
@@ -151,6 +163,61 @@ export default function Home() {
       setSignupError(error.message); // Display error message
     } finally {
       setIsSigningUp(false); // Re-enable the button
+    }
+  };
+
+  const handleUploadToMyFiles = async () => {
+    if (!file) {
+      setError("Please select a file.");
+      return;
+    }
+    setUploading(true);
+    setError(null);
+
+    try {
+      // ✅ Generate a unique fileId
+      const fileId = doc(collection(db, "files")).id;
+
+      // ✅ Store file in Firebase Storage
+      const storageRef = ref(storage, `user_files/${user.uid}/${file.name}`);
+      await uploadBytes(storageRef, file);
+      const fileUrl = await getDownloadURL(storageRef);
+
+      // ✅ Create Firestore document in `files`
+      const fileData = {
+        fileId,
+        fileName: file.name,
+        fileUrl,
+        uploadedAt: new Date().toISOString(),
+        pieceDescription: "No description provided.",
+        previouslyOwned: [],
+        editedVersions: [],
+        trackRecord: [],
+      };
+
+      const fileRef = doc(db, "files", fileId);
+      await setDoc(fileRef, fileData);
+
+      // ✅ Append { fileRef, dateGiven } to user’s `myFiles` array
+      const fileEntry = {
+        fileRef,
+        dateGiven: new Date().toISOString(),
+      };
+
+      await updateDoc(doc(db, "users", user.uid), {
+        myFiles: arrayUnion(fileEntry),
+      });
+
+      console.log("File uploaded and added to myFiles:", fileId);
+
+      // ✅ Refresh user state to show new file
+      fetchMyFiles();
+      setIsUploadModalOpen(false);
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      setError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -552,6 +619,27 @@ export default function Home() {
                 {/* Admin View: My Files */}
                 {activeTab === "my" && (
                   <div>
+                    <button
+                      onClick={() => setIsUploadModalOpen(true)}
+                      className="w-full mt-4 px-4 py-2 mb-5 text-gray-800 dark:text-gray-200 border-2 border-dashed border-gray-500 bg-transparent rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="2"
+                        stroke="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 4.5v15m7.5-7.5h-15"
+                        />
+                      </svg>
+                      Upload File
+                    </button>
+
                     {user?.myFiles.length > 0 ? (
                       <ul className="space-y-4">
                         {user.myFiles.map((file, index) => (
@@ -625,6 +713,43 @@ export default function Home() {
               </>
             )}
           </section>
+
+          {isUploadModalOpen && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+                <h2 className="text-2xl font-semibold mb-6 text-center">
+                  Upload File
+                </h2>
+
+                <input
+                  type="file"
+                  onChange={(e) => setFile(e.target.files[0])}
+                  className="block w-full mb-4 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+
+                <button
+                  onClick={handleUploadToMyFiles}
+                  disabled={uploading}
+                  className={`w-full px-4 py-2 rounded mb-4 ${
+                    uploading
+                      ? "bg-gray-500 cursor-not-allowed"
+                      : "bg-blue-500 hover:bg-blue-600"
+                  } text-white`}
+                >
+                  {uploading ? "Uploading..." : "Upload"}
+                </button>
+
+                {error && <p className="text-red-500">{error}</p>}
+
+                <button
+                  onClick={() => setIsUploadModalOpen(false)}
+                  className="w-full bg-red-500 text-white px-4 py-2 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {isFolderModalOpen && (
             <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">

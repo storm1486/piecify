@@ -19,7 +19,7 @@ import { useUser } from "@/src/context/UserContext";
 export default function FolderPage() {
   const { folderId } = useParams();
   const router = useRouter();
-  const { user, fetchMyFiles, loading } = useUser();
+  const { user, loading } = useUser();
   const [folderName, setFolderName] = useState("");
   const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState(null);
