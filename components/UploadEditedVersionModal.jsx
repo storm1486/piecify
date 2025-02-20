@@ -13,11 +13,18 @@ import {
 import { storage, db } from "../app/firebase/firebase"; // Adjust path as needed
 import { useUser } from "@/src/context/UserContext"; // Import the user context
 
-export default function UploadEditedVersionFileModal({ fileId, isOpen, onClose }) {
+export default function UploadEditedVersionFileModal({
+  fileId,
+  isOpen,
+  onClose,
+}) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [newFileName, setNewFileName] = useState("");
   const { fetchMyFiles } = useUser();
   const fileInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -29,6 +36,9 @@ export default function UploadEditedVersionFileModal({ fileId, isOpen, onClose }
 
   const handleUploadFile = async () => {
     if (!selectedFile || newFileName.trim() === "") return;
+
+    setUploading(true);
+    setUploadSuccess(false); // ✅ Reset the button state before upload starts
 
     try {
       const newFileId = doc(collection(db, "files")).id; // Generate unique file ID
@@ -54,7 +64,8 @@ export default function UploadEditedVersionFileModal({ fileId, isOpen, onClose }
         editedVersions: arrayUnion(newFileDocRef), // Store as Firestore document reference
       });
 
-      alert("Edited version uploaded successfully!");
+      setUploadMessage("Edited version uploaded successfully!");
+      setUploadSuccess(true);
 
       await fetchMyFiles(); // Refresh user's files
 
@@ -64,12 +75,11 @@ export default function UploadEditedVersionFileModal({ fileId, isOpen, onClose }
       if (fileInputRef.current) {
         fileInputRef.current.value = ""; // ✅ Clears the file input field
       }
-
-      // ✅ Close modal after clearing fields
-      onClose();
     } catch (error) {
       console.error("Error uploading edited version:", error);
-      alert("Failed to upload the edited version.");
+      setUploadMessage("Failed to upload the edited verison.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -77,6 +87,8 @@ export default function UploadEditedVersionFileModal({ fileId, isOpen, onClose }
   const handleClose = () => {
     setSelectedFile(null);
     setNewFileName("");
+    setUploadMessage("");
+    setUploadSuccess(false)
     onClose(); // Close modal
   };
 
@@ -86,14 +98,14 @@ export default function UploadEditedVersionFileModal({ fileId, isOpen, onClose }
         !isOpen && "hidden"
       }`}
     >
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-80">
         <h2 className="text-xl font-bold mb-4">Upload Edited Version</h2>
 
         <input
           type="file"
           ref={fileInputRef} // ✅ Attach ref to input
           onChange={handleFileChange}
-          className="w-full p-2 border rounded mb-3"
+          className="block w-full mb-4 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
 
         {selectedFile && (
@@ -108,21 +120,28 @@ export default function UploadEditedVersionFileModal({ fileId, isOpen, onClose }
           </div>
         )}
 
-        <div className="flex justify-end space-x-2 mt-4">
+        <div className="flex justify-end space-x-2 mt-3">
           <button
-            onClick={handleClose} // ✅ Use the handleClose function to reset state
-            className="px-4 py-2 bg-gray-400 text-white rounded"
+            onClick={handleClose}
+            className="w-full bg-red-500 text-white px-4 py-2 rounded"
           >
-            Cancel
+            {uploadSuccess ? "Close" : "Cancel"}
           </button>
           <button
             onClick={handleUploadFile}
             disabled={!selectedFile}
-            className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+            className={`w-full px-4 py-2 rounded ${
+              uploading
+                ? "bg-gray-500 text-white cursor-not-allowed"
+                : "bg-blue-500 text-white hover:bg-blue-600"
+            }`}
           >
-            Upload
+            {uploading ? "Uploading..." : "Upload"}
           </button>
         </div>
+        {uploadMessage && (
+          <p className="text-green-500 mt-2 text-center">{uploadMessage}</p>
+        )}
       </div>
     </div>
   );
