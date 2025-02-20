@@ -13,7 +13,7 @@ import {
 import { storage, db } from "../app/firebase/firebase"; // Adjust path as needed
 import { useUser } from "@/src/context/UserContext"; // Import the user context
 
-export default function UploadFileModal({ fileId, isOpen, onClose }) {
+export default function UploadEditedVersionFileModal({ fileId, isOpen, onClose }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [newFileName, setNewFileName] = useState("");
   const { fetchMyFiles } = useUser();

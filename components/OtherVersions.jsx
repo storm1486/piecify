@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../app/firebase/firebase"; // Adjust path as necessary
-import UploadFileModal from "./UploadFileModal"; // ✅ Import the Upload Modal
+import UploadEditedVersionFileModal from "./UploadEditedVersionModal";
 
 export default function OtherVersions({ fileId, onClose }) {
   const [originalFile, setOriginalFile] = useState(null);
@@ -102,7 +102,7 @@ export default function OtherVersions({ fileId, onClose }) {
         </button>
 
         {/* ✅ Upload Modal */}
-        <UploadFileModal
+        <UploadEditedVersionFileModal
           fileId={fileId} // Pass the correct file ID
           isOpen={isUploadModalOpen}
           onClose={() => setIsUploadModalOpen(false)} // Close modal after upload
