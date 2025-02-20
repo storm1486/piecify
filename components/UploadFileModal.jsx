@@ -8,13 +8,15 @@ import {
   Timestamp,
   doc,
   collection,
-  setDoc
+  setDoc,
 } from "firebase/firestore";
 import { storage, db } from "../app/firebase/firebase"; // Adjust path as needed
+import { useUser } from "@/src/context/UserContext"; // Import the user context
 
 export default function UploadFileModal({ fileId, isOpen, onClose }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [newFileName, setNewFileName] = useState("");
+  const { fetchMyFiles } = useUser();
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -52,18 +54,16 @@ export default function UploadFileModal({ fileId, isOpen, onClose }) {
       });
 
       alert("Edited version uploaded successfully!");
-      onClose(); // Close modal after upload
-      window.location.reload(); // Refresh to show updated versions
+      await fetchMyFiles(); // Refresh user's files
+      onClose(); // Close modal
     } catch (error) {
       console.error("Error uploading edited version:", error);
       alert("Failed to upload the edited version.");
     }
   };
 
-  if (!isOpen) return null; // Hide modal if not open
-
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30">
+    <div className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30 ${!isOpen && 'hidden'}`}>
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
         <h2 className="text-xl font-bold mb-4">Upload Edited Version</h2>
 
