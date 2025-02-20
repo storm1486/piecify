@@ -2,16 +2,9 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { db, storage } from "../../../firebase/firebase"; // Adjust the path as necessary
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  arrayUnion,
-  Timestamp,
-} from "firebase/firestore";
+import { db } from "../../../firebase/firebase"; // Adjust the path as necessary
+import { doc, getDoc } from "firebase/firestore";
 import PieceDetails from "@/components/PieceDetails";
-import UploadFileModal from "@/components/UploadFileModal";
 import OtherVersions from "@/components/OtherVersions";
 
 export default function ViewDocument() {
@@ -24,7 +17,6 @@ export default function ViewDocument() {
   const [isMenu2Open, setIsMenu2Open] = useState(false);
   const menu2Ref = useRef(null);
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
-  const [isUploadFileModalOpen, setIsUploadFileModalOpen] = useState(false);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
 
   // Close menu when clicking outside
@@ -89,8 +81,6 @@ export default function ViewDocument() {
     fetchDocument();
   }, [folderId, fileId]);
 
-  const handleOpenFileUploadModal = () => setIsUploadFileModalOpen(true);
-  const handleCloseFileUploadModal = () => setIsUploadFileModalOpen(false);
   const handleOpenVersionsModal = () => setIsVersionsModalOpen(true);
   const handleCloseVersionsModal = () => setIsVersionsModalOpen(false);
 
@@ -139,18 +129,6 @@ export default function ViewDocument() {
         </button>
         <h1 className="text-xl font-bold text-center">{docData.fileName}</h1>
         <div className="flex items-center space-x-2">
-          {/* Upload Edited Version */}
-          <button
-            onClick={handleOpenFileUploadModal}
-            className="bg-yellow-500 text-white px-4 py-2 rounded"
-          >
-            Upload Edited Version
-          </button>
-          <UploadFileModal
-            fileId={fileId}
-            isOpen={isUploadFileModalOpen}
-            onClose={handleCloseFileUploadModal}
-          />
           <button
             onClick={handleViewFull}
             className="bg-green-500 text-white px-4 py-2 rounded"

@@ -3,11 +3,13 @@
 import { useEffect, useState, useRef } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../app/firebase/firebase"; // Adjust path as necessary
+import UploadFileModal from "./UploadFileModal"; // ✅ Import the Upload Modal
 
 export default function OtherVersions({ fileId, onClose }) {
   const [originalFile, setOriginalFile] = useState(null);
   const [editedVersions, setEditedVersions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); // ✅ Upload Modal State
   const modalRef = useRef(null);
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export default function OtherVersions({ fileId, onClose }) {
     };
 
     fetchFileVersions();
-  }, [fileId]);
+  }, [fileId, isUploadModalOpen]); // ✅ Reload when modal closes (after upload)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -90,6 +92,22 @@ export default function OtherVersions({ fileId, onClose }) {
             )}
           </div>
         )}
+
+        {/* ✅ Upload Edited Version Button */}
+        <button
+          onClick={() => setIsUploadModalOpen(true)}
+          className="mt-4 w-full bg-yellow-500 text-white px-4 py-2 rounded"
+        >
+          Upload Edited Version
+        </button>
+
+        {/* ✅ Upload Modal */}
+        <UploadFileModal
+          fileId={fileId} // Pass the correct file ID
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)} // Close modal after upload
+        />
+
         <button
           onClick={onClose}
           className="mt-6 w-full bg-blue-500 text-white px-4 py-2 rounded"

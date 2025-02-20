@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   arrayUnion,
@@ -17,6 +17,7 @@ export default function UploadFileModal({ fileId, isOpen, onClose }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [newFileName, setNewFileName] = useState("");
   const { fetchMyFiles } = useUser();
+  const fileInputRef = useRef(null);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -54,21 +55,43 @@ export default function UploadFileModal({ fileId, isOpen, onClose }) {
       });
 
       alert("Edited version uploaded successfully!");
+
       await fetchMyFiles(); // Refresh user's files
-      onClose(); // Close modal
+
+      // ✅ Clear the selected file and rename field
+      setSelectedFile(null);
+      setNewFileName("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""; // ✅ Clears the file input field
+      }
+
+      // ✅ Close modal after clearing fields
+      onClose();
     } catch (error) {
       console.error("Error uploading edited version:", error);
       alert("Failed to upload the edited version.");
     }
   };
 
+  // ✅ Reset state when modal is closed
+  const handleClose = () => {
+    setSelectedFile(null);
+    setNewFileName("");
+    onClose(); // Close modal
+  };
+
   return (
-    <div className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30 ${!isOpen && 'hidden'}`}>
+    <div
+      className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30 ${
+        !isOpen && "hidden"
+      }`}
+    >
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
         <h2 className="text-xl font-bold mb-4">Upload Edited Version</h2>
 
         <input
           type="file"
+          ref={fileInputRef} // ✅ Attach ref to input
           onChange={handleFileChange}
           className="w-full p-2 border rounded mb-3"
         />
@@ -87,7 +110,7 @@ export default function UploadFileModal({ fileId, isOpen, onClose }) {
 
         <div className="flex justify-end space-x-2 mt-4">
           <button
-            onClick={onClose}
+            onClick={handleClose} // ✅ Use the handleClose function to reset state
             className="px-4 py-2 bg-gray-400 text-white rounded"
           >
             Cancel
