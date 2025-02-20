@@ -179,6 +179,28 @@ export default function FolderPage() {
       const userRef = doc(db, "users", userId);
       const userSnapshot = await getDoc(userRef);
 
+      if (!userSnapshot.exists()) {
+        console.error("Selected user does not exist.");
+        return;
+      }
+
+      const userData = userSnapshot.data();
+
+      // ✅ Check if the file is already in the user's `myFiles` array
+      const userHasFile = userData.myFiles?.some(
+        (fileEntry) => fileEntry.fileRef?.id === file.id
+      );
+
+      if (userHasFile) {
+        setAssignMessage({
+          type: "error",
+          text: `User ${
+            userData.name || userData.email
+          } already has this file.`,
+        });
+        return; // ❌ Stop execution if the user already has the file
+      }
+
       const topLevelFileRef = doc(db, "files", file.id);
       const fileSnapshot = await getDoc(topLevelFileRef);
 
@@ -186,13 +208,6 @@ export default function FolderPage() {
         console.error("File does not exist in Firestore.");
         return;
       }
-
-      if (!userSnapshot.exists()) {
-        console.error("Selected user does not exist.");
-        return;
-      }
-
-      const userData = userSnapshot.data();
 
       // ✅ New structure for assignment history
       const assignmentEntry = {
@@ -222,6 +237,7 @@ export default function FolderPage() {
         myFiles: arrayUnion(fileEntry),
       });
 
+      // ✅ Keep the success message but reset fields
       setAssignMessage({
         type: "success",
         text: `File "${file.fileName}" successfully assigned to ${
@@ -229,10 +245,9 @@ export default function FolderPage() {
         }.`,
       });
 
-      console.log(
-        `✅ File assigned to ${userId}. Assignment entry stored:`,
-        assignmentEntry
-      );
+      // ✅ Reset the user and file selection without clearing the message
+      setSelectedUser(null);
+      setSelectedFile(null);
     } catch (err) {
       console.error("❌ Error assigning file to user:", err);
       setAssignMessage({
@@ -346,7 +361,10 @@ export default function FolderPage() {
                       id="user-select"
                       className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={selectedUser || ""}
-                      onChange={(e) => setSelectedUser(e.target.value)}
+                      onChange={(e) => {
+                        setSelectedUser(e.target.value);
+                        setAssignMessage(null); // ✅ Remove message when selecting a new user
+                      }}
                     >
                       <option value="" disabled>
                         -- Select a User --
