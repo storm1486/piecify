@@ -199,37 +199,14 @@ export default function ViewDocument() {
 
       {/* Document Viewer */}
       <div className="w-full flex-grow flex items-center justify-center">
-        {fileExtension === "pdf" ? (
-          <iframe
-            src={docData.fileUrl}
-            className="w-full h-[calc(100vh-80px)]"
-            title={docData.fileName}
-            onLoad={() => setIsLoading(false)}
-          />
-        ) : supportedExtensions.includes(fileExtension) ? (
-          <iframe
-            src={`https://docs.google.com/gview?url=${encodeURIComponent(
-              docData.fileUrl
-            )}&embedded=true`}
-            className="w-full h-[calc(100vh-80px)]"
-            title={docData.fileName}
-            onLoad={() => setIsLoading(false)}
-          />
-        ) : (
-          <div>
-            <p>
-              Preview is not available for this file type. You can download it
-              below.
-            </p>
-            <a
-              href={docData.fileUrl}
-              className="text-blue-600 underline"
-              download
-            >
-              Download {docData.fileName}
-            </a>
-          </div>
-        )}
+        <iframe
+          src={`https://docs.google.com/gview?url=${encodeURIComponent(
+            docData.fileUrl
+          )}&embedded=true`}
+          className="w-full h-[calc(100vh-80px)]"
+          title={docData.fileName}
+          onLoad={() => setIsLoading(false)}
+        />
       </div>
 
       {isPieceDetailsOpen && (

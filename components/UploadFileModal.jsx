@@ -12,15 +12,21 @@ export default function UploadFileModal({
   closeModal,
 }) {
   const [file, setFile] = useState(null);
+  const [customFileName, setCustomFileName] = useState("");
+  const [pieceDescription, setPieceDescription] = useState("");
+  const [attributes, setAttributes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
 
   // Handle file selection
   const handleFileChange = (event) => {
-    setFile(event.target.files[0]);
+    const selectedFile = event.target.files[0];
+    setFile(selectedFile);
     setError(null);
-    setSuccessMessage(null);
+    // Prepopulate customFileName with the default file name
+    if (selectedFile) {
+      setCustomFileName(selectedFile.name);
+    }
   };
 
   // Handle file upload logic
@@ -31,30 +37,31 @@ export default function UploadFileModal({
     }
     setUploading(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       // Generate a unique fileId
       const fileId = doc(collection(db, "files")).id;
 
-      // Upload the file to the current folder in Storage
+      // Upload the file to Storage under the current folder
       const storageRef = ref(storage, `${folderId}/${file.name}`);
       await uploadBytes(storageRef, file);
       const fileUrl = await getDownloadURL(storageRef);
 
-      // Create file document data
+      // Create file document data with custom fields
       const fileData = {
         fileId,
-        fileName: file.name,
+        fileName: customFileName || file.name,
         fileUrl,
         uploadedAt: new Date().toISOString(),
-        pieceDescription: "No description provided.",
+        pieceDescription: pieceDescription || "No description provided.",
         currentOwner: [],
         previouslyOwned: [],
         editedVersions: [],
         trackRecord: [],
-        attributes: [],
-        folderId: folderId,
+        attributes: attributes
+          ? attributes.split(",").map((attr) => attr.trim())
+          : [],
+        folderId,
       };
 
       // Create Firestore document for the file
@@ -68,7 +75,6 @@ export default function UploadFileModal({
 
       console.log("File uploaded successfully:", fileId);
       // Set a success message instead of closing the modal
-      setSuccessMessage("File uploaded successfully!");
       if (onUploadSuccess) onUploadSuccess();
       closeModal();
     } catch (err) {
@@ -92,6 +98,48 @@ export default function UploadFileModal({
           className="block w-full mb-4 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
 
+        {/* Custom File Name */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            File Name
+          </label>
+          <input
+            type="text"
+            value={customFileName}
+            onChange={(e) => setCustomFileName(e.target.value)}
+            placeholder="Enter file name"
+            className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+          />
+        </div>
+
+        {/* Piece Description */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Piece Description
+          </label>
+          <textarea
+            value={pieceDescription}
+            onChange={(e) => setPieceDescription(e.target.value)}
+            placeholder="Enter a description for the file"
+            className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+            rows={3}
+          />
+        </div>
+
+        {/* Attributes */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Attributes (comma-separated)
+          </label>
+          <input
+            type="text"
+            value={attributes}
+            onChange={(e) => setAttributes(e.target.value)}
+            placeholder="e.g. attribute1, attribute2"
+            className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+          />
+        </div>
+
         <button
           onClick={handleUpload}
           disabled={uploading}
@@ -105,9 +153,6 @@ export default function UploadFileModal({
         </button>
 
         {error && <p className="text-red-500 mb-4">{error}</p>}
-        {successMessage && (
-          <p className="text-green-500 mb-4">{successMessage}</p>
-        )}
 
         <button
           onClick={closeModal}
