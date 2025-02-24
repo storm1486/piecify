@@ -98,47 +98,51 @@ export default function UploadFileModal({
           className="block w-full mb-4 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
         />
 
-        {/* Custom File Name */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            File Name
-          </label>
-          <input
-            type="text"
-            value={customFileName}
-            onChange={(e) => setCustomFileName(e.target.value)}
-            placeholder="Enter file name"
-            className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
-          />
-        </div>
+        {file && (
+          <>
+            {/* Custom File Name */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                File Name
+              </label>
+              <input
+                type="text"
+                value={customFileName}
+                onChange={(e) => setCustomFileName(e.target.value)}
+                placeholder="Enter file name"
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+              />
+            </div>
 
-        {/* Piece Description */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Piece Description
-          </label>
-          <textarea
-            value={pieceDescription}
-            onChange={(e) => setPieceDescription(e.target.value)}
-            placeholder="Enter a description for the file"
-            className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
-            rows={3}
-          />
-        </div>
+            {/* Piece Description */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Piece Description
+              </label>
+              <textarea
+                value={pieceDescription}
+                onChange={(e) => setPieceDescription(e.target.value)}
+                placeholder="Enter a description for the file"
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+                rows={3}
+              />
+            </div>
 
-        {/* Attributes */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Attributes (comma-separated)
-          </label>
-          <input
-            type="text"
-            value={attributes}
-            onChange={(e) => setAttributes(e.target.value)}
-            placeholder="e.g. attribute1, attribute2"
-            className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
-          />
-        </div>
+            {/* Attributes */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Attributes (comma-separated)
+              </label>
+              <input
+                type="text"
+                value={attributes}
+                onChange={(e) => setAttributes(e.target.value)}
+                placeholder="e.g. attribute1, attribute2"
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          </>
+        )}
 
         <button
           onClick={handleUpload}
