@@ -98,18 +98,6 @@ export default function ViewDocument() {
     return <p>Document not found!</p>;
   }
 
-  // File Extension Logic
-  const fileExtension = docData.fileName.split(".").pop().toLowerCase();
-  const supportedExtensions = [
-    "pdf",
-    "doc",
-    "docx",
-    "ppt",
-    "pptx",
-    "xls",
-    "xlsx",
-  ];
-
   const handleViewFull = () => {
     const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(
       docData.fileUrl

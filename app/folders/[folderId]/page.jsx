@@ -127,21 +127,6 @@ export default function FolderPage() {
 
       const userData = userSnapshot.data();
 
-      // ✅ Check if the file is already in the user's `myFiles` array
-      const userHasFile = userData.myFiles?.some(
-        (fileEntry) => fileEntry.fileRef?.id === file.id
-      );
-
-      if (userHasFile) {
-        setAssignMessage({
-          type: "error",
-          text: `User ${
-            userData.name || userData.email
-          } already has this file.`,
-        });
-        return; // ❌ Stop execution if the user already has the file
-      }
-
       const topLevelFileRef = doc(db, "files", file.id);
       const fileSnapshot = await getDoc(topLevelFileRef);
 
@@ -150,11 +135,41 @@ export default function FolderPage() {
         return;
       }
 
-      // ✅ New structure for assignment history
+      const fileData = fileSnapshot.data();
+
+      // ✅ Check if there is already a current owner
+      if (fileData.currentOwner && fileData.currentOwner.length > 0) {
+        const currentOwnerId = fileData.currentOwner[0].userId; // Get the current owner's ID
+
+        // ✅ Fetch the current owner's user details
+        const currentOwnerRef = doc(db, "users", currentOwnerId);
+        const currentOwnerSnap = await getDoc(currentOwnerRef);
+
+        let currentOwnerName = "Unknown User";
+        if (currentOwnerSnap.exists()) {
+          const currentOwnerData = currentOwnerSnap.data();
+          currentOwnerName =
+            currentOwnerData.firstName + " " + currentOwnerData.lastName || currentOwnerData.email || "Unknown User";
+        }
+
+        setAssignMessage({
+          type: "error",
+          text: `This file is already assigned to ${currentOwnerName}.`,
+        });
+        return; // ❌ Stop execution if the file has an owner
+      }
+
+      // ✅ New structure for assignment history (previouslyOwned)
       const assignmentEntry = {
         dateGiven: new Date().toISOString(),
         userId: user.uid, // The admin/assigner who is making the assignment
         assignedUser: userId, // The user receiving the file
+      };
+
+      // ✅ New structure for currentOwner (only one allowed)
+      const currentOwnerEntry = {
+        userId: userId, // The user receiving the file
+        dateGiven: new Date().toISOString(), // Timestamp of assignment
       };
 
       console.log("Assigning file:", {
@@ -163,9 +178,10 @@ export default function FolderPage() {
         assignedTo: userId,
       });
 
-      // ✅ Update the file document with the new `previouslyOwned` entry
+      // ✅ Update the file document with the new `previouslyOwned` and `currentOwner` entry
       await updateDoc(topLevelFileRef, {
         previouslyOwned: arrayUnion(assignmentEntry),
+        currentOwner: [currentOwnerEntry], // ✅ Overwrites to ensure only one currentOwner
       });
 
       // ✅ Assign file reference to the selected user

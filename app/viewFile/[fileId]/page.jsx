@@ -6,12 +6,12 @@ import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
 
 export default function ViewFile() {
-  const { folderId, fileId } = useParams();
+  const { fileId } = useParams();
   const router = useRouter();
   const [docData, setDocData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
-  const { user, setUser } = useUser();
+  const { user } = useUser();
   const [isMenu2Open, setIsMenu2Open] = useState(false);
   const menu2Ref = useRef(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -66,18 +66,6 @@ export default function ViewFile() {
     return <p>File not found!</p>;
   }
 
-  const fileExtension = docData?.fileName?.includes(".")
-    ? docData.fileName.split(".").pop().toLowerCase()
-    : "";
-  const supportedExtensions = [
-    "pdf",
-    "doc",
-    "docx",
-    "ppt",
-    "pptx",
-    "xls",
-    "xlsx",
-  ];
 
   const handleViewFull = () => {
     const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(
@@ -168,37 +156,14 @@ export default function ViewFile() {
 
       {/* Document Viewer */}
       <div className="w-full flex-grow flex items-center justify-center">
-        {fileExtension === "pdf" ? (
-          <iframe
-            src={docData.fileUrl}
-            className="w-full h-[calc(100vh-80px)]"
-            title={docData.fileName}
-            onLoad={() => setIsLoading(false)}
-          />
-        ) : supportedExtensions.includes(fileExtension) ? (
-          <iframe
-            src={`https://docs.google.com/gview?url=${encodeURIComponent(
-              docData.fileUrl
-            )}&embedded=true`}
-            className="w-full h-[calc(100vh-80px)]"
-            title={docData.fileName}
-            onLoad={() => setIsLoading(false)}
-          />
-        ) : (
-          <div>
-            <p>
-              Preview is not available for this file type. You can download it
-              below.
-            </p>
-            <a
-              href={docData.fileUrl}
-              className="text-blue-600 underline"
-              download
-            >
-              Download {docData.fileName}
-            </a>
-          </div>
-        )}
+        <iframe
+          src={`https://docs.google.com/gview?url=${encodeURIComponent(
+            docData.fileUrl
+          )}&embedded=true`}
+          className="w-full h-[calc(100vh-80px)]"
+          title={docData.fileName}
+          onLoad={() => setIsLoading(false)}
+        />
       </div>
 
       {isPieceDetailsOpen && (
