@@ -88,9 +88,11 @@ export default function FolderPage() {
         fileUrl,
         uploadedAt: new Date().toISOString(),
         pieceDescription: "No description provided.",
+        currentOwner: [],
         previouslyOwned: [],
         editedVersions: [],
         trackRecord: [],
+        attributes: [],
         folderId: folderId, // ✅ Ensure the correct folder ID is stored
       };
 
