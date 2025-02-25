@@ -9,6 +9,9 @@ export default function PieceDetails({ fileId, onClose }) {
   const { user } = useUser();
   const [docData, setDocData] = useState(null);
   const [previousOwners, setPreviousOwners] = useState([]);
+  const [currentOwner, setCurrentOwner] = useState(null);
+  const [showPreviousOwners, setShowPreviousOwners] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [newDescription, setNewDescription] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -34,6 +37,30 @@ export default function PieceDetails({ fileId, onClose }) {
           setNewDescription(
             fileData.pieceDescription || "No description provided."
           );
+
+          // ✅ Fetch current owner details
+          if (fileData.currentOwner && fileData.currentOwner.length > 0) {
+            const ownerRef = doc(db, "users", fileData.currentOwner[0].userId);
+            const ownerSnap = await getDoc(ownerRef);
+
+            if (ownerSnap.exists()) {
+              const ownerData = ownerSnap.data();
+              setCurrentOwner({
+                name:
+                  ownerData.firstName && ownerData.lastName
+                    ? `${ownerData.firstName} ${ownerData.lastName}`
+                    : ownerData.email || "Unknown User",
+                dateGiven: fileData.currentOwner[0].dateGiven,
+              });
+            } else {
+              setCurrentOwner({
+                name: "Unknown User",
+                dateGiven: fileData.currentOwner[0].dateGiven,
+              });
+            }
+          } else {
+            setCurrentOwner(null); // No current owner
+          }
         }
       } catch (error) {
         console.error("Error fetching file details:", error);
@@ -177,22 +204,106 @@ export default function PieceDetails({ fileId, onClose }) {
             <p>{docData?.pieceDescription || "No description provided."}</p>
           )}
         </div>
+        {/* Current Owner Section */}
+        {currentOwner ? (
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold">Current Owner:</h3>
+            <p className="font-medium">{currentOwner.name}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Assigned on:{" "}
+              {new Date(currentOwner.dateGiven).toLocaleDateString()}
+            </p>
+          </div>
+        ) : (
+          <p className="mb-4">No current owner assigned.</p>
+        )}
+
+        {/* Toggle Button for Previous Owners */}
+        {previousOwners.length > 0 && (
+          <button
+            onClick={() => setShowPreviousOwners(!showPreviousOwners)}
+            className="w-full bg-gray-500 text-white px-3 py-1 rounded mb-2"
+          >
+            {showPreviousOwners
+              ? "Hide Previous Owners"
+              : "Show Previous Owners"}
+          </button>
+        )}
 
         <h3 className="text-lg font-semibold mb-2">Previous Owners:</h3>
-        {previousOwners.length > 0 ? (
-          <ul className="list-disc pl-4">
-            {previousOwners.map((owner, index) => (
-              <li key={index}>
-                <span className="font-medium">{owner.name}</span>
-                <br />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Assigned on: {new Date(owner.dateGiven).toLocaleDateString()}
-                </span>
-              </li>
-            ))}
-          </ul>
+        {/* Previous Owners (Hidden by Default) */}
+        {/* Show Previous Owners (Hidden by Default) */}
+        {showPreviousOwners && previousOwners.length > 0 ? (
+          <div>
+            <div className="space-y-3">
+              {previousOwners.slice(0, 4).map((owner, index) => (
+                <div
+                  key={index}
+                  className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg border border-gray-300 dark:border-gray-600"
+                >
+                  <div className="flex justify-between items-center space-x-2">
+                    <span
+                      className="font-medium truncate w-2/3"
+                      title={owner.name}
+                    >
+                      {owner.name}
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400 w-1/3 text-right">
+                      Assigned: {new Date(owner.dateGiven).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Move the "Show All Previous Owners" Button Inside */}
+            {previousOwners.length > 4 && (
+              <p
+                onClick={() => setIsModalOpen(true)}
+                className="mt-2 text-blue-600 dark:text-blue-400 cursor-pointer text-sm hover:underline text-center"
+              >
+                Show All Previous Owners
+              </p>
+            )}
+          </div>
         ) : (
-          <p>No previous owners.</p>
+          showPreviousOwners && <p>No previous owners.</p>
+        )}
+
+        {/* Previous Owners Modal */}
+        {/* Previous Owners Modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-40">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-80 max-h-[50vh]">
+              <h2 className="text-xl font-bold mb-4">All Previous Owners</h2>
+
+              {/* Scrollable List of All Owners */}
+              <ul className="space-y-3 max-h-[30vh] overflow-y-auto border border-gray-400 dark:border-gray-600 rounded-lg p-2">
+                {previousOwners.map((owner, index) => (
+                  <li
+                    key={index}
+                    className="p-3 border-b border-gray-300 dark:border-gray-700"
+                  >
+                    <span className="font-medium">{owner.name}</span>
+                    <br />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Assigned on:{" "}
+                      {new Date(owner.dateGiven).toLocaleDateString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="absolute bottom-0 left-0 w-full h-4 bg-gradient-to-t from-gray-300 dark:from-gray-700 to-transparent"></div>
+
+              {/* Close Modal Button */}
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="mt-4 w-full bg-red-500 text-white px-4 py-2 rounded"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         )}
 
         <button
