@@ -29,6 +29,9 @@ export default function FolderPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [assignMessage, setAssignMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // State for managing spinner
+  const [isUnassignModalOpen, setIsUnassignModalOpen] = useState(false);
+  const [selectedUnassignUser, setSelectedUnassignUser] = useState(null);
+  const [userFiles, setUserFiles] = useState([]);
 
   useEffect(() => {
     if (!loading && user && folderId) {
@@ -37,10 +40,10 @@ export default function FolderPage() {
   }, [loading, user, folderId]);
 
   useEffect(() => {
-    if (isModalOpen && user && user.role === "admin") {
+    if ((isModalOpen || isUnassignModalOpen) && user && user.role === "admin") {
       fetchUsers();
     }
-  }, [isModalOpen, user]);
+  }, [isModalOpen, isUnassignModalOpen, user]);
 
   const fetchUsers = async () => {
     try {
@@ -54,6 +57,48 @@ export default function FolderPage() {
       console.error("Error fetching users:", error);
     }
   };
+
+  const fetchUserFiles = async (userId) => {
+    try {
+      setUserFiles([]); // Reset before fetching
+
+      const userRef = doc(db, "users", userId);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        console.error("User does not exist.");
+        return;
+      }
+
+      const userData = userSnap.data();
+      const fileRefs = userData.myFiles || [];
+
+      const filePromises = fileRefs.map(async (fileEntry) => {
+        if (!fileEntry.fileRef) return null; // Ensure fileRef exists
+
+        const fileDocRef = fileEntry.fileRef;
+        const fileDocSnap = await getDoc(fileDocRef);
+
+        return fileDocSnap.exists()
+          ? {
+              id: fileDocSnap.id,
+              fileRef: fileEntry.fileRef, // ✅ Ensure fileRef is included
+              ...fileDocSnap.data(),
+            }
+          : null;
+      });
+
+      const resolvedFiles = (await Promise.all(filePromises)).filter(
+        (file) => file !== null
+      );
+
+      setUserFiles(resolvedFiles);
+    } catch (error) {
+      console.error("Error fetching user files:", error);
+    }
+  };
+
+  console.log(userFiles);
 
   const fetchFolderData = async () => {
     try {
@@ -149,7 +194,9 @@ export default function FolderPage() {
         if (currentOwnerSnap.exists()) {
           const currentOwnerData = currentOwnerSnap.data();
           currentOwnerName =
-            currentOwnerData.firstName + " " + currentOwnerData.lastName || currentOwnerData.email || "Unknown User";
+            currentOwnerData.firstName + " " + currentOwnerData.lastName ||
+            currentOwnerData.email ||
+            "Unknown User";
         }
 
         setAssignMessage({
@@ -214,6 +261,67 @@ export default function FolderPage() {
     }
   };
 
+  const handleUnassignFile = async (userId, file) => {
+    try {
+      console.log("Attempting to unassign file:", file);
+
+      if (!file || !file.fileRef) {
+        console.error(
+          "❌ Invalid file reference for unassignment. File:",
+          file
+        );
+        return;
+      }
+
+      const userRef = doc(db, "users", userId);
+      const fileRef =
+        typeof file.fileRef === "object"
+          ? file.fileRef // ✅ Keep it as a reference
+          : doc(db, file.fileRef); // Handle old string paths (if needed)
+
+      console.log("Resolved file reference:", fileRef.path);
+
+      // ✅ Step 1: Remove file from `myFiles` in the user document
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const myFilesArray = Array.isArray(userData.myFiles)
+          ? userData.myFiles
+          : [];
+
+        const updatedFiles = myFilesArray.filter(
+          (entry) =>
+            entry.fileRef?.id !== fileRef.id &&
+            entry.fileRef?.path !== fileRef.path
+        );
+
+        await updateDoc(userRef, { myFiles: updatedFiles });
+      }
+
+      // ✅ Step 2: Remove user from `currentOwner` in the file document
+      const fileSnap = await getDoc(fileRef);
+      if (fileSnap.exists()) {
+        const fileData = fileSnap.data();
+        const currentOwnerArray = Array.isArray(fileData.currentOwner)
+          ? fileData.currentOwner
+          : [];
+
+        const updatedCurrentOwner = currentOwnerArray.filter(
+          (entry) => entry.userId !== userId
+        );
+
+        await updateDoc(fileRef, { currentOwner: updatedCurrentOwner });
+      }
+
+      console.log(`✅ File successfully unassigned from user ${userId}`);
+
+      // ✅ Step 3: Refresh user files after unassigning
+      fetchUserFiles(userId);
+    } catch (error) {
+      console.error("❌ Error unassigning file:", error);
+    }
+  };
+
   const handleFileClick = (fileId) => {
     router.push(`/viewDocuments/${folderId}/${fileId}`);
   };
@@ -246,12 +354,21 @@ export default function FolderPage() {
         </h1>
 
         {user.role === "admin" && (
-          <button
-            className="bg-blue-500 text-white px-4 py-2 rounded"
-            onClick={() => setIsModalOpen(true)}
-          >
-            Assign Users files from {folderName}
-          </button>
+          <div>
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Assign Users files from {folderName}
+            </button>
+            <div />
+            <button
+              className="bg-red-500 text-white px-4 py-2 rounded mt-4"
+              onClick={() => setIsUnassignModalOpen(true)}
+            >
+              Unassign Users' Files
+            </button>
+          </div>
         )}
 
         <h2 className="text-2xl font-bold mt-8 mb-4">All Files</h2>
@@ -401,6 +518,74 @@ export default function FolderPage() {
                 </div>
               </div>
             )}
+            {isUnassignModalOpen && (
+              <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+                  <h2 className="text-2xl font-semibold mb-6 text-center">
+                    Unassign Files
+                  </h2>
+
+                  {/* Select User Dropdown */}
+                  <div className="mb-4">
+                    <label className="block mb-2 text-lg font-medium">
+                      Select User
+                    </label>
+                    <select
+                      className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedUnassignUser || ""}
+                      onChange={(e) => {
+                        setSelectedUnassignUser(e.target.value);
+                        fetchUserFiles(e.target.value);
+                      }}
+                    >
+                      <option value="" disabled>
+                        -- Select a User --
+                      </option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name || user.email || "Unnamed User"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* List of Files Assigned to Selected User */}
+                  {userFiles.length > 0 ? (
+                    <ul className="max-h-40 overflow-y-auto">
+                      {userFiles.map((file) => (
+                        <li
+                          key={file.id}
+                          className="flex justify-between items-center border-b border-gray-300 py-2"
+                        >
+                          <span>{file.fileName}</span>
+                          <button
+                            className="bg-red-500 text-white px-3 py-1 rounded"
+                            onClick={() =>
+                              handleUnassignFile(selectedUnassignUser, file)
+                            }
+                          >
+                            Unassign
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-center mt-4">
+                      No files assigned to this user.
+                    </p>
+                  )}
+
+                  {/* Close Button */}
+                  <button
+                    onClick={() => setIsUnassignModalOpen(false)}
+                    className="w-full bg-gray-500 text-white px-4 py-2 rounded mt-4"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+
             <UploadFileModal
               isUploadModalOpen={isUploadModalOpen}
               folderId={folderId}
