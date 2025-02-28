@@ -29,9 +29,9 @@ export default function FolderPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [assignMessage, setAssignMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // State for managing spinner
-  const [isUnassignModalOpen, setIsUnassignModalOpen] = useState(false);
   const [selectedUnassignUser, setSelectedUnassignUser] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
+  const [isAssignMode, setIsAssignMode] = useState(true); // ✅ Toggle Assign/Unassign
 
   useEffect(() => {
     if (!loading && user && folderId) {
@@ -40,10 +40,10 @@ export default function FolderPage() {
   }, [loading, user, folderId]);
 
   useEffect(() => {
-    if ((isModalOpen || isUnassignModalOpen) && user && user.role === "admin") {
+    if (isModalOpen && user && user.role === "admin") {
       fetchUsers();
     }
-  }, [isModalOpen, isUnassignModalOpen, user]);
+  }, [isModalOpen, user]);
 
   const fetchUsers = async () => {
     try {
@@ -362,12 +362,6 @@ export default function FolderPage() {
               Assign Users files from {folderName}
             </button>
             <div />
-            <button
-              className="bg-red-500 text-white px-4 py-2 rounded mt-4"
-              onClick={() => setIsUnassignModalOpen(true)}
-            >
-              Unassign Users' Files
-            </button>
           </div>
         )}
 
@@ -419,80 +413,154 @@ export default function FolderPage() {
             {isModalOpen && (
               <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
                 <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-                  <h2 className="text-2xl font-semibold mb-6 text-center">
-                    Assign File
+                  <h2 className="text-2xl font-semibold mb-4 text-center">
+                    {isAssignMode ? "Assign File" : "Unassign File"}
                   </h2>
 
-                  {/* User Selection */}
-                  <div className="mb-4">
-                    <label
-                      htmlFor="user-select"
-                      className="block mb-2 text-lg font-medium"
+                  {/* Toggle Switch */}
+                  <div className="flex justify-center mb-6">
+                    <button
+                      className={`px-4 py-2 rounded-l ${
+                        isAssignMode
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-300 text-gray-700"
+                      }`}
+                      onClick={() => setIsAssignMode(true)}
                     >
-                      Select User
-                    </label>
-                    <select
-                      id="user-select"
-                      className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={selectedUser || ""}
-                      onChange={(e) => {
-                        setSelectedUser(e.target.value);
-                        setAssignMessage(null); // ✅ Remove message when selecting a new user
-                      }}
+                      Assign
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded-r ${
+                        !isAssignMode
+                          ? "bg-red-500 text-white"
+                          : "bg-gray-300 text-gray-700"
+                      }`}
+                      onClick={() => setIsAssignMode(false)}
                     >
-                      <option value="" disabled>
-                        -- Select a User --
-                      </option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.name || user.email || "Unnamed User"}
-                        </option>
-                      ))}
-                    </select>
+                      Unassign
+                    </button>
                   </div>
 
-                  {/* File Selection */}
-                  <div className="mb-4">
-                    <label
-                      htmlFor="file-select"
-                      className="block mb-2 text-lg font-medium"
-                    >
-                      Select File
-                    </label>
-                    <select
-                      id="file-select"
-                      className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={selectedFile || ""}
-                      onChange={(e) => setSelectedFile(e.target.value)}
-                    >
-                      <option value="" disabled>
-                        -- Select a File --
-                      </option>
-                      {files.map((file) => (
-                        <option key={file.id} value={file.id}>
-                          {file.fileName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Assign Mode */}
+                  {isAssignMode ? (
+                    <>
+                      {/* User Selection */}
+                      <div className="mb-4">
+                        <label className="block mb-2 text-lg font-medium">
+                          Select User
+                        </label>
+                        <select
+                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={selectedUser || ""}
+                          onChange={(e) => {
+                            setSelectedUser(e.target.value);
+                            setAssignMessage(null);
+                          }}
+                        >
+                          <option value="" disabled>
+                            -- Select a User --
+                          </option>
+                          {users.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.name || user.email || "Unnamed User"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  {/* Assign Button */}
-                  <button
-                    onClick={async () => {
-                      const file = files.find(
-                        (file) => file.id === selectedFile
-                      );
-                      if (file) {
-                        await handleAssignFileToUser(selectedUser, file);
-                      }
-                    }}
-                    className="w-full bg-green-500 text-white px-4 py-2 rounded"
-                    disabled={!selectedUser || !selectedFile}
-                  >
-                    Assign File
-                  </button>
+                      {/* File Selection */}
+                      <div className="mb-4">
+                        <label className="block mb-2 text-lg font-medium">
+                          Select File
+                        </label>
+                        <select
+                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={selectedFile || ""}
+                          onChange={(e) => setSelectedFile(e.target.value)}
+                        >
+                          <option value="" disabled>
+                            -- Select a File --
+                          </option>
+                          {files.map((file) => (
+                            <option key={file.id} value={file.id}>
+                              {file.fileName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  {/* Success or Error Message */}
+                      {/* Assign Button */}
+                      <button
+                        onClick={async () => {
+                          const file = files.find(
+                            (file) => file.id === selectedFile
+                          );
+                          if (file) {
+                            await handleAssignFileToUser(selectedUser, file);
+                          }
+                        }}
+                        className="w-full bg-green-500 text-white px-4 py-2 rounded"
+                        disabled={!selectedUser || !selectedFile}
+                      >
+                        Assign File
+                      </button>
+                    </>
+                  ) : (
+                    /* Unassign Mode */
+                    <>
+                      {/* User Selection */}
+                      <div className="mb-4">
+                        <label className="block mb-2 text-lg font-medium">
+                          Select User
+                        </label>
+                        <select
+                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={selectedUnassignUser || ""}
+                          onChange={(e) => {
+                            setSelectedUnassignUser(e.target.value);
+                            fetchUserFiles(e.target.value);
+                          }}
+                        >
+                          <option value="" disabled>
+                            -- Select a User --
+                          </option>
+                          {users.map((user) => (
+                            <option key={user.id} value={user.id}>
+                              {user.name || user.email || "Unnamed User"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* List of Assigned Files */}
+                      {userFiles.length > 0 ? (
+                        <ul className="max-h-40 overflow-y-auto">
+                          {userFiles.map((file) => (
+                            <li
+                              key={file.id}
+                              className="flex justify-between items-center border-b border-gray-300 py-2"
+                            >
+                              <span>{file.fileName}</span>
+                              <button
+                                className="bg-red-500 text-white px-3 py-1 rounded"
+                                onClick={() =>
+                                  handleUnassignFile(selectedUnassignUser, file)
+                                }
+                              >
+                                Unassign
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-center mt-4">
+                          No files assigned to this user.
+                        </p>
+                      )}
+                    </>
+                  )}
+
+                  {/* Success/Error Message */}
                   {assignMessage && (
                     <p
                       className={`mt-4 text-center ${
@@ -505,79 +573,12 @@ export default function FolderPage() {
                     </p>
                   )}
 
-                  {/* Close Modal */}
+                  {/* Close Button */}
                   <button
                     onClick={() => {
                       setIsModalOpen(false);
-                      setAssignMessage(null); // Clear the message on close
+                      setAssignMessage(null); // Clear messages when closing
                     }}
-                    className="w-full bg-red-500 text-white px-4 py-2 rounded mt-4"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            )}
-            {isUnassignModalOpen && (
-              <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-                  <h2 className="text-2xl font-semibold mb-6 text-center">
-                    Unassign Files
-                  </h2>
-
-                  {/* Select User Dropdown */}
-                  <div className="mb-4">
-                    <label className="block mb-2 text-lg font-medium">
-                      Select User
-                    </label>
-                    <select
-                      className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={selectedUnassignUser || ""}
-                      onChange={(e) => {
-                        setSelectedUnassignUser(e.target.value);
-                        fetchUserFiles(e.target.value);
-                      }}
-                    >
-                      <option value="" disabled>
-                        -- Select a User --
-                      </option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.name || user.email || "Unnamed User"}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* List of Files Assigned to Selected User */}
-                  {userFiles.length > 0 ? (
-                    <ul className="max-h-40 overflow-y-auto">
-                      {userFiles.map((file) => (
-                        <li
-                          key={file.id}
-                          className="flex justify-between items-center border-b border-gray-300 py-2"
-                        >
-                          <span>{file.fileName}</span>
-                          <button
-                            className="bg-red-500 text-white px-3 py-1 rounded"
-                            onClick={() =>
-                              handleUnassignFile(selectedUnassignUser, file)
-                            }
-                          >
-                            Unassign
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-center mt-4">
-                      No files assigned to this user.
-                    </p>
-                  )}
-
-                  {/* Close Button */}
-                  <button
-                    onClick={() => setIsUnassignModalOpen(false)}
                     className="w-full bg-gray-500 text-white px-4 py-2 rounded mt-4"
                   >
                     Close
