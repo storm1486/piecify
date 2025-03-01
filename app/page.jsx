@@ -15,6 +15,7 @@ import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useUser } from "@/src/context/UserContext";
 import SignUpModal from "@/components/SignUpModal";
+import UploadMyFilesModal from "@/components/UploadMyFilesModal";
 
 export default function Home() {
   const {
@@ -713,42 +714,14 @@ export default function Home() {
               </>
             )}
           </section>
-
           {isUploadModalOpen && (
-            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-                <h2 className="text-2xl font-semibold mb-6 text-center">
-                  Upload File
-                </h2>
-
-                <input
-                  type="file"
-                  onChange={(e) => setFile(e.target.files[0])}
-                  className="block w-full mb-4 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-
-                <button
-                  onClick={handleUploadToMyFiles}
-                  disabled={uploading}
-                  className={`w-full px-4 py-2 rounded mb-4 ${
-                    uploading
-                      ? "bg-gray-500 cursor-not-allowed"
-                      : "bg-blue-500 hover:bg-blue-600"
-                  } text-white`}
-                >
-                  {uploading ? "Uploading..." : "Upload"}
-                </button>
-
-                {error && <p className="text-red-500">{error}</p>}
-
-                <button
-                  onClick={() => setIsUploadModalOpen(false)}
-                  className="w-full bg-red-500 text-white px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
+            <UploadMyFilesModal
+              isOpen={isUploadModalOpen}
+              closeModal={() => setIsUploadModalOpen(false)}
+              onClose={() => setIsUploadModalOpen(false)}
+              user={user}
+              onUploadSuccess={fetchMyFiles}
+            />
           )}
 
           {isFolderModalOpen && (
