@@ -412,45 +412,80 @@ export default function FolderPage() {
           <>
             {isModalOpen && (
               <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-                  <h2 className="text-2xl font-semibold mb-4 text-center">
+                <div className="relative bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96 min-h-[450px] flex flex-col">
+                  {/* Toggle Switch - Top Right */}
+                  <div className="absolute top-4 right-4 flex items-center">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={!isAssignMode}
+                        onChange={() => setIsAssignMode(!isAssignMode)}
+                      />
+                      <div className="w-12 h-6 bg-gray-400 dark:bg-gray-700 rounded-full peer-checked:bg-red-500 relative flex items-center transition-all">
+                        {/* Assign Icon (Right - Swappable) */}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className={`absolute right-1 w-4 h-4 transition-all ${
+                            isAssignMode ? "text-white" : "text-gray-600"
+                          }`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z"
+                          />
+                        </svg>
+
+                        {/* Unassign Icon (Left - Swappable) */}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className={`absolute left-1 w-4 h-4 transition-all ${
+                            isAssignMode ? "text-gray-600" : "text-white"
+                          }`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="1.5"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z"
+                          />
+                        </svg>
+
+                        {/* Sliding Indicator (Moves Left/Right) */}
+                        <div
+                          className={`absolute top-1 h-4 w-4 bg-white border border-gray-300 rounded-full transition-transform ${
+                            isAssignMode
+                              ? "translate-x-1"
+                              : "translate-x-[26px]"
+                          }`}
+                        ></div>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Modal Title */}
+                  <h2 className="text-2xl font-semibold mb-6 text-center">
                     {isAssignMode ? "Assign File" : "Unassign File"}
                   </h2>
 
-                  {/* Toggle Switch */}
-                  <div className="flex justify-center mb-6">
-                    <button
-                      className={`px-4 py-2 rounded-l ${
-                        isAssignMode
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-300 text-gray-700"
-                      }`}
-                      onClick={() => setIsAssignMode(true)}
-                    >
-                      Assign
-                    </button>
-                    <button
-                      className={`px-4 py-2 rounded-r ${
-                        !isAssignMode
-                          ? "bg-red-500 text-white"
-                          : "bg-gray-300 text-gray-700"
-                      }`}
-                      onClick={() => setIsAssignMode(false)}
-                    >
-                      Unassign
-                    </button>
-                  </div>
-
                   {/* Assign Mode */}
                   {isAssignMode ? (
-                    <>
+                    <div className="flex-1">
                       {/* User Selection */}
                       <div className="mb-4">
                         <label className="block mb-2 text-lg font-medium">
                           Select User
                         </label>
                         <select
-                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                           value={selectedUser || ""}
                           onChange={(e) => {
                             setSelectedUser(e.target.value);
@@ -474,7 +509,7 @@ export default function FolderPage() {
                           Select File
                         </label>
                         <select
-                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                           value={selectedFile || ""}
                           onChange={(e) => setSelectedFile(e.target.value)}
                         >
@@ -499,22 +534,22 @@ export default function FolderPage() {
                             await handleAssignFileToUser(selectedUser, file);
                           }
                         }}
-                        className="w-full bg-green-500 text-white px-4 py-2 rounded"
+                        className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
                         disabled={!selectedUser || !selectedFile}
                       >
                         Assign File
                       </button>
-                    </>
+                    </div>
                   ) : (
                     /* Unassign Mode */
-                    <>
+                    <div className="flex-1 overflow-auto max-h-[400px]">
                       {/* User Selection */}
                       <div className="mb-4">
                         <label className="block mb-2 text-lg font-medium">
                           Select User
                         </label>
                         <select
-                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                           value={selectedUnassignUser || ""}
                           onChange={(e) => {
                             setSelectedUnassignUser(e.target.value);
@@ -534,7 +569,7 @@ export default function FolderPage() {
 
                       {/* List of Assigned Files */}
                       {userFiles.length > 0 ? (
-                        <ul className="max-h-40 overflow-y-auto">
+                        <ul className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-700 rounded-lg p-2">
                           {userFiles.map((file) => (
                             <li
                               key={file.id}
@@ -542,7 +577,7 @@ export default function FolderPage() {
                             >
                               <span>{file.fileName}</span>
                               <button
-                                className="bg-red-500 text-white px-3 py-1 rounded"
+                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
                                 onClick={() =>
                                   handleUnassignFile(selectedUnassignUser, file)
                                 }
@@ -557,7 +592,7 @@ export default function FolderPage() {
                           No files assigned to this user.
                         </p>
                       )}
-                    </>
+                    </div>
                   )}
 
                   {/* Success/Error Message */}
@@ -577,9 +612,9 @@ export default function FolderPage() {
                   <button
                     onClick={() => {
                       setIsModalOpen(false);
-                      setAssignMessage(null); // Clear messages when closing
+                      setAssignMessage(null);
                     }}
-                    className="w-full bg-gray-500 text-white px-4 py-2 rounded mt-4"
+                    className="w-full bg-gray-500 text-white px-4 py-2 rounded mt-4 hover:bg-gray-600"
                   >
                     Close
                   </button>
