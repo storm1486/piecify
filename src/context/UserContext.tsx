@@ -23,6 +23,7 @@ interface User {
   lastName: string; // New field
   graduationYear: number | null; // New field (nullable)
   myFiles: Array<any>;
+  previousFiles: Array<any>;
   favoriteFolders: Array<string>;
   allFolders: Array<any>;
 }
@@ -66,6 +67,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             lastName: "", // Default value
             graduationYear: null, // Default value
             myFiles: [],
+            previousFiles: [],
             favoriteFolders: [],
             allFolders: [],
           };
@@ -80,6 +82,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               graduationYear: data.graduationYear || null, // Fetch graduationYear
               favoriteFolders: data.favoriteFolders || [],
               myFiles: data.myFiles || [],
+              previousFiles: data.previousFiles || [],
             };
           }
 
@@ -117,11 +120,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
       if (userDoc.exists()) {
         const data = userDoc.data();
-        const fileRefs = data.myFiles || [];
+        const myFileRefs = data.myFiles || [];
+        const previousFileRefs = data.previousFiles || [];
 
-        // Resolve file references to actual file data, including `dateGiven`
-        const filePromises = fileRefs.map(async (fileEntry: { fileRef: { path: any; }; dateGiven: any; }) => {
-          // Handle both old (string references) and new (object with fileRef and dateGiven)
+        // Resolve file references for `myFiles`
+        const myFilePromises = myFileRefs.map(async (fileEntry: { fileRef: { path: any; }; dateGiven: any; }) => {
           const filePath =
             typeof fileEntry === "string" ? fileEntry : fileEntry.fileRef?.path;
           const dateGiven =
@@ -137,13 +140,37 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             : null;
         });
 
-        const resolvedFiles = (await Promise.all(filePromises)).filter(
+        // Resolve file references for `previousFiles`
+        const previousFilePromises = previousFileRefs.map(async (fileEntry: { fileRef: { path: any; }; dateGiven: any; }) => {
+          const filePath =
+            typeof fileEntry === "string" ? fileEntry : fileEntry.fileRef?.path;
+          const dateGiven =
+            typeof fileEntry === "object" ? fileEntry.dateGiven : null;
+
+          if (!filePath) return null; // Skip if no valid path
+
+          const fileDocRef = doc(db, filePath);
+          const fileDocSnapshot = await getDoc(fileDocRef);
+
+          return fileDocSnapshot.exists()
+            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
+            : null;
+        });
+
+        // Fetch all files
+        const resolvedMyFiles = (await Promise.all(myFilePromises)).filter(
           (file) => file !== null
         );
 
+        const resolvedPreviousFiles = (
+          await Promise.all(previousFilePromises)
+        ).filter((file) => file !== null);
+
+        // Update the user context
         setUser((prevUser) => ({
           ...prevUser!,
-          myFiles: resolvedFiles, // Store resolved files with dateGiven
+          myFiles: resolvedMyFiles, // Store resolved myFiles
+          previousFiles: resolvedPreviousFiles, // Store resolved previousFiles
         }));
       }
     } catch (error) {
@@ -205,6 +232,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           lastName: data.lastName || "",
           graduationYear: data.graduationYear || null,
           myFiles: data.myFiles || [],
+          previousFiles: data.previousFiles || [],
           favoriteFolders: data.favoriteFolders || [],
           allFolders: [],
         };
