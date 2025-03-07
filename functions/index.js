@@ -6,12 +6,12 @@ import { getFirestore } from "firebase-admin/firestore";
 initializeApp();
 const db = getFirestore();
 
-export const moveOldFiles = onSchedule("0 0 * * *", async () => {
+export const moveOldFiles = onSchedule("0 0 1 7 *", async () => {
   // Runs at midnight UTC
   console.log("Running file cleanup function...");
 
   const usersSnapshot = await db.collection("users").get();
-  const cutoffDate = new Date(); // Use today's date to move past files
+  const cutoffDate = new Date(new Date().getFullYear(), 6, 1); // July 1st
 
   for (const userDoc of usersSnapshot.docs) {
     const userData = userDoc.data();
