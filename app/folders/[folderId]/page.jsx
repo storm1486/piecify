@@ -32,18 +32,47 @@ export default function FolderPage() {
   const [selectedUnassignUser, setSelectedUnassignUser] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
   const [isAssignMode, setIsAssignMode] = useState(true); // ✅ Toggle Assign/Unassign
+  const [activeTab, setActiveTab] = useState("all");
+  const [hasChanged, setHasChanged] = useState(false);
+  const [ownersMap, setOwnersMap] = useState({}); // Store fileId -> ownerName mapping
 
   useEffect(() => {
+    if (files.length > 0) {
+      fetchOwners();
+    }
+  }, [files]); // Fetch owners only when files change
+
+  useEffect(() => {
+    // Fetch folder data when user and folderId are available
     if (!loading && user && folderId) {
       fetchFolderData();
     }
-  }, [loading, user, folderId]);
 
-  useEffect(() => {
-    if (isModalOpen && user && user.role === "admin") {
+    // Fetch users when the modal is open and user is an admin
+    if (user?.role === "admin") {
       fetchUsers();
     }
-  }, [isModalOpen, user]);
+  }, [loading, user, folderId]); // ✅ Removed `files` dependency to prevent infinite loop
+
+  const fetchOwners = async () => {
+    try {
+      const newOwnersMap = {};
+
+      await Promise.all(
+        files.map(async (file) => {
+          if (file.currentOwner && file.currentOwner.length > 0) {
+            const ownerId = file.currentOwner[0].userId;
+            const ownerName = await fetchOwnerName(ownerId);
+            newOwnersMap[file.id] = ownerName; // Store owner name
+          }
+        })
+      );
+
+      setOwnersMap(newOwnersMap); // Update owner names in state
+    } catch (error) {
+      console.error("Error fetching owner names:", error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -98,8 +127,6 @@ export default function FolderPage() {
     }
   };
 
-  console.log(userFiles);
-
   const fetchFolderData = async () => {
     try {
       setIsLoading(true); // Start loading indicator
@@ -153,6 +180,34 @@ export default function FolderPage() {
     } finally {
       setIsLoading(false); // Stop loading indicator
     }
+  };
+
+  const fetchOwnerName = async (userId) => {
+    try {
+      const userRef = doc(db, "users", userId);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        return userData.firstName && userData.lastName
+          ? `${userData.firstName} ${userData.lastName}`
+          : userData.email || "Unknown User"; // Fallback to email if name is missing
+      }
+    } catch (error) {
+      console.error("Error fetching owner name:", error);
+    }
+    return "Unknown User"; // Default if not found
+  };
+
+  const handleToggleMode = () => {
+    setIsAssignMode(!isAssignMode);
+
+    // Reset state when switching modes
+    setSelectedUser(null);
+    setSelectedFile(null);
+    setSelectedUnassignUser(null);
+    setAssignMessage(null);
+    setUserFiles([]);
   };
 
   const handleAssignFileToUser = async (userId, file) => {
@@ -249,6 +304,8 @@ export default function FolderPage() {
         }.`,
       });
 
+      setHasChanged(true); // ✅ Mark that an assignment occurred
+
       // ✅ Reset the user and file selection without clearing the message
       setSelectedUser(null);
       setSelectedFile(null);
@@ -313,7 +370,12 @@ export default function FolderPage() {
         await updateDoc(fileRef, { currentOwner: updatedCurrentOwner });
       }
 
-      console.log(`✅ File successfully unassigned from user ${userId}`);
+      setAssignMessage({
+        type: "success",
+        text: `File "${file.fileName}" successfully unassigned.`,
+      });
+
+      setHasChanged(true); // ✅ Mark that an unassignment occurred
 
       // ✅ Step 3: Refresh user files after unassigning
       fetchUserFiles(userId);
@@ -324,6 +386,27 @@ export default function FolderPage() {
 
   const handleFileClick = (fileId) => {
     router.push(`/viewDocuments/${folderId}/${fileId}`);
+  };
+
+  const assignedPieces = files.filter(
+    (file) => file.currentOwner && file.currentOwner.length > 0
+  );
+  const unassignedPieces = files.filter(
+    (file) => !file.currentOwner || file.currentOwner.length === 0
+  );
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setAssignMessage(null);
+
+    // ✅ Refresh folder only if changes occurred
+    if (hasChanged) {
+      // ✅ Delay fetching folder data to allow Firestore to update
+      setTimeout(() => {
+        fetchFolderData();
+      }, 500);
+      setHasChanged(false); // Reset after refresh
+    }
   };
 
   if (isLoading || loading) {
@@ -353,60 +436,110 @@ export default function FolderPage() {
           {folderName || "Loading..."}
         </h1>
 
-        {user.role === "admin" && (
-          <div>
-            <button
-              className="bg-blue-500 text-white px-4 py-2 rounded"
-              onClick={() => setIsModalOpen(true)}
+        <div className="flex space-x-4 border-b border-gray-300 mb-4">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`px-4 py-2 ${
+              activeTab === "all"
+                ? "border-b-2 border-blue-500"
+                : "text-gray-500"
+            }`}
+          >
+            All Files
+          </button>
+          <button
+            onClick={() => setActiveTab("assign")}
+            className={`px-4 py-2 ${
+              activeTab === "assign"
+                ? "border-b-2 border-blue-500"
+                : "text-gray-500"
+            }`}
+          >
+            Assign
+          </button>
+        </div>
+
+        {activeTab === "all" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Upload File Container - Always First */}
+            <div
+              className="border border-dashed border-gray-500 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-center gap-2"
+              onClick={() => setIsUploadModalOpen(true)}
             >
-              Assign Users files from {folderName}
-            </button>
-            <div />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-6 h-6 text-gray-500 dark:text-gray-400"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4.5v15m7.5-7.5h-15"
+                />
+              </svg>
+              <span className="font-bold text-gray-700 dark:text-gray-300">
+                Upload File
+              </span>
+            </div>
+
+            {/* Render Actual Files */}
+            {files.length > 0 ? (
+              files.map((file) => (
+                <div
+                  key={file.id}
+                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                  onClick={() => handleFileClick(file.id)}
+                >
+                  <span className="font-bold">{file.fileName}</span>
+                </div>
+              ))
+            ) : (
+              <></> // Don't show "No files found" because upload button is always there
+            )}
           </div>
         )}
 
-        <h2 className="text-2xl font-bold mt-8 mb-4">All Files</h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Upload File Container - Always First */}
-          <div
-            className="border border-dashed border-gray-500 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-center gap-2"
-            onClick={() => setIsUploadModalOpen(true)}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-              className="w-6 h-6 text-gray-500 dark:text-gray-400"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
-            </svg>
-            <span className="font-bold text-gray-700 dark:text-gray-300">
-              Upload File
-            </span>
-          </div>
-
-          {/* Render Actual Files */}
-          {files.length > 0 ? (
-            files.map((file) => (
-              <div
-                key={file.id}
-                className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                onClick={() => handleFileClick(file.id)}
+        {activeTab === "assign" && (
+          <div>
+            {user.role === "admin" && (
+              <button
+                className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+                onClick={() => setIsModalOpen(true)}
               >
-                <span className="font-bold">{file.fileName}</span>
-              </div>
-            ))
-          ) : (
-            <></> // Don't show "No files found" because upload button is always there
-          )}
-        </div>
+                Manage file assignments from {folderName}
+              </button>
+            )}
+            <h2 className="text-2xl font-bold mb-4">Unassigned Pieces</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {unassignedPieces.map((file) => (
+                <div
+                  key={file.id}
+                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                >
+                  <span className="font-bold">{file.fileName}</span>
+                </div>
+              ))}
+            </div>
+
+            <h2 className="text-2xl font-bold mt-8 mb-4">Assigned Pieces</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {assignedPieces.map((file) => (
+                <div
+                  key={file.id}
+                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                >
+                  <span className="font-bold">{file.fileName}</span>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Owner: {ownersMap[file.id] || "Fetching..."}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {user.role === "admin" && (
           <>
@@ -420,7 +553,7 @@ export default function FolderPage() {
                         type="checkbox"
                         className="sr-only peer"
                         checked={!isAssignMode}
-                        onChange={() => setIsAssignMode(!isAssignMode)}
+                        onChange={handleToggleMode} // ✅ Call function on toggle
                       />
                       <div className="w-12 h-6 bg-gray-400 dark:bg-gray-700 rounded-full peer-checked:bg-red-500 relative flex items-center transition-all">
                         {/* Assign Icon (Right - Swappable) */}
@@ -497,7 +630,9 @@ export default function FolderPage() {
                           </option>
                           {users.map((user) => (
                             <option key={user.id} value={user.id}>
-                              {user.name || user.email || "Unnamed User"}
+                              {`${user.firstName} ${user.lastName}` ||
+                                user.email ||
+                                "Unnamed User"}
                             </option>
                           ))}
                         </select>
@@ -516,11 +651,17 @@ export default function FolderPage() {
                           <option value="" disabled>
                             -- Select a File --
                           </option>
-                          {files.map((file) => (
-                            <option key={file.id} value={file.id}>
-                              {file.fileName}
-                            </option>
-                          ))}
+                          {files
+                            .filter(
+                              (file) =>
+                                !file.currentOwner ||
+                                file.currentOwner.length === 0
+                            ) // ✅ Only unassigned files
+                            .map((file) => (
+                              <option key={file.id} value={file.id}>
+                                {file.fileName}
+                              </option>
+                            ))}
                         </select>
                       </div>
 
@@ -595,7 +736,7 @@ export default function FolderPage() {
                     </div>
                   )}
 
-                  {/* Success/Error Message */}
+                  {/* Success/Error Message (Only Show in Active Mode) */}
                   {assignMessage && (
                     <p
                       className={`mt-4 text-center ${
@@ -610,10 +751,7 @@ export default function FolderPage() {
 
                   {/* Close Button */}
                   <button
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setAssignMessage(null);
-                    }}
+                    onClick={handleCloseModal}
                     className="w-full bg-gray-500 text-white px-4 py-2 rounded mt-4 hover:bg-gray-600"
                   >
                     Close
