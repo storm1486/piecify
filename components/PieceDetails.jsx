@@ -230,11 +230,11 @@ export default function PieceDetails({ fileId, onClose }) {
           </button>
         )}
 
-        <h3 className="text-lg font-semibold mb-2">Previous Owners:</h3>
         {/* Previous Owners (Hidden by Default) */}
         {/* Show Previous Owners (Hidden by Default) */}
         {showPreviousOwners && previousOwners.length > 0 ? (
           <div>
+            <h3 className="text-lg font-semibold mb-2">Previous Owners:</h3>
             <div className="space-y-3">
               {previousOwners.slice(0, 4).map((owner, index) => (
                 <div
@@ -270,7 +270,6 @@ export default function PieceDetails({ fileId, onClose }) {
           showPreviousOwners && <p>No previous owners.</p>
         )}
 
-        {/* Previous Owners Modal */}
         {/* Previous Owners Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-40">

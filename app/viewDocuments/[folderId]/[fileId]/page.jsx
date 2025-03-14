@@ -6,11 +6,15 @@ import { db } from "../../../firebase/firebase"; // Adjust the path as necessary
 import { doc, getDoc } from "firebase/firestore";
 import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
+import { generateShareLink } from "../../../util/shareFile";
+import { useUser } from "@/src/context/UserContext";
 
 export default function ViewDocument() {
   const { folderId, fileId } = useParams(); // Retrieve folderId and fileId from URL
+  const { user } = useUser();
   const router = useRouter();
   const [docData, setDocData] = useState(null);
+  const [shareLink, setShareLink] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Track loading state
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -33,6 +37,19 @@ export default function ViewDocument() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleShare = async () => {
+    if (!user || user.role !== "admin") {
+      alert("Only admins can share files.");
+      return;
+    }
+
+    const link = await generateShareLink(fileId, user);
+    if (link) {
+      setShareLink(link);
+      alert(`Share this link: ${link}`);
+    }
+  };
 
   const handleOpenPieceDetails = () => {
     setIsPieceDetailsOpen(true);
@@ -123,6 +140,15 @@ export default function ViewDocument() {
           >
             Edit/Print
           </button>
+          {/* Share Button - Only visible to admins */}
+          {user?.role === "admin" && (
+            <button
+              onClick={handleShare}
+              className="bg-green-500 text-white px-4 py-2 rounded"
+            >
+              Share
+            </button>
+          )}
 
           {/* Ellipsis Menu Button */}
           <div className="relative" ref={menuRef}>
