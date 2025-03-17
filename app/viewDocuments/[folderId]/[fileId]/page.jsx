@@ -8,6 +8,7 @@ import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
 import { generateShareLink } from "../../../util/shareFile";
 import { useUser } from "@/src/context/UserContext";
+import ShareLinkModal from "@/components/ShareModal";
 
 export default function ViewDocument() {
   const { folderId, fileId } = useParams(); // Retrieve folderId and fileId from URL
@@ -15,6 +16,7 @@ export default function ViewDocument() {
   const router = useRouter();
   const [docData, setDocData] = useState(null);
   const [shareLink, setShareLink] = useState(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // Track loading state
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -47,7 +49,7 @@ export default function ViewDocument() {
     const link = await generateShareLink(fileId, user);
     if (link) {
       setShareLink(link);
-      alert(`Share this link: ${link}`);
+      setIsShareModalOpen(true); // Open modal after generating the link
     }
   };
 
@@ -236,6 +238,12 @@ export default function ViewDocument() {
           onClose={handleCloseVersionsModal}
         />
       )}
+      {/* Share Link Modal */}
+      <ShareLinkModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        shareLink={shareLink}
+      />
     </main>
   );
 }
