@@ -35,6 +35,8 @@ export default function FolderPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [hasChanged, setHasChanged] = useState(false);
   const [ownersMap, setOwnersMap] = useState({}); // Store fileId -> ownerName mapping
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredUsers, setFilteredUsers] = useState(users);
 
   useEffect(() => {
     if (files.length > 0) {
@@ -53,6 +55,24 @@ export default function FolderPage() {
       fetchUsers();
     }
   }, [loading, user, folderId]); // ✅ Removed `files` dependency to prevent infinite loop
+
+  // Filter users as the user types
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredUsers([]);
+      return;
+    }
+
+    const searchLower = searchQuery.toLowerCase();
+    setFilteredUsers(
+      users.filter(
+        (user) =>
+          user.firstName.toLowerCase().includes(searchLower) ||
+          user.lastName.toLowerCase().includes(searchLower) ||
+          user.email.toLowerCase().includes(searchLower)
+      )
+    );
+  }, [searchQuery, users]);
 
   const fetchOwners = async () => {
     try {
@@ -613,29 +633,39 @@ export default function FolderPage() {
                   {isAssignMode ? (
                     <div className="flex-1">
                       {/* User Selection */}
-                      <div className="mb-4">
+                      {/* User Selection with Search */}
+                      <div className="mb-4 relative">
                         <label className="block mb-2 text-lg font-medium">
                           Select User
                         </label>
-                        <select
+                        <input
+                          type="text"
                           className="w-full p-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                          value={selectedUser || ""}
-                          onChange={(e) => {
-                            setSelectedUser(e.target.value);
-                            setAssignMessage(null);
-                          }}
-                        >
-                          <option value="" disabled>
-                            -- Select a User --
-                          </option>
-                          {users.map((user) => (
-                            <option key={user.id} value={user.id}>
-                              {`${user.firstName} ${user.lastName}` ||
-                                user.email ||
-                                "Unnamed User"}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder="Search for a user..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+
+                        {/* Filtered Dropdown List */}
+                        {searchQuery && filteredUsers.length > 0 && (
+                          <ul className="absolute w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg mt-1 max-h-40 overflow-y-auto z-50">
+                            {filteredUsers.map((user) => (
+                              <li
+                                key={user.id}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                                onClick={() => {
+                                  setSelectedUser(user.id);
+                                  setSearchQuery(
+                                    `${user.firstName} ${user.lastName}`
+                                  );
+                                  setFilteredUsers([]); // Hide dropdown after selection
+                                }}
+                              >
+                                {`${user.firstName} ${user.lastName} (${user.email})`}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
 
                       {/* File Selection */}
