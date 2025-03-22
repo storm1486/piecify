@@ -63,25 +63,17 @@ export const moveOldFiles = onSchedule("0 0 1 7 *", async () => {
 export const deleteExpiredLinks = onSchedule("every 24 hours", async () => {
   console.log("Running expired share link cleanup...");
 
-  try {
-    const now = new Date();
-    const sharedLinksSnapshot = await db.collection("sharedLinks").get();
+  const now = new Date();
+  const snapshot = await db.collection("sharedLinks").get();
+  const batch = db.batch();
 
-    const batch = db.batch();
-    let deletedCount = 0;
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.expiresAt.toDate() < now) {
+      batch.delete(doc.ref);
+    }
+  });
 
-    sharedLinksSnapshot.forEach((doc) => {
-      const linkData = doc.data();
-      if (linkData.expiresAt.toDate() < now) {
-        batch.delete(doc.ref); // Mark link for deletion
-        deletedCount++;
-      }
-    });
-
-    await batch.commit(); // Execute batch deletion
-
-    console.log(`Deleted ${deletedCount} expired share links.`);
-  } catch (error) {
-    console.error("Error deleting expired share links:", error);
-  }
+  await batch.commit();
+  console.log("Expired links cleanup complete.");
 });
