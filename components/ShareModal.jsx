@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../app/firebase/firebase";
+import { sendEmail } from "@/app/util/sendEmail";
+import { useUser } from "@/src/context/UserContext";
 
 export default function ShareLinkModal({ isOpen, onClose, shareLink }) {
+  const { user } = useUser();
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState("");
   const [emailSent, setEmailSent] = useState(false);
@@ -43,12 +46,23 @@ export default function ShareLinkModal({ isOpen, onClose, shareLink }) {
     }
 
     try {
-      // Simulate sending an email (Replace this with actual email-sending logic)
-      console.log(`Sending email to ${selectedUser} with link: ${shareLink}`);
+      await sendEmail({
+        to: selectedUser,
+        subject: "A file has been shared with you",
+        html: `
+          <p>Hello,</p>
+          <p>Officer, ${
+            user.firstName + " " + user.lastName
+          } has shared a file with you. Click the link below to view it:</p>
+          <a href="${shareLink}">${shareLink}</a>
+          <p>This link will expire in 24 hours.</p>
+        `,
+      });
+
       setEmailSent(true);
-      setTimeout(() => setEmailSent(false), 3000); // Reset message after 3 seconds
+      setTimeout(() => setEmailSent(false), 10000);
     } catch (error) {
-      console.error("Error sending email:", error);
+      alert("Failed to send email.");
     }
   };
 
