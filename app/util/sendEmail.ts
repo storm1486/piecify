@@ -18,6 +18,7 @@ export const sendEmail = async ({
         subject,
         html,
       },
+      createdAt: new Date().toISOString(),
     });
   } catch (error) {
     console.error("Error sending email:", error);

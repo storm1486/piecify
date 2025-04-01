@@ -9,6 +9,22 @@ import OtherVersions from "@/components/OtherVersions";
 import { generateShareLink } from "../../../util/shareFile";
 import { useUser } from "@/src/context/UserContext";
 import ShareLinkModal from "@/components/ShareModal";
+import {
+  Mars,
+  Venus,
+  Users,
+  Smile,
+  Drama,
+  Feather,
+  Sparkles,
+  HelpCircle,
+  Laugh,
+  ScrollText,
+  Baby,
+  BookOpenText,
+  BookHeart,
+  Speech,
+} from "lucide-react";
 
 export default function ViewDocument() {
   const { folderId, fileId } = useParams(); // Retrieve folderId and fileId from URL
@@ -24,6 +40,22 @@ export default function ViewDocument() {
   const menu2Ref = useRef(null);
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
+
+  const attributeIcons = {
+    Boy: Mars,
+    Girl: Venus,
+    HI: Laugh,
+    DI: Drama,
+    DUO: Users,
+    POI: BookOpenText,
+    CL: Baby,
+    STORYTELLING: ScrollText,
+    NR: BookHeart,
+    DEC: Speech,
+    POETRY: Feather,
+    PROSE: Sparkles,
+    "NOVICE FRIENDLY": Smile,
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -127,94 +159,113 @@ export default function ViewDocument() {
   return (
     <main className="flex flex-col items-center justify-start min-h-screen p-4 pt-20">
       {/* Fixed Header */}
-      <header className="fixed top-0 left-0 w-full flex justify-between items-center bg-gray-200 dark:bg-gray-800 p-4 shadow-md z-10">
-        <button
-          onClick={() => router.back()}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          Back to Files
-        </button>
-        <h1 className="text-xl font-bold text-center">{docData.fileName}</h1>
-        <div className="flex items-center space-x-2">
+      <header className="fixed top-0 left-0 w-full bg-gray-200 dark:bg-gray-800 shadow-md z-10">
+        <div className="flex justify-between items-center p-4">
           <button
-            onClick={handleViewFull}
-            className="bg-green-500 text-white px-4 py-2 rounded"
+            onClick={() => router.back()}
+            className="bg-blue-500 text-white px-4 py-2 rounded"
           >
-            Edit/Print
+            Back to Files
           </button>
-          {/* Share Button - Only visible to admins */}
-          {user?.role === "admin" && (
+          <h1 className="text-xl font-bold text-center">{docData.fileName}</h1>
+          <div className="flex items-center space-x-2">
             <button
-              onClick={handleShare}
+              onClick={handleViewFull}
               className="bg-green-500 text-white px-4 py-2 rounded"
             >
-              Share
+              Edit/Print
             </button>
-          )}
-
-          {/* Ellipsis Menu Button */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 rounded-full hover:bg-gray-300 dark:hover:bg-gray-700"
-            >
-              {/* Vertical Ellipsis Icon */}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="2"
-                stroke="currentColor"
-                className="w-6 h-6 text-gray-700 dark:text-white"
+            {user?.role === "admin" && (
+              <button
+                onClick={handleShare}
+                className="bg-green-500 text-white px-4 py-2 rounded"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"
-                />
-              </svg>
-            </button>
-
-            {/* Dropdown Menu */}
-            {isMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg rounded-lg z-20">
-                <ul className="py-2 text-gray-800 dark:text-white">
-                  <li
-                    className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      handleOpenVersionsModal();
-                    }}
-                  >
-                    Edited Versions
-                  </li>
-                  <li
-                    className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      alert("Track Record Clicked");
-                    }}
-                  >
-                    Track Record
-                  </li>
-                  <li
-                    className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      handleOpenPieceDetails();
-                    }}
-                  >
-                    Piece Details
-                  </li>
-                </ul>
-              </div>
+                Share
+              </button>
             )}
+            {/* Ellipsis menu */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 rounded-full hover:bg-gray-300 dark:hover:bg-gray-700"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                  className="w-6 h-6 text-gray-700 dark:text-white"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"
+                  />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg rounded-lg z-20">
+                  <ul className="py-2 text-gray-800 dark:text-white">
+                    <li
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        handleOpenVersionsModal();
+                      }}
+                    >
+                      Edited Versions
+                    </li>
+                    <li
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        alert("Track Record Clicked");
+                      }}
+                    >
+                      Track Record
+                    </li>
+                    <li
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        handleOpenPieceDetails();
+                      }}
+                    >
+                      Piece Details
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* 👇 Tags container right below the header content */}
+        {docData.attributes && docData.attributes.length > 0 && (
+          <div className="w-full flex justify-center pb-2">
+            <div className="flex flex-wrap gap-2 px-4">
+              {docData.attributes.map((tag, index) => {
+                const Icon = attributeIcons[tag] || HelpCircle;
+                return (
+                  <span
+                    key={index}
+                    className="flex items-center gap-1 bg-blue-200 dark:bg-blue-600 text-blue-800 dark:text-white text-sm font-semibold px-3 py-1 rounded-full"
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tag}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Document Viewer */}
-      <div className="w-full flex-grow flex items-center justify-center">
+      <div className="w-full flex-grow flex items-center justify-center mt-10">
         <iframe
           src={`https://docs.google.com/gview?url=${encodeURIComponent(
             docData.fileUrl
