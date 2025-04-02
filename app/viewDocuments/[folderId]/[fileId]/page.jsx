@@ -25,6 +25,7 @@ import {
   BookHeart,
   Speech,
 } from "lucide-react";
+import DocumentTags from "@/src/componenets/DocumentTags";
 
 export default function ViewDocument() {
   const { folderId, fileId } = useParams(); // Retrieve folderId and fileId from URL
@@ -157,7 +158,7 @@ export default function ViewDocument() {
   };
 
   return (
-    <main className="flex flex-col items-center justify-start min-h-screen p-4 pt-20">
+    <main className="flex flex-col items-center justify-start min-h-screen pt-20">
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 w-full bg-gray-200 dark:bg-gray-800 shadow-md z-10">
         <div className="flex justify-between items-center p-4">
@@ -244,24 +245,7 @@ export default function ViewDocument() {
         </div>
 
         {/* 👇 Tags container right below the header content */}
-        {docData.attributes && docData.attributes.length > 0 && (
-          <div className="w-full flex justify-center pb-2">
-            <div className="flex flex-wrap gap-2 px-4">
-              {docData.attributes.map((tag, index) => {
-                const Icon = attributeIcons[tag] || HelpCircle;
-                return (
-                  <span
-                    key={index}
-                    className="flex items-center gap-1 bg-blue-200 dark:bg-blue-600 text-blue-800 dark:text-white text-sm font-semibold px-3 py-1 rounded-full"
-                  >
-                    <Icon className="w-4 h-4" />
-                    {tag}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <DocumentTags attributes={docData.attributes} />
       </header>
 
       {/* Document Viewer */}
