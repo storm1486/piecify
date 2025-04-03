@@ -22,7 +22,7 @@ import {
     DUO: Users,
     POI: BookOpenText,
     CL: Baby,
-    STORYTELLING: ScrollText,
+    STORY: ScrollText,
     NR: BookHeart,
     DEC: Speech,
     POETRY: Feather,

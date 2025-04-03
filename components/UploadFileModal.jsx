@@ -4,6 +4,69 @@ import { useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, collection } from "firebase/firestore";
 import { db, storage } from "../app/firebase/firebase";
+import CreatableSelect from "react-select/creatable";
+
+const attributeOptions = [
+  { value: "Boy", label: "Boy" },
+  { value: "Girl", label: "Girl" },
+  { value: "HI", label: "HI" },
+  { value: "DI", label: "DI" },
+  { value: "DUO", label: "DUO" },
+  { value: "POI", label: "POI" },
+  { value: "CL", label: "CL" },
+  { value: "STORY", label: "STORY" },
+  { value: "NR", label: "NR" },
+  { value: "DEC", label: "DEC" },
+  { value: "POETRY", label: "POETRY" },
+  { value: "PROSE", label: "PROSE" },
+  { value: "NOVICE FRIENDLY", label: "NOVICE FRIENDLY" },
+];
+const customStyles = {
+  control: (provided, state) => ({
+    ...provided,
+    backgroundColor: state.isFocused ? "#1f2937" : "#1f2937", // dark:bg-gray-800
+    borderColor: state.isFocused ? "#4b5563" : "#374151", // dark:border-gray-700
+    color: "#f3f4f6", // dark:text-gray-100
+    padding: "0.25rem",
+    borderRadius: "0.5rem",
+    boxShadow: state.isFocused ? "0 0 0 1px #3b82f6" : null, // ring on focus
+    "&:hover": {
+      borderColor: "#6b7280",
+    },
+  }),
+  menu: (provided) => ({
+    ...provided,
+    backgroundColor: "#1f2937", // dark menu bg
+    color: "#f3f4f6",
+    zIndex: 20,
+  }),
+  option: (provided, state) => ({
+    ...provided,
+    backgroundColor: state.isFocused ? "#2563eb" : "#1f2937", // blue-600 on hover
+    color: state.isFocused ? "#ffffff" : "#f3f4f6",
+    padding: "0.5rem 1rem",
+    cursor: "pointer",
+  }),
+  multiValue: (provided) => ({
+    ...provided,
+    backgroundColor: "#2563eb",
+    color: "#ffffff",
+    borderRadius: "0.375rem",
+    padding: "0.25rem",
+  }),
+  multiValueLabel: (provided) => ({
+    ...provided,
+    color: "#ffffff",
+  }),
+  input: (provided) => ({
+    ...provided,
+    color: "#f3f4f6",
+  }),
+  placeholder: (provided) => ({
+    ...provided,
+    color: "#9ca3af", // text-gray-400
+  }),
+};
 
 export default function UploadFileModal({
   isUploadModalOpen,
@@ -58,9 +121,7 @@ export default function UploadFileModal({
         previouslyOwned: [],
         editedVersions: [],
         trackRecord: [],
-        attributes: attributes
-          ? attributes.split(",").map((attr) => attr.trim())
-          : [],
+        attributes: attributes || [],
         folderId,
       };
 
@@ -130,15 +191,19 @@ export default function UploadFileModal({
 
             {/* Attributes */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Attributes (comma-separated)
+              <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">
+                Attributes
               </label>
-              <input
-                type="text"
-                value={attributes}
-                onChange={(e) => setAttributes(e.target.value)}
-                placeholder="e.g. attribute1, attribute2"
-                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+              <CreatableSelect
+                isMulti
+                options={attributeOptions}
+                onChange={(selectedOptions) =>
+                  setAttributes(selectedOptions.map((option) => option.value))
+                }
+                placeholder="Select or create attributes"
+                styles={customStyles}
+                className="w-full"
+                classNamePrefix="select"
               />
             </div>
           </>
