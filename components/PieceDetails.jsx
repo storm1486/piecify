@@ -168,7 +168,7 @@ export default function PieceDetails({ fileId, onClose }) {
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Piece Details</h2>
+          <h1 className="text-2xl font-semibold">Piece Details</h1>
 
           {(user?.role === "admin" || isUserCurrentOwner) && (
             <div className="relative" ref={menuRef}>
@@ -225,7 +225,7 @@ export default function PieceDetails({ fileId, onClose }) {
         </div>
 
         <div className="mb-4">
-          <strong>Description:</strong>
+          <h3 className="text-lg underline">Description:</h3>
           {isEditingDescription ? (
             <>
               <textarea
@@ -253,7 +253,7 @@ export default function PieceDetails({ fileId, onClose }) {
           )}
         </div>
         <div className="mb-4">
-          <strong>Intro:</strong>
+          <h3 className="text-lg underline">Intro:</h3>
           {isEditingIntro ? (
             <>
               <textarea
@@ -282,9 +282,9 @@ export default function PieceDetails({ fileId, onClose }) {
         </div>
 
         {/* Current Owner Section */}
+        <h3 className="text-lg underline">Current Owner:</h3>
         {currentOwner ? (
           <div className="mb-4">
-            <h3 className="text-lg font-semibold">Current Owner:</h3>
             <p className="font-medium">{currentOwner.name}</p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Assigned on:{" "}

@@ -26,7 +26,6 @@ export default function ViewDocument() {
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
 
-
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -130,14 +129,19 @@ export default function ViewDocument() {
     <main className="flex flex-col items-center justify-start min-h-screen pt-20">
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 w-full bg-gray-200 dark:bg-gray-800 shadow-md z-10">
-        <div className="flex justify-between items-center p-4">
-          <button
-            onClick={() => router.back()}
-            className="bg-blue-500 text-white px-4 py-2 rounded"
-          >
-            Back to Files
-          </button>
-          <h1 className="text-xl font-bold text-center">{docData.fileName}</h1>
+        <div className="relative flex justify-between items-center p-4">
+          <div>
+            <button
+              onClick={() => router.back()}
+              className="bg-blue-500 text-white px-4 py-2 rounded"
+            >
+              Back to Files
+            </button>
+          </div>
+          {/* Centered title */}
+          <h1 className="absolute left-1/2 transform -translate-x-1/2 text-xl font-bold text-center">
+            {docData.fileName}
+          </h1>
           <div className="flex items-center space-x-2">
             <button
               onClick={handleViewFull}

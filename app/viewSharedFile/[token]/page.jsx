@@ -10,6 +10,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
+import DocumentTags from "@/src/componenets/DocumentTags";
 
 export default function ViewSharedFile() {
   const { token } = useParams();
@@ -74,6 +75,7 @@ export default function ViewSharedFile() {
       onContextMenu={(e) => e.preventDefault()} // 🔹 Disable right-click
     >
       <h1 className="text-2xl font-bold">{fileData.fileName}</h1>
+      <DocumentTags attributes={fileData.attributes} />
       <iframe
         src={viewerUrl}
         className="w-full h-[80vh] border mt-4"
