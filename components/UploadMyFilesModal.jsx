@@ -10,29 +10,7 @@ import {
   collection,
 } from "firebase/firestore";
 import CreatableSelect from "react-select/creatable";
-
-const attributeOptions = [
-  { value: "Boy", label: "Boy" },
-  { value: "Girl", label: "Girl" },
-  { value: "HI", label: "HI" },
-  { value: "DI", label: "DI" },
-  { value: "DUO", label: "DUO" },
-  { value: "POI", label: "POI" },
-  { value: "CL", label: "CL" },
-  { value: "STORY", label: "STORY" },
-  { value: "NR", label: "NR" },
-  { value: "DEC", label: "DEC" },
-  { value: "POETRY", label: "POETRY" },
-  { value: "PROSE", label: "PROSE" },
-  { value: "NOVICE FRIENDLY", label: "NOVICE FRIENDLY" },
-  { value: "Girl-Girl", label: "Girl-Girl" },
-  { value: "Boy-Boy", label: "Boy-Boy" },
-  { value: "Boy-Girl", label: "Boy-Girl" },
-];
-
-const sortedAttributeOptions = [...attributeOptions].sort((a, b) =>
-  a.label.localeCompare(b.label)
-);
+import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
 
 const customStyles = {
   control: (provided, state) => ({
@@ -95,6 +73,16 @@ export default function UploadMyFilesModal({
   const [error, setError] = useState(null);
 
   if (!isOpen) return null;
+
+  const handleCancel = () => {
+    setFile(null);
+    setFileName("");
+    setPieceDescription("");
+    setAttributes("");
+    setIntro("");
+    setError(null);
+    closeModal();
+  };
 
   // Handle file selection
   const handleFileChange = (event) => {
@@ -207,7 +195,7 @@ export default function UploadMyFilesModal({
               </label>
               <CreatableSelect
                 isMulti
-                options={attributeOptions}
+                options={sortedAttributeOptions}
                 onChange={(selectedOptions) =>
                   setAttributes(selectedOptions.map((option) => option.value))
                 }
@@ -238,7 +226,7 @@ export default function UploadMyFilesModal({
 
         {/* Cancel Button */}
         <button
-          onClick={closeModal}
+          onClick={handleCancel}
           className="w-full bg-red-500 text-white px-4 py-2 rounded"
         >
           Cancel

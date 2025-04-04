@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, collection } from "firebase/firestore";
 import { db, storage } from "../app/firebase/firebase";
 import CreatableSelect from "react-select/creatable";
-import {sortedAttributeOptions} from "@/src/componenets/AttributeIcons"
+import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
 
 const customStyles = {
   control: (provided, state) => ({
@@ -67,6 +67,16 @@ export default function UploadFileModal({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [intro, setIntro] = useState("");
+
+  const handleCancel = () => {
+    setFile(null);
+    setCustomFileName("");
+    setPieceDescription("");
+    setAttributes("");
+    setIntro("");
+    setError(null);
+    closeModal();
+  };
 
   // Handle file selection
   const handleFileChange = (event) => {
@@ -226,7 +236,7 @@ export default function UploadFileModal({
         {error && <p className="text-red-500 mb-4">{error}</p>}
 
         <button
-          onClick={closeModal}
+          onClick={handleCancel}
           className="w-full bg-red-500 text-white px-4 py-2 rounded"
         >
           Cancel
