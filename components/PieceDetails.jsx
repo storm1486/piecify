@@ -18,6 +18,7 @@ export default function PieceDetails({ fileId, onClose }) {
   const menuRef = useRef(null);
   const [isEditingIntro, setIsEditingIntro] = useState(false);
   const [newIntro, setNewIntro] = useState("");
+  const [isUserCurrentOwner, setIsUserCurrentOwner] = useState(false);
 
   useEffect(() => {
     if (docData?.pieceDescription && !isEditingDescription) {
@@ -36,6 +37,13 @@ export default function PieceDetails({ fileId, onClose }) {
         if (fileSnap.exists()) {
           const fileData = fileSnap.data();
           setDocData(fileData);
+          if (
+            fileData.currentOwner &&
+            fileData.currentOwner.length > 0 &&
+            fileData.currentOwner[0].userId === user?.uid
+          ) {
+            setIsUserCurrentOwner(true);
+          }
           setNewDescription(
             fileData.pieceDescription || "No description provided."
           );
@@ -99,7 +107,12 @@ export default function PieceDetails({ fileId, onClose }) {
             return { name, dateGiven: owner.dateGiven };
           })
         );
-        setPreviousOwners(ownerDetails);
+        const sortedOwners = ownerDetails.sort((a, b) => {
+          return (
+            new Date(b.dateGiven).getTime() - new Date(a.dateGiven).getTime()
+          );
+        });
+        setPreviousOwners(sortedOwners);
       } catch (error) {
         console.error("Error fetching previous owners:", error);
       }
@@ -157,7 +170,7 @@ export default function PieceDetails({ fileId, onClose }) {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Piece Details</h2>
 
-          {user?.role === "admin" && (
+          {(user?.role === "admin" || isUserCurrentOwner) && (
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -182,24 +195,28 @@ export default function PieceDetails({ fileId, onClose }) {
               {isMenuOpen && (
                 <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 shadow-lg rounded-lg z-30">
                   <ul className="py-2 text-gray-800 dark:text-white">
-                    <li
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
-                      onClick={() => {
-                        setIsEditingDescription(true);
-                        setIsMenuOpen(false);
-                      }}
-                    >
-                      Edit Description
-                    </li>
-                    <li
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
-                      onClick={() => {
-                        setIsEditingIntro(true);
-                        setIsMenuOpen(false);
-                      }}
-                    >
-                      Edit Intro
-                    </li>
+                    {user?.role === "admin" && (
+                      <li
+                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
+                        onClick={() => {
+                          setIsEditingDescription(true);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        Edit Description
+                      </li>
+                    )}
+                    {(user?.role === "admin" || isUserCurrentOwner) && (
+                      <li
+                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
+                        onClick={() => {
+                          setIsEditingIntro(true);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        Edit Intro
+                      </li>
+                    )}
                   </ul>
                 </div>
               )}
