@@ -1,6 +1,6 @@
 "use client";
 
-import attributeIcons from "@/src/componenets/AttributeIcons";
+import {attributeIcons} from "@/src/componenets/AttributeIcons";
 import { HelpCircle } from "lucide-react";
 
 export default function DocumentTags({ attributes }) {

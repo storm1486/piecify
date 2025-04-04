@@ -25,7 +25,14 @@ const attributeOptions = [
   { value: "POETRY", label: "POETRY" },
   { value: "PROSE", label: "PROSE" },
   { value: "NOVICE FRIENDLY", label: "NOVICE FRIENDLY" },
+  { value: "Girl-Girl", label: "Girl-Girl" },
+  { value: "Boy-Boy", label: "Boy-Boy" },
+  { value: "Boy-Girl", label: "Boy-Girl" },
 ];
+
+const sortedAttributeOptions = [...attributeOptions].sort((a, b) =>
+  a.label.localeCompare(b.label)
+);
 
 const customStyles = {
   control: (provided, state) => ({
@@ -156,7 +163,6 @@ export default function UploadMyFilesModal({
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
       <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
         <h2 className="text-2xl font-semibold mb-6 text-center">Upload File</h2>
-
         {/* File Selection */}
         <input
           type="file"

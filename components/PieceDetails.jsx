@@ -16,6 +16,8 @@ export default function PieceDetails({ fileId, onClose }) {
   const [newDescription, setNewDescription] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const [isEditingIntro, setIsEditingIntro] = useState(false);
+  const [newIntro, setNewIntro] = useState("");
 
   useEffect(() => {
     if (docData?.pieceDescription && !isEditingDescription) {
@@ -37,6 +39,7 @@ export default function PieceDetails({ fileId, onClose }) {
           setNewDescription(
             fileData.pieceDescription || "No description provided."
           );
+          setNewIntro(fileData.intro || "No intro provided.");
 
           // ✅ Fetch current owner details
           if (fileData.currentOwner && fileData.currentOwner.length > 0) {
@@ -129,6 +132,25 @@ export default function PieceDetails({ fileId, onClose }) {
     }
   };
 
+  const handleUpdateIntro = async () => {
+    try {
+      if (!fileId) throw new Error("File ID is missing!");
+      const fileRef = doc(db, "files", fileId);
+      await updateDoc(fileRef, { intro: newIntro });
+
+      setDocData((prevData) => ({
+        ...prevData,
+        intro: newIntro,
+      }));
+
+      setIsEditingIntro(false);
+      alert("Intro updated successfully!");
+    } catch (error) {
+      console.error("Error updating intro:", error);
+      alert("Failed to update intro.");
+    }
+  };
+
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
@@ -169,6 +191,15 @@ export default function PieceDetails({ fileId, onClose }) {
                     >
                       Edit Description
                     </li>
+                    <li
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
+                      onClick={() => {
+                        setIsEditingIntro(true);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      Edit Intro
+                    </li>
                   </ul>
                 </div>
               )}
@@ -204,6 +235,35 @@ export default function PieceDetails({ fileId, onClose }) {
             <p>{docData?.pieceDescription || "No description provided."}</p>
           )}
         </div>
+        <div className="mb-4">
+          <strong>Intro:</strong>
+          {isEditingIntro ? (
+            <>
+              <textarea
+                value={newIntro}
+                onChange={(e) => setNewIntro(e.target.value)}
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+              />
+              <div className="flex justify-end space-x-2 mt-2">
+                <button
+                  onClick={() => setIsEditingIntro(false)}
+                  className="bg-gray-500 text-white px-3 py-1 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateIntro}
+                  className="bg-blue-500 text-white px-3 py-1 rounded"
+                >
+                  Save
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="mt-2">{docData?.intro || "No intro provided."}</p>
+          )}
+        </div>
+
         {/* Current Owner Section */}
         {currentOwner ? (
           <div className="mb-4">

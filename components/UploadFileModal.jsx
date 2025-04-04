@@ -5,22 +5,8 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, collection } from "firebase/firestore";
 import { db, storage } from "../app/firebase/firebase";
 import CreatableSelect from "react-select/creatable";
+import {sortedAttributeOptions} from "@/src/componenets/AttributeIcons"
 
-const attributeOptions = [
-  { value: "Boy", label: "Boy" },
-  { value: "Girl", label: "Girl" },
-  { value: "HI", label: "HI" },
-  { value: "DI", label: "DI" },
-  { value: "DUO", label: "DUO" },
-  { value: "POI", label: "POI" },
-  { value: "CL", label: "CL" },
-  { value: "STORY", label: "STORY" },
-  { value: "NR", label: "NR" },
-  { value: "DEC", label: "DEC" },
-  { value: "POETRY", label: "POETRY" },
-  { value: "PROSE", label: "PROSE" },
-  { value: "NOVICE FRIENDLY", label: "NOVICE FRIENDLY" },
-];
 const customStyles = {
   control: (provided, state) => ({
     ...provided,
@@ -80,6 +66,7 @@ export default function UploadFileModal({
   const [attributes, setAttributes] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
+  const [intro, setIntro] = useState("");
 
   // Handle file selection
   const handleFileChange = (event) => {
@@ -117,6 +104,7 @@ export default function UploadFileModal({
         fileUrl,
         uploadedAt: new Date().toISOString(),
         pieceDescription: pieceDescription || "No description provided.",
+        intro: intro || "", // ✅ Include intro here
         currentOwner: [],
         previouslyOwned: [],
         editedVersions: [],
@@ -189,6 +177,20 @@ export default function UploadFileModal({
               />
             </div>
 
+            {/* Intro Paragraph */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Intro Paragraph
+              </label>
+              <textarea
+                value={intro}
+                onChange={(e) => setIntro(e.target.value)}
+                placeholder="Enter the intro paragraph for the piece"
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+                rows={3}
+              />
+            </div>
+
             {/* Attributes */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-3 text-gray-700 dark:text-gray-300">
@@ -196,7 +198,7 @@ export default function UploadFileModal({
               </label>
               <CreatableSelect
                 isMulti
-                options={attributeOptions}
+                options={sortedAttributeOptions}
                 onChange={(selectedOptions) =>
                   setAttributes(selectedOptions.map((option) => option.value))
                 }

@@ -9,22 +9,6 @@ import OtherVersions from "@/components/OtherVersions";
 import { generateShareLink } from "../../../util/shareFile";
 import { useUser } from "@/src/context/UserContext";
 import ShareLinkModal from "@/components/ShareModal";
-import {
-  Mars,
-  Venus,
-  Users,
-  Smile,
-  Drama,
-  Feather,
-  Sparkles,
-  HelpCircle,
-  Laugh,
-  ScrollText,
-  Baby,
-  BookOpenText,
-  BookHeart,
-  Speech,
-} from "lucide-react";
 import DocumentTags from "@/src/componenets/DocumentTags";
 
 export default function ViewDocument() {
@@ -42,21 +26,6 @@ export default function ViewDocument() {
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
 
-  const attributeIcons = {
-    Boy: Mars,
-    Girl: Venus,
-    HI: Laugh,
-    DI: Drama,
-    DUO: Users,
-    POI: BookOpenText,
-    CL: Baby,
-    STORYTELLING: ScrollText,
-    NR: BookHeart,
-    DEC: Speech,
-    POETRY: Feather,
-    PROSE: Sparkles,
-    "NOVICE FRIENDLY": Smile,
-  };
 
   // Close menu when clicking outside
   useEffect(() => {
