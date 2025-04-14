@@ -19,6 +19,7 @@ export default function PieceDetails({ fileId, onClose }) {
   const [isEditingIntro, setIsEditingIntro] = useState(false);
   const [newIntro, setNewIntro] = useState("");
   const [isUserCurrentOwner, setIsUserCurrentOwner] = useState(false);
+  const [showFullIntro, setShowFullIntro] = useState(false);
 
   useEffect(() => {
     if (docData?.pieceDescription && !isEditingDescription) {
@@ -120,6 +121,11 @@ export default function PieceDetails({ fileId, onClose }) {
 
     fetchPreviousOwners();
   }, [docData]);
+
+  const getTruncatedTextWithEllipsis = (text, limit = 200) => {
+    if (!text) return "";
+    return text.length > limit ? text.slice(0, limit).trim() : text;
+  };
 
   console.log(previousOwners);
 
@@ -239,8 +245,9 @@ export default function PieceDetails({ fileId, onClose }) {
               <textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
-                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white min-h-[80px] max-h-60 overflow-y-auto resize-y"
               />
+
               <div className="flex justify-end space-x-2 mt-2">
                 <button
                   onClick={() => setIsEditingDescription(false)}
@@ -262,13 +269,15 @@ export default function PieceDetails({ fileId, onClose }) {
         </div>
         <div className="mb-4">
           <h3 className="text-lg underline">Intro:</h3>
+
           {isEditingIntro ? (
             <>
               <textarea
                 value={newIntro}
                 onChange={(e) => setNewIntro(e.target.value)}
-                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white min-h-[80px] max-h-60 overflow-y-auto resize-y"
               />
+
               <div className="flex justify-end space-x-2 mt-2">
                 <button
                   onClick={() => setIsEditingIntro(false)}
@@ -285,7 +294,42 @@ export default function PieceDetails({ fileId, onClose }) {
               </div>
             </>
           ) : (
-            <p className="mt-2">{docData?.intro || "No intro provided."}</p>
+            <>
+              {!showFullIntro ? (
+                <p className="mt-2 dark:text-white">
+                  {getTruncatedTextWithEllipsis(docData?.intro, 200)}
+                  {docData?.intro?.length > 200 && (
+                    <button
+                      onClick={() => setShowFullIntro(true)}
+                      className="hover:underline inline p-0 m-0 align-baseline"
+                    >
+                      ...
+                    </button>
+                  )}
+                </p>
+              ) : (
+                <>
+                  <div className="relative mt-2">
+                    <div className="max-h-52 overflow-y-auto p-2 pb-6 bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 dark:text-white">
+                      <p>{docData?.intro}</p>
+                    </div>
+                    {/* Fixed gradient overlay */}
+                    <div className="pointer-events-none absolute bottom-0 left-0 w-full h-6 rounded-b bg-gradient-to-t from-gray-100 dark:from-gray-700 to-transparent" />
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center italic">
+                    Scroll to read more
+                  </p>
+                  <div className="flex justify-center mt-2">
+                    <button
+                      onClick={() => setShowFullIntro(false)}
+                      className="text-sm text-red-600 dark:text-red-400 hover:underline"
+                    >
+                      Collapse
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
 
