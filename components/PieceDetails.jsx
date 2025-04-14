@@ -149,15 +149,23 @@ export default function PieceDetails({ fileId, onClose }) {
     try {
       if (!fileId) throw new Error("File ID is missing!");
       const fileRef = doc(db, "files", fileId);
-      await updateDoc(fileRef, { intro: newIntro });
 
-      setDocData((prevData) => ({
-        ...prevData,
-        intro: newIntro,
-      }));
+      if (user?.role === "admin") {
+        await updateDoc(fileRef, { intro: newIntro });
+        setDocData((prevData) => ({ ...prevData, intro: newIntro }));
+        alert("Intro updated successfully!");
+      } else {
+        await updateDoc(fileRef, {
+          pendingIntroChange: {
+            proposedBy: `${user.firstName} ${user.lastName}`,
+            newIntro,
+            timestamp: new Date().toISOString(),
+          },
+        });
+        alert("Intro change submitted for admin approval.");
+      }
 
       setIsEditingIntro(false);
-      alert("Intro updated successfully!");
     } catch (error) {
       console.error("Error updating intro:", error);
       alert("Failed to update intro.");

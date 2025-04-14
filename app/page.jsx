@@ -16,6 +16,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useUser } from "@/src/context/UserContext";
 import SignUpModal from "@/components/SignUpModal";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
+import PendingIntroChangesPanel from "@/components/PendingIntroChanges";
+import ChangesModal from "@/components/ChangesModal";
 
 export default function Home() {
   const {
@@ -55,6 +57,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [file, setFile] = useState([]);
+  const [selectedPendingFile, setSelectedPendingFile] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -339,6 +342,11 @@ export default function Home() {
             </div>
           </Link>
         </div>
+        {user?.role === "admin" && (
+          <PendingIntroChangesPanel
+            onFileClick={(file) => setSelectedPendingFile(file)}
+          />
+        )}
       </aside>
 
       {/* Login Modal */}
@@ -790,6 +798,13 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      {selectedPendingFile && (
+        <ChangesModal
+          file={selectedPendingFile}
+          onClose={() => setSelectedPendingFile(null)}
+        />
+      )}
     </main>
   );
 }

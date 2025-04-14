@@ -61,7 +61,7 @@ export default function Documents() {
         const folderRef = collection(db, "folders");
         const docRef = await addDoc(folderRef, {
           name: folderName,
-          createdAt: new Date(),
+          createdAt: new Date().toISOString(),
         });
 
         setFolders([...folders, { id: docRef.id, name: folderName }]);
