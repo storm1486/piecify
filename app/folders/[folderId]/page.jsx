@@ -38,11 +38,24 @@ export default function FolderPage() {
   const [hasChanged, setHasChanged] = useState(false);
   const [ownersMap, setOwnersMap] = useState({}); // Store fileId -> ownerName mapping
 
+  // NEW: Length filter states
+  const [lengthFilter, setLengthFilter] = useState("all"); // Default to showing all lengths
+  const [availableLengths, setAvailableLengths] = useState([]); // Store unique length values
+
   useEffect(() => {
     if (files.length > 0) {
       fetchOwners();
+
+      // NEW: Extract unique length values from files
+      const lengths = new Set();
+      files.forEach((file) => {
+        if (file.length) {
+          lengths.add(file.length);
+        }
+      });
+      setAvailableLengths(Array.from(lengths).sort());
     }
-  }, [files]); // Fetch owners only when files change
+  }, [files]); // Fetch owners and lengths only when files change
 
   useEffect(() => {
     // Fetch folder data when user and folderId are available
@@ -390,10 +403,22 @@ export default function FolderPage() {
     router.push(`/viewDocuments/${folderId}/${fileId}`);
   };
 
-  const assignedPieces = files.filter(
+  // NEW: Function to filter files by length
+  const getFilteredFiles = () => {
+    if (lengthFilter === "all") {
+      return files;
+    }
+    return files.filter((file) => file.length === lengthFilter);
+  };
+
+  // Get filtered files based on current filter
+  const filteredFiles = getFilteredFiles();
+
+  // Filter assigned and unassigned pieces based on length filter
+  const assignedPieces = filteredFiles.filter(
     (file) => file.currentOwner && file.currentOwner.length > 0
   );
-  const unassignedPieces = files.filter(
+  const unassignedPieces = filteredFiles.filter(
     (file) => !file.currentOwner || file.currentOwner.length === 0
   );
 
@@ -462,46 +487,110 @@ export default function FolderPage() {
         </div>
 
         {activeTab === "all" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Upload File Container - Always First */}
-            <div
-              className="border border-dashed border-gray-500 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-center gap-2"
-              onClick={() => setIsUploadModalOpen(true)}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-6 h-6 text-gray-500 dark:text-gray-400"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 4.5v15m7.5-7.5h-15"
-                />
-              </svg>
-              <span className="font-bold text-gray-700 dark:text-gray-300">
-                Upload File
+          <>
+            {/* NEW: Length Filter Dropdown */}
+            <div className="mb-4 flex items-center">
+              <label htmlFor="length-filter" className="mr-2 font-medium">
+                Filter by Length:
+              </label>
+              <div className="relative">
+                <select
+                  id="length-filter"
+                  value={lengthFilter}
+                  onChange={(e) => setLengthFilter(e.target.value)}
+                  className="bg-gray-700 text-white py-2 pl-3 pr-10 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Lengths</option>
+                  {availableLengths.map((length) => (
+                    <option key={length} value={length}>
+                      {length}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                  <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Show how many files are being displayed */}
+              <span className="ml-4 text-sm text-gray-400">
+                Showing {filteredFiles.length} of {files.length} files
               </span>
             </div>
-
-            {/* Render Actual Files */}
-            {files.length > 0 ? (
-              files.map((file) => (
-                <div
-                  key={file.id}
-                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                  onClick={() => handleFileClick(file.id)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Upload File Container - Always First */}
+              <div
+                className="border border-dashed border-gray-500 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-center gap-2"
+                onClick={() => setIsUploadModalOpen(true)}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-6 h-6 text-gray-500 dark:text-gray-400"
                 >
-                  <span className="font-bold">{file.fileName}</span>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 4.5v15m7.5-7.5h-15"
+                  />
+                </svg>
+                <span className="font-bold text-gray-700 dark:text-gray-300">
+                  Upload File
+                </span>
+              </div>
+
+              {/* Render Filtered Files */}
+              {filteredFiles.length > 0 ? (
+                filteredFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    onClick={() => handleFileClick(file.id)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-left w-full">
+                        {file.fileName}
+                      </span>
+
+                      {/* Subtle length indicator */}
+                      {file.length && (
+                        <div className="text-xs text-gray-400 whitespace-nowrap ml-2 flex items-center">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3 mr-1"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          {file.length}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-3 text-center text-gray-500 py-4">
+                  No files found with the selected filter.
                 </div>
-              ))
-            ) : (
-              <></> // Don't show "No files found" because upload button is always there
-            )}
-          </div>
+              )}
+            </div>
+          </>
         )}
 
         {activeTab === "assign" && (
@@ -516,29 +605,61 @@ export default function FolderPage() {
             )}
             <h2 className="text-2xl font-bold mb-4">Unassigned Pieces</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {unassignedPieces.map((file) => (
-                <div
-                  key={file.id}
-                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                >
-                  <span className="font-bold">{file.fileName}</span>
+              {unassignedPieces.length > 0 ? (
+                unassignedPieces.map((file) => (
+                  <div
+                    key={file.id}
+                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-left w-full">
+                        {file.fileName}
+                      </span>
+
+                      {/* NEW: Display the length badge */}
+                      {file.length && (
+                        <div className="ml-4 px-2 py-1 bg-blue-500 text-xs font-semibold rounded-full whitespace-nowrap">
+                          {file.length}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-3 text-center text-gray-500 py-4">
+                  No unassigned files found with the selected filter.
                 </div>
-              ))}
+              )}
             </div>
 
             <h2 className="text-2xl font-bold mt-8 mb-4">Assigned Pieces</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {assignedPieces.map((file) => (
-                <div
-                  key={file.id}
-                  className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                >
-                  <span className="font-bold">{file.fileName}</span>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Owner: {ownersMap[file.id] || "Fetching..."}
-                  </p>
+              {assignedPieces.length > 0 ? (
+                assignedPieces.map((file) => (
+                  <div
+                    key={file.id}
+                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                  >
+                    <span className="font-bold">{file.fileName}</span>
+
+                    {/* Display owner and length information */}
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-sm text-gray-500">
+                        Owner: {ownersMap[file.id] || "Fetching..."}
+                      </p>
+                      {file.length && (
+                        <div className="inline-block px-2 py-1 bg-blue-500 text-xs font-semibold rounded-full text-white">
+                          {file.length}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-3 text-center text-gray-500 py-4">
+                  No assigned files found with the selected filter.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -625,10 +746,33 @@ export default function FolderPage() {
                         />
                       </div>
 
+                      {/* NEW: Add length filter to file selection in modal */}
+                      <div className="mb-2">
+                        <label
+                          htmlFor="modal-length-filter"
+                          className="text-sm font-medium mb-1 block"
+                        >
+                          Filter files by length:
+                        </label>
+                        <select
+                          id="modal-length-filter"
+                          value={lengthFilter}
+                          onChange={(e) => setLengthFilter(e.target.value)}
+                          className="w-full bg-gray-700 text-white py-2 px-3 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="all">All Lengths</option>
+                          {availableLengths.map((length) => (
+                            <option key={length} value={length}>
+                              {length}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
                       {/* File Selection */}
                       <div className="mb-4">
                         <FileSearchSelect
-                          files={files}
+                          files={filteredFiles} // Use filtered files here
                           onSelect={(fileId, fileObj) => {
                             setSelectedFile(fileId);
                             setAssignMessage(null);
@@ -639,7 +783,7 @@ export default function FolderPage() {
                       {/* Assign Button */}
                       <button
                         onClick={async () => {
-                          const file = files.find(
+                          const file = filteredFiles.find(
                             (file) => file.id === selectedFile
                           );
                           if (file) {

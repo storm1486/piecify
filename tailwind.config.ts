@@ -12,6 +12,7 @@ const config: Config = {
       colors: {
         mainBg: "#101827", // Dark navy (for main background, always)
         asideBg: "#1f2937", // Light gray (for aside background, always)
+        tag: "#06b6d4",
       },
     },
   },
