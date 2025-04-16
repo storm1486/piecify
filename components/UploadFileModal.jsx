@@ -65,6 +65,7 @@ export default function UploadFileModal({
   const [pieceDescription, setPieceDescription] = useState("");
   const [attributes, setAttributes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [length, setLength] = useState("10 min");
   const [error, setError] = useState(null);
   const [intro, setIntro] = useState("");
 
@@ -121,6 +122,7 @@ export default function UploadFileModal({
         pendingIntroChange: [],
         trackRecord: [],
         attributes: attributes || [],
+        length: length,
         folderId,
       };
 
@@ -149,7 +151,7 @@ export default function UploadFileModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-[600px] max-w-full">
         <h2 className="text-2xl font-bold mb-4">Upload a File</h2>
 
         <input
@@ -183,7 +185,7 @@ export default function UploadFileModal({
                 value={pieceDescription}
                 onChange={(e) => setPieceDescription(e.target.value)}
                 placeholder="Enter a description for the file"
-                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white min-h-[80px] max-h-40 overflow-y-auto resize-y"
                 rows={3}
               />
             </div>
@@ -197,7 +199,7 @@ export default function UploadFileModal({
                 value={intro}
                 onChange={(e) => setIntro(e.target.value)}
                 placeholder="Enter the intro paragraph for the piece"
-                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white"
+                className="w-full p-2 mt-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-700 dark:text-white min-h-[80px] max-h-40 overflow-y-auto resize-y"
                 rows={3}
               />
             </div>
@@ -218,6 +220,25 @@ export default function UploadFileModal({
                 className="w-full"
                 classNamePrefix="select"
               />
+            </div>
+
+            {/* 5 Min Version Checkbox */}
+            <div className="mb-4 flex items-center">
+              <input
+                type="checkbox"
+                id="fiveMinVersion"
+                checked={length === "5 min"}
+                onChange={(e) =>
+                  setLength(e.target.checked ? "5 min" : "10 min")
+                }
+                className="mr-2"
+              />
+              <label
+                htmlFor="fiveMinVersion"
+                className="text-sm text-gray-700 dark:text-gray-300"
+              >
+                5 min version of the piece (optional)
+              </label>
             </div>
           </>
         )}
