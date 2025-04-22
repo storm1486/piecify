@@ -40,7 +40,25 @@ export default function FolderPage() {
 
   // NEW: Length filter states
   const [lengthFilter, setLengthFilter] = useState("all"); // Default to showing all lengths
+  const [assignLengthFilter, setAssignLengthFilter] = useState("all"); // Default to showing all lengths
   const [availableLengths, setAvailableLengths] = useState([]); // Store unique length values
+
+  // Tag filter states
+  const [tagFilter, setTagFilter] = useState("all");
+
+  const tagOptions = [
+    "Boy",
+    "Girl",
+    "Boy-Boy",
+    "Girl-Girl",
+    "Boy-Girl",
+    "Novice Friendly",
+  ];
+
+  const filteredModalFiles =
+    assignLengthFilter === "all"
+      ? files
+      : files.filter((file) => file.length === assignLengthFilter);
 
   useEffect(() => {
     if (files.length > 0) {
@@ -403,12 +421,15 @@ export default function FolderPage() {
     router.push(`/viewDocuments/${folderId}/${fileId}`);
   };
 
-  // NEW: Function to filter files by length
+  // Function to filter files by length
   const getFilteredFiles = () => {
-    if (lengthFilter === "all") {
-      return files;
-    }
-    return files.filter((file) => file.length === lengthFilter);
+    return files.filter((file) => {
+      const lengthMatch =
+        lengthFilter === "all" || file.length === lengthFilter;
+      const tagMatch =
+        tagFilter === "all" || (file.attributes || []).includes(tagFilter);
+      return lengthMatch && tagMatch;
+    });
   };
 
   // Get filtered files based on current filter
@@ -515,6 +536,36 @@ export default function FolderPage() {
                       clipRule="evenodd"
                     />
                   </svg>
+                </div>
+              </div>
+
+              <div className="ml-4 flex items-center">
+                <label htmlFor="tag-filter" className="mr-2 font-medium">
+                  Filter by Tag:
+                </label>
+                <div className="relative">
+                  <select
+                    id="tag-filter"
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className="bg-gray-700 text-white py-2 pl-3 pr-10 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Tags</option>
+                    {tagOptions.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                    <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
                 </div>
               </div>
 
@@ -668,7 +719,7 @@ export default function FolderPage() {
           <>
             {isModalOpen && (
               <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-                <div className="relative bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96 min-h-[450px] flex flex-col">
+                <div className="relative bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-[600px] max-w-full min-h-[450px] flex flex-col">
                   {/* Toggle Switch - Top Right */}
                   <div className="absolute top-4 right-4 flex items-center">
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -756,8 +807,10 @@ export default function FolderPage() {
                         </label>
                         <select
                           id="modal-length-filter"
-                          value={lengthFilter}
-                          onChange={(e) => setLengthFilter(e.target.value)}
+                          value={assignLengthFilter}
+                          onChange={(e) =>
+                            setAssignLengthFilter(e.target.value)
+                          }
                           className="w-full bg-gray-700 text-white py-2 px-3 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="all">All Lengths</option>
@@ -772,7 +825,7 @@ export default function FolderPage() {
                       {/* File Selection */}
                       <div className="mb-4">
                         <FileSearchSelect
-                          files={filteredFiles} // Use filtered files here
+                          files={filteredModalFiles}
                           onSelect={(fileId, fileObj) => {
                             setSelectedFile(fileId);
                             setAssignMessage(null);
@@ -783,7 +836,7 @@ export default function FolderPage() {
                       {/* Assign Button */}
                       <button
                         onClick={async () => {
-                          const file = filteredFiles.find(
+                          const file = filteredModalFiles.find(
                             (file) => file.id === selectedFile
                           );
                           if (file) {
