@@ -159,7 +159,11 @@ export default function ViewFile() {
             </div>
           </div>
         </div>
-        <DocumentTags attributes={docData.attributes} />
+        <DocumentTags
+          attributes={docData.attributes}
+          fileId={fileId}
+          isAdmin={user?.role === "admin"}
+        />
       </header>
 
       {/* Document Viewer */}

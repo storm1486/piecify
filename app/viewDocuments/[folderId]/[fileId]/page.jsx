@@ -218,7 +218,11 @@ export default function ViewDocument() {
         </div>
 
         {/* 👇 Tags container right below the header content */}
-        <DocumentTags attributes={docData.attributes} />
+        <DocumentTags
+          attributes={docData.attributes}
+          fileId={fileId}
+          isAdmin={user?.role === "admin"}
+        />
       </header>
 
       {/* Document Viewer */}
