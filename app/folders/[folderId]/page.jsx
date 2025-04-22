@@ -586,6 +586,9 @@ export default function FolderPage() {
                 Showing {filteredFiles.length} of {files.length} files
               </span>
             </div>
+
+            <div className="border-b border-gray-600 my-4"></div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Upload File Container - Always First */}
               <div
