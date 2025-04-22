@@ -443,6 +443,11 @@ export default function FolderPage() {
     (file) => !file.currentOwner || file.currentOwner.length === 0
   );
 
+  const handleClearFilters = () => {
+    setLengthFilter("all");
+    setTagFilter("all");
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setAssignMessage(null);
@@ -568,6 +573,13 @@ export default function FolderPage() {
                   </div>
                 </div>
               </div>
+
+              <button
+                onClick={handleClearFilters}
+                className="ml-4 px-3 py-2 bg-mainBg text-white border border-gray-400 rounded hover:bg-asideBg transition"
+              >
+                Clear Filters
+              </button>
 
               {/* Show how many files are being displayed */}
               <span className="ml-4 text-sm text-gray-400">
