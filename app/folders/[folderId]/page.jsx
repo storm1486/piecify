@@ -16,6 +16,9 @@ import { useUser } from "@/src/context/UserContext";
 import UploadFileModal from "@/components/UploadFileModal";
 import UserSearchSelect from "@/components/UserSearchSelect";
 import FileSearchSelect from "@/components/FileSearchSelect";
+import FileCard from "@/components/FileCard";
+import TabButton from "@/components/TabButton";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function FolderPage() {
   const { folderId } = useParams();
@@ -463,196 +466,247 @@ export default function FolderPage() {
   };
 
   if (isLoading || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!user) {
-    return <p>Please log in to access this page.</p>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-mainBg text-white">
+        <div className="bg-asideBg p-8 rounded-lg shadow-lg text-center">
+          <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
+          <p className="mb-6">Please log in to access this page.</p>
+          <Link href="/login">
+            <div className="inline-block px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+              Go to Login
+            </div>
+          </Link>
+        </div>
+      </div>
+    );
   }
-
   return (
     <main className="flex min-h-screen bg-mainBg text-white">
-      <aside className="w-64 bg-asideBg p-4">
+      <aside className="w-64 bg-asideBg p-4 shadow-lg">
         <Link href="/">
-          <div className="block p-2 bg-blue-500 text-white rounded text-center">
+          <div className="block p-3 bg-blue-500 text-white rounded text-center hover:bg-blue-600 transition-colors mb-6">
             Home
           </div>
         </Link>
+
+        <nav className="mt-8">
+          <h3 className="text-lg font-medium mb-2 text-gray-400">Navigation</h3>
+          <ul className="space-y-2">
+            <li>
+              <Link href="/folders">
+                <div className="flex items-center p-2 rounded hover:bg-gray-700 transition-colors">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                    />
+                  </svg>
+                  All Folders
+                </div>
+              </Link>
+            </li>
+            <li>
+              <Link href="/dashboard">
+                <div className="flex items-center p-2 rounded hover:bg-gray-700 transition-colors">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Dashboard
+                </div>
+              </Link>
+            </li>
+          </ul>
+        </nav>
+
+        {user?.role === "admin" && (
+          <div className="mt-8">
+            <h3 className="text-lg font-medium mb-2 text-gray-400">
+              Admin Tools
+            </h3>
+            <button
+              className="w-full mt-2 bg-green-600 hover:bg-green-700 text-white p-2 rounded flex items-center justify-center transition-colors"
+              onClick={() => setIsModalOpen(true)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                />
+              </svg>
+              Manage Assignments
+            </button>
+          </div>
+        )}
       </aside>
-
       <section className="flex-1 p-8">
-        <h1 className="text-4xl font-bold mb-4">
-          {folderName || "Loading..."}
-        </h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-4xl font-bold">{folderName || "Loading..."}</h1>
 
-        <div className="flex space-x-4 border-b border-gray-300 mb-4">
           <button
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center transition-colors"
+            onClick={() => setIsUploadModalOpen(true)}
+          >
+            Upload File
+          </button>
+        </div>
+
+        <div className="flex space-x-4 border-b border-gray-700 mb-6">
+          <TabButton
+            active={activeTab === "all"}
             onClick={() => setActiveTab("all")}
-            className={`px-4 py-2 ${
-              activeTab === "all"
-                ? "border-b-2 border-blue-500"
-                : "text-gray-500"
-            }`}
           >
             All Files
-          </button>
-          <button
+          </TabButton>
+          <TabButton
+            active={activeTab === "assign"}
             onClick={() => setActiveTab("assign")}
-            className={`px-4 py-2 ${
-              activeTab === "assign"
-                ? "border-b-2 border-blue-500"
-                : "text-gray-500"
-            }`}
           >
-            Assign
-          </button>
+            Assignments
+          </TabButton>
         </div>
 
         {activeTab === "all" && (
           <>
-            {/* NEW: Length Filter Dropdown */}
-            <div className="mb-4 flex items-center">
-              <label htmlFor="length-filter" className="mr-2 font-medium">
-                Filter by Length:
-              </label>
-              <div className="relative">
-                <select
-                  id="length-filter"
-                  value={lengthFilter}
-                  onChange={(e) => setLengthFilter(e.target.value)}
-                  className="bg-gray-700 text-white py-2 pl-3 pr-10 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Lengths</option>
-                  {availableLengths.map((length) => (
-                    <option key={length} value={length}>
-                      {length}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
-                  <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-              </div>
-
-              <div className="ml-4 flex items-center">
-                <label htmlFor="tag-filter" className="mr-2 font-medium">
-                  Filter by Tag:
-                </label>
+            <div className="mb-6 p-4 bg-gray-800 rounded-lg shadow-md">
+              <div className="flex flex-wrap items-center gap-6">
                 <div className="relative">
-                  <select
-                    id="tag-filter"
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value)}
-                    className="bg-gray-700 text-white py-2 pl-3 pr-10 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Tags</option>
-                    {tagOptions.map((tag) => (
-                      <option key={tag} value={tag}>
-                        {tag}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
-                    <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                  <label htmlFor="length-filter" className="mr-2 font-medium">
+                    Length:
+                  </label>
+                  <div className="relative inline-block">
+                    <select
+                      id="length-filter"
+                      value={lengthFilter}
+                      onChange={(e) => setLengthFilter(e.target.value)}
+                      className="bg-gray-700 text-white py-2 pl-3 pr-10 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">All Lengths</option>
+                      {availableLengths.map((length) => (
+                        <option key={length} value={length}>
+                          {length}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                      <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <button
-                onClick={handleClearFilters}
-                className="ml-4 px-3 py-2 bg-mainBg text-white border border-gray-400 rounded hover:bg-asideBg transition"
-              >
-                Clear Filters
-              </button>
+                <div className="relative">
+                  <label htmlFor="tag-filter" className="mr-2 font-medium">
+                    Tag:
+                  </label>
+                  <div className="relative inline-block">
+                    <select
+                      id="tag-filter"
+                      value={tagFilter}
+                      onChange={(e) => setTagFilter(e.target.value)}
+                      className="bg-gray-700 text-white py-2 pl-3 pr-10 rounded appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">All Tags</option>
+                      {tagOptions.map((tag) => (
+                        <option key={tag} value={tag}>
+                          {tag}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                      <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
 
-              {/* Show how many files are being displayed */}
-              <span className="ml-4 text-sm text-gray-400">
-                Showing {filteredFiles.length} of {files.length} files
-              </span>
-            </div>
-
-            <div className="border-b border-gray-600 my-4"></div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Upload File Container - Always First */}
-              <div
-                className="border border-dashed border-gray-500 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center justify-center gap-2"
-                onClick={() => setIsUploadModalOpen(true)}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-6 h-6 text-gray-500 dark:text-gray-400"
+                <button
+                  onClick={handleClearFilters}
+                  className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors flex items-center"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 4.5v15m7.5-7.5h-15"
-                  />
-                </svg>
-                <span className="font-bold text-gray-700 dark:text-gray-300">
-                  Upload File
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  Clear Filters
+                </button>
+
+                {/* File count */}
+                <span className="ml-auto text-sm text-gray-400">
+                  Showing {filteredFiles.length} of {files.length} files
                 </span>
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Render Filtered Files */}
               {filteredFiles.length > 0 ? (
                 filteredFiles.map((file) => (
-                  <div
+                  <FileCard
                     key={file.id}
-                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                    file={file}
                     onClick={() => handleFileClick(file.id)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-left w-full">
-                        {file.fileName}
-                      </span>
-
-                      {/* Subtle length indicator */}
-                      {file.length && (
-                        <div className="text-xs text-gray-400 whitespace-nowrap ml-2 flex items-center">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3 w-3 mr-1"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                          {file.length}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                    showOwner={
+                      file.currentOwner && file.currentOwner.length > 0
+                    }
+                    ownerName={ownersMap[file.id]}
+                  />
                 ))
               ) : (
-                <div className="col-span-3 text-center text-gray-500 py-4">
-                  No files found with the selected filter.
+                <div className="col-span-full flex items-center justify-center h-32 border border-gray-700 rounded-lg">
+                  <p className="text-gray-500">
+                    No files found with the selected filter.
+                  </p>
                 </div>
               )}
             </div>
@@ -660,72 +714,135 @@ export default function FolderPage() {
         )}
 
         {activeTab === "assign" && (
-          <div>
-            {user.role === "admin" && (
-              <button
-                className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
-                onClick={() => setIsModalOpen(true)}
-              >
-                Manage file assignments from {folderName}
-              </button>
-            )}
-            <h2 className="text-2xl font-bold mb-4">Unassigned Pieces</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {unassignedPieces.length > 0 ? (
-                unassignedPieces.map((file) => (
-                  <div
-                    key={file.id}
-                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-left w-full">
-                        {file.fileName}
+          <div className="space-y-8">
+            {/* Assignment Statistics Dashboard */}
+            <div className="bg-gray-800 rounded-lg p-4 shadow-md">
+              <div className="flex flex-wrap items-center justify-between">
+                <div className="flex space-x-8">
+                  {/* Unassigned Stats */}
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border-4 border-blue-500">
+                      <span className="text-xl font-bold">
+                        {unassignedPieces.length}
                       </span>
-
-                      {/* NEW: Display the length badge */}
-                      {file.length && (
-                        <div className="ml-4 px-2 py-1 bg-blue-500 text-xs font-semibold rounded-full whitespace-nowrap">
-                          {file.length}
-                        </div>
-                      )}
                     </div>
+                    <p className="mt-1 text-sm text-gray-400">Unassigned</p>
                   </div>
-                ))
-              ) : (
-                <div className="col-span-3 text-center text-gray-500 py-4">
-                  No unassigned files found with the selected filter.
+
+                  {/* Assigned Stats */}
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border-4 border-green-600">
+                      <span className="text-xl font-bold">
+                        {assignedPieces.length}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-400">Assigned</p>
+                  </div>
                 </div>
-              )}
+
+                <div className="text-right">
+                  <h3 className="text-gray-400 text-sm">Assignment Overview</h3>
+                  <p className="text-lg">
+                    Total pieces: {filteredFiles.length}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <h2 className="text-2xl font-bold mt-8 mb-4">Assigned Pieces</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {assignedPieces.length > 0 ? (
-                assignedPieces.map((file) => (
-                  <div
-                    key={file.id}
-                    className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                  >
-                    <span className="font-bold">{file.fileName}</span>
+            {/* Unassigned Pieces Section */}
+            <div>
+              <div className="flex items-center mb-4">
+                <h2 className="text-2xl font-bold">Unassigned Pieces</h2>
+                <span className="ml-3 px-2 py-1 bg-gray-700 text-xs font-medium rounded-full">
+                  {unassignedPieces.length}
+                </span>
+              </div>
 
-                    {/* Display owner and length information */}
-                    <div className="flex justify-between items-center mt-2">
-                      <p className="text-sm text-gray-500">
-                        Owner: {ownersMap[file.id] || "Fetching..."}
-                      </p>
-                      {file.length && (
-                        <div className="inline-block px-2 py-1 bg-blue-500 text-xs font-semibold rounded-full text-white">
-                          {file.length}
-                        </div>
-                      )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {unassignedPieces.length > 0 ? (
+                  unassignedPieces.map((file) => (
+                    <div
+                      key={file.id}
+                      className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
+                      onClick={() => handleFileClick(file.id)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="font-bold text-left w-full">
+                          {file.fileName}
+                        </span>
+
+                        {/* Only show length as badge */}
+                        {file.length && (
+                          <div className="ml-2 px-2 py-1 bg-blue-500 text-xs font-semibold rounded-full whitespace-nowrap text-white">
+                            {file.length}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="col-span-full flex items-center justify-center h-32 border border-gray-700 rounded-lg">
+                    <p className="text-gray-500">No unassigned files found.</p>
                   </div>
-                ))
-              ) : (
-                <div className="col-span-3 text-center text-gray-500 py-4">
-                  No assigned files found with the selected filter.
-                </div>
-              )}
+                )}
+              </div>
+            </div>
+
+            {/* Assigned Pieces Section */}
+            <div>
+              <div className="flex items-center mb-4">
+                <h2 className="text-2xl font-bold">Assigned Pieces</h2>
+                <span className="ml-3 px-2 py-1 bg-gray-700 text-xs font-medium rounded-full">
+                  {assignedPieces.length}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {assignedPieces.length > 0 ? (
+                  assignedPieces.map((file) => (
+                    <div
+                      key={file.id}
+                      className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
+                      onClick={() => handleFileClick(file.id)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="font-bold text-left w-full">
+                          {file.fileName}
+                        </span>
+
+                        {file.length && (
+                          <div className="ml-2 px-2 py-1 bg-blue-500 text-xs font-semibold rounded-full whitespace-nowrap text-white">
+                            {file.length}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Only show owner information */}
+                      <div className="mt-2 text-sm text-gray-500 flex items-center">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 mr-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                          />
+                        </svg>
+                        {ownersMap[file.id] || "Loading..."}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full flex items-center justify-center h-32 border border-gray-700 rounded-lg">
+                    <p className="text-gray-500">No assigned files found.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
