@@ -119,7 +119,7 @@ export default function UploadFileModal({
         currentOwner: [],
         previouslyOwned: [],
         editedVersions: [],
-        pendingIntroChange: [],
+        pendingIntroChange: null,
         trackRecord: [],
         attributes: attributes || [],
         length: length,
