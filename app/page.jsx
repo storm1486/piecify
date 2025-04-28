@@ -43,7 +43,7 @@ export default function Home() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [activeTab, setActiveTab] = useState("all"); // Default tab is "All Files"
+  const [activeTab, setActiveTab] = useState(null); // Default tab is "All Files"
   const allFolders = user?.allFolders || [];
   const [searchQuery, setSearchQuery] = useState(""); // For search input
   const [searchResults, setSearchResults] = useState([]); // For storing search results
@@ -65,6 +65,12 @@ export default function Home() {
       fetchMyFiles();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!activeTab && user) {
+      setActiveTab(user.role === "admin" ? "all" : "my");
+    }
+  }, [user, activeTab]);
 
   if (loading) {
     return <p>Loading...</p>; // Show a loading state while fetching user data
@@ -279,132 +285,790 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen bg-mainBg dark:text-white">
+    <main className="flex min-h-screen bg-mainBg text-gray-900">
       {/* Sidebar */}
-      <aside className="w-64 bg-asideBg text-white p-4">
-        <h1 className="text-4xl font-bold mb-4">Piecify</h1>
+      <aside className="w-72 bg-asideBg text-white p-6 flex flex-col">
+        {/* Logo */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">
+            <span className="text-white">Piece</span>
+            <span className="text-blue-300">ify</span>
+          </h1>
+          <p className="text-blue-200 text-sm mt-1">
+            Your performances, organized.
+          </p>
+        </div>
 
+        {/* User Profile */}
         {user ? (
-          <div className="mb-6">
-            <p className="text-sm">Logged in as:</p>
-            <p className="font-bold">
-              {user.firstName && user.lastName
-                ? `${user.firstName} ${user.lastName}` // Show first and last name if available
-                : user.email}
-              {/* Fallback to email */}
-            </p>
+          <div className="mb-8 bg-blue-800 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
+                {user.firstName && user.firstName[0]}
+                {user.lastName && user.lastName[0]}
+              </div>
+              <div>
+                <p className="font-medium">
+                  {user.firstName && user.lastName
+                    ? `${user.firstName} ${user.lastName}`
+                    : user.email}
+                </p>
+                <p className="text-xs text-blue-300">
+                  {user.role === "admin" ? "Administrator" : "User"}
+                </p>
+              </div>
+            </div>
             <button
               onClick={handleLogout}
-              className="bg-red-500 text-white px-4 py-2 rounded mt-4"
+              className="mt-3 text-sm text-blue-300 hover:text-white transition-colors"
             >
-              Log Out
+              Log out
             </button>
           </div>
         ) : (
-          <p className="text-sm">Please log in to access your files.</p>
+          <p className="text-sm mb-6">Please log in to access your files.</p>
         )}
 
+        {/* Navigation */}
+        <nav className="flex-1">
+          <div className="mb-4">
+            <h3 className="text-blue-300 uppercase text-xs font-semibold tracking-wider">
+              Navigation
+            </h3>
+          </div>
+
+          <ul className="space-y-2">
+            <li>
+              <a className="flex items-center p-2 rounded-md bg-blue-800/50 font-medium">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                  />
+                </svg>
+                Dashboard
+              </a>
+            </li>
+            <li>
+              <a className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                  />
+                </svg>
+                My Pieces
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        {/* Favorited Folders */}
         <div className="mt-6">
-          <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
+          <h3 className="text-blue-300 uppercase text-xs font-semibold tracking-wider mb-4">
             Favorited Folders
           </h3>
           {user?.favoriteFolders?.length > 0 ? (
-            <div className="grid gap-4">
+            <div className="space-y-2">
               {allFolders
                 .filter((folder) => user.favoriteFolders.includes(folder.id))
                 .map((folder) => (
                   <Link
                     key={folder.id}
-                    href={`/folders/${folder.id}`} // Navigate to the folder's page
+                    href={`/folders/${folder.id}`}
                     passHref
                     className="block"
                   >
-                    <div className="flex items-center justify-between p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-shadow cursor-pointer shadow hover:shadow-lg">
-                      {/* Folder Details */}
-                      <div className="flex items-center">
-                        <span className="text-lg font-medium text-gray-700 dark:text-gray-200">
-                          {folder.name}
-                        </span>
-                      </div>
+                    <div className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 mr-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                        />
+                      </svg>
+                      <span>{folder.name}</span>
                     </div>
                   </Link>
                 ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No favorites yet. Add some!</p>
+            <p className="text-sm text-blue-400">No favorites yet. Add some!</p>
           )}
         </div>
 
-        {/* Other Sidebar Items */}
+        {/* Other Links */}
         <div className="mt-6">
           <Link href="/team">
-            <div className="p-2 bg-blue-500 text-white rounded text-center cursor-pointer">
+            <div className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                />
+              </svg>
               Current Team
             </div>
           </Link>
         </div>
+
+        {/* Admin Panel */}
         {user?.role === "admin" && (
-          <PendingIntroChangesPanel
-            onFileClick={(file) => setSelectedPendingFile(file)}
-          />
+          <div className="mt-6">
+            <h3 className="text-blue-300 uppercase text-xs font-semibold tracking-wider mb-4">
+              Admin
+            </h3>
+            <div
+              className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer"
+              onClick={() => setSelectedPendingFile(null)}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
+              </svg>
+              Pending Introduction Changes
+            </div>
+          </div>
         )}
       </aside>
+
+      {/* Main Content Area */}
+      {user && (
+        <div className="flex-1 overflow-auto">
+          {/* Header with Search Bar */}
+          <header className="bg-white shadow-sm p-4 sticky top-0 z-10">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="relative w-full max-w-xl">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-5 h-5 text-gray-400"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+                    />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search for pieces, folders, and more..."
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                />
+
+                {/* Search Results Dropdown */}
+                {searchQuery && (
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto z-50">
+                    {searching ? (
+                      <p className="p-4 text-gray-500">Searching...</p>
+                    ) : searchResults.length > 0 ? (
+                      <ul className="divide-y divide-gray-200">
+                        {searchResults.map((file, index) => (
+                          <li
+                            key={index}
+                            className="p-3 hover:bg-gray-100 cursor-pointer"
+                          >
+                            {user.role === "admin" ? (
+                              <Link
+                                href={`/viewDocuments/${file.folderId}/${file.id}`}
+                                className="block"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div className="flex items-center">
+                                    <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mr-3">
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                        />
+                                      </svg>
+                                    </div>
+                                    <span className="font-medium">
+                                      {file.fileName}
+                                    </span>
+                                  </div>
+                                  <span className="text-sm text-gray-500">
+                                    {file.folderName || "Unnamed Folder"}
+                                  </span>
+                                </div>
+                              </Link>
+                            ) : (
+                              <Link
+                                href={`/viewFile/${file.fileId}`}
+                                className="block"
+                              >
+                                <div className="flex justify-between">
+                                  <span className="font-medium">
+                                    {file.fileName}
+                                  </span>
+                                </div>
+                              </Link>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="p-4 text-gray-500">
+                        No files match your search.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center ml-4 space-x-4">
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </svg>
+                  Upload New Piece
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* Content Area */}
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            {/* Tab Navigation */}
+            <div className="mb-6 border-b border-gray-200">
+              <div className="flex space-x-8">
+                {user?.role === "admin" && (
+                  <button
+                    onClick={() => setActiveTab("all")}
+                    className={`pb-4 px-1 font-medium text-sm ${
+                      activeTab === "all"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    All Files
+                  </button>
+                )}
+                <button
+                  onClick={() => setActiveTab("my")}
+                  className={`pb-4 px-1 font-medium text-sm ${
+                    activeTab === "my"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  My Pieces
+                </button>
+                <button
+                  onClick={() => setActiveTab("team")}
+                  className={`pb-4 px-1 font-medium text-sm ${
+                    activeTab === "team"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Team Files
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("favorites")}
+                  className={`pb-4 px-1 font-medium text-sm ${
+                    activeTab === "favorites"
+                      ? "text-blue-600 border-b-2 border-blue-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Favorites
+                </button>
+              </div>
+            </div>
+
+            {/* All Files Tab Content */}
+            {activeTab === "all" && user?.role === "admin" && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    All Folders
+                  </h2>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={handleSortByName}
+                      className="text-sm text-gray-500 flex items-center"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4 mr-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"
+                        />
+                      </svg>
+                      Sort {isAscending ? "Z-A" : "A-Z"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Folders Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {allFolders.map((folder) => (
+                    <Link
+                      href={`/folders/${folder.id}`}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      <div
+                        key={folder.id}
+                        className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden hover:-translate-y-1 transition-transform duration-200"
+                      >
+                        <div className="h-2 bg-blue-500"></div>
+                        <div className="p-5">
+                          <div className="flex justify-between">
+                            <div className="flex items-center">
+                              <div className="p-2 rounded-lg mr-3 bg-blue-100 text-blue-600">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-6 w-6"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                                  />
+                                </svg>
+                              </div>
+                              <div>
+                                <h3 className="font-medium text-gray-900">
+                                  {folder.name}
+                                </h3>
+                                <p className="text-sm text-gray-500">
+                                  Created:{" "}
+                                  {folder.createdAt?.seconds
+                                    ? new Date(
+                                        folder.createdAt.seconds * 1000
+                                      ).toLocaleDateString()
+                                    : new Date(
+                                        folder.createdAt
+                                      ).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                toggleFavorite(folder.id);
+                              }}
+                              className={`text-gray-400 hover:${
+                                user.favoriteFolders.includes(folder.id)
+                                  ? "text-red-500"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill={
+                                  user.favoriteFolders.includes(folder.id)
+                                    ? "currentColor"
+                                    : "none"
+                                }
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+
+                  {/* Create new folder card */}
+                  <div
+                    onClick={() => setIsFolderModalOpen(true)}
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-2 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-3">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="font-medium text-gray-900 mb-1">
+                      Create New Folder
+                    </h3>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* My Pieces Tab Content */}
+            {activeTab === "my" && (
+              <div>
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    My Pieces
+                  </h2>
+                  <p className="text-gray-500">
+                    Manage your personal pieces and performances
+                  </p>
+                </div>
+
+                {/* Upload area */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-white mb-8">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mb-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-8 w-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-1">
+                    Drag and drop pieces to upload
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">or</p>
+                  <button
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md text-sm font-medium inline-flex items-center transition-colors"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    Select Files
+                  </button>
+                </div>
+
+                {/* Files list */}
+                <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Your Pieces
+                    </h3>
+                    <div className="flex space-x-2">
+                      <button className="text-sm text-gray-500 flex items-center">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 mr-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"
+                          />
+                        </svg>
+                        Sort
+                      </button>
+                      <button className="text-sm text-gray-500 flex items-center">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 mr-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                          />
+                        </svg>
+                        Filter
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Your MyFilesSection component */}
+                  <MyFilesSection
+                    myFiles={user?.myFiles || []}
+                    previousFiles={user?.previousFiles || []}
+                  />
+
+                  {/* Empty state for when there are no files */}
+                  {(!user?.myFiles || user.myFiles.length === 0) && (
+                    <div className="p-8 text-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-12 w-12 mx-auto text-gray-400 mb-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                        />
+                      </svg>
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">
+                        No pieces yet
+                      </h3>
+                      <p className="text-gray-500 mb-4">
+                        Upload your first piece to get started
+                      </p>
+                      <button
+                        onClick={() => setIsUploadModalOpen(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium inline-flex items-center transition-colors"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5 mr-2"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                        Upload Piece
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Login Modal */}
       {!user && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-            <h2 className="text-2xl font-semibold mb-6 text-center">Log In</h2>
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              Welcome to Piecify
+            </h2>
+
+            {/* Login Form */}
             <form
               onSubmit={(e) => {
-                e.preventDefault(); // Prevent page refresh
+                e.preventDefault();
                 handleLoginClick();
               }}
             >
-              {/* Email Input */}
-              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-                Email
-              </label>
-              <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-                placeholder="Enter email"
-              />
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
 
-              {/* Password Input */}
-              <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-                Password
-              </label>
-              <input
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full mb-4 px-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-                placeholder="Enter password"
-              />
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Enter your password"
+                    required
+                  />
+                </div>
 
-              {/* Error Message */}
-              {loginError && <p className="text-red-500 mb-4">{loginError}</p>}
+                {/* Error Message */}
+                {loginError && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
+                    {loginError}
+                  </div>
+                )}
 
-              {/* Login Button */}
-              <button
-                onClick={handleLoginClick}
-                className="w-full bg-blue-500 text-white px-4 py-2 rounded mb-4"
-              >
-                Log In
-              </button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="remember-me"
+                      name="remember-me"
+                      type="checkbox"
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="remember-me"
+                      className="ml-2 block text-sm text-gray-900"
+                    >
+                      Remember me
+                    </label>
+                  </div>
+
+                  <div className="text-sm">
+                    <a
+                      href="#"
+                      className="font-medium text-blue-600 hover:text-blue-500"
+                    >
+                      Forgot password?
+                    </a>
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    type="submit"
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Sign in
+                  </button>
+                </div>
+              </div>
             </form>
 
-            {/* Create Account Button */}
-            <button
-              onClick={() => setIsSignUpModalOpen(true)}
-              className="w-full bg-green-500 text-white px-4 py-2 rounded"
-            >
-              Create Account
-            </button>
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">
+                    Don't have an account?
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  onClick={() => setIsSignUpModalOpen(true)}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                  Create New Account
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* Keep your existing SignUpModal component */}
           <SignUpModal
             isOpen={isSignUpModalOpen}
             onClose={() => setIsSignUpModalOpen(false)}
@@ -427,295 +1091,107 @@ export default function Home() {
         </div>
       )}
 
-      {/* Main Content Area */}
-      <section className="flex-1 p-8 flex flex-col items-center justify-center">
-        {/* Search Bar */}
-        <div className="relative w-full flex items-center mb-10">
-          {/* Search Icon */}
-          <div className="absolute left-3 text-gray-500 dark:text-gray-400">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="size-6"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-              />
-            </svg>
-          </div>
-
-          {/* Search Input */}
-          <input
-            type="text"
-            placeholder="Search files..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-
-          {/* Search Results */}
-          {searchQuery && (
-            <div className="absolute top-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto z-50">
-              {searching ? (
-                <p className="p-4 text-gray-500">Searching...</p>
-              ) : searchResults.length > 0 ? (
-                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {searchResults.map((file, index) => (
-                    <li
-                      key={index}
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    >
-                      {userRole === "admin" ? (
-                        <Link
-                          href={`/viewDocuments/${file.folderId}/${file.id}`}
-                          className="block"
-                        >
-                          <div className="flex justify-between">
-                            <span className="font-bold">{file.fileName}</span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                              {file.folderName || "Unnamed Folder"}
-                            </span>
-                          </div>
-                        </Link>
-                      ) : (
-                        <Link
-                          href={`/viewFile/${file.fileId}`}
-                          className="block"
-                        >
-                          <div className="flex justify-between">
-                            <span className="font-bold">{file.fileName}</span>
-                          </div>
-                        </Link>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="p-4 text-gray-500">No files match your search.</p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Display Folders */}
-        <div className="flex-grow w-full mb-8">
-          <section className="flex-1 p-8">
-            {user?.role === "admin" ? (
-              // Admin View with Tabs
-              <>
-                {/* Tab Navigation */}
-                <div className="flex space-x-4 mb-6 border-b border-gray-300 dark:border-gray-700">
-                  <button
-                    className={`px-4 py-2 font-semibold ${
-                      activeTab === "all"
-                        ? "border-b-2 border-blue-500"
-                        : "text-gray-500"
-                    }`}
-                    onClick={() => setActiveTab("all")}
-                  >
-                    All Files
-                  </button>
-                  <button
-                    className={`px-4 py-2 font-semibold ${
-                      activeTab === "my"
-                        ? "border-b-2 border-blue-500"
-                        : "text-gray-500"
-                    }`}
-                    onClick={() => setActiveTab("my")}
-                  >
-                    My Files
-                  </button>
-                  <button
-                    className={`px-4 py-2 font-semibold ${
-                      activeTab === "team"
-                        ? "border-b-2 border-blue-500"
-                        : "text-gray-500"
-                    }`}
-                    onClick={() => setActiveTab("team")}
-                  >
-                    Team Files
-                  </button>
-                </div>
-
-                {/* Tab Content */}
-                {activeTab === "all" && (
-                  <div>
-                    {/* Admin View: All Folders */}
-                    {allFolders.map((folder) => (
-                      <div key={folder.id} className="block">
-                        <Link
-                          href={`/folders/${folder.id}`} // Navigate to the folder
-                          passHref
-                          className="block" // Makes the container pressable
-                        >
-                          <div className="border mt-3 border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                            {/* Folder Details */}
-                            <div>
-                              <h3 className="font-semibold">{folder.name}</h3>
-                              <p className="text-sm text-gray-500">
-                                Created:{" "}
-                                {folder.createdAt?.seconds
-                                  ? new Date(
-                                      folder.createdAt.seconds * 1000
-                                    ).toLocaleDateString()
-                                  : "Unknown"}
-                              </p>
-                            </div>
-
-                            {/* Favorite Button */}
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault(); // Prevent Link navigation
-                                toggleFavorite(folder.id); // Toggle favorite
-                              }}
-                              className={`p-2 rounded-full ml-auto ${
-                                user.favoriteFolders.includes(folder.id)
-                                  ? "text-red-500"
-                                  : "text-gray-500"
-                              } hover:text-red-500`}
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill={
-                                  user.favoriteFolders.includes(folder.id)
-                                    ? "currentColor"
-                                    : "none"
-                                }
-                                viewBox="0 0 24 24"
-                                strokeWidth="2"
-                                stroke="currentColor"
-                                className="w-6 h-6"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M12 21l-1.45-1.34C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.16L12 21z"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                        </Link>
-                      </div>
-                    ))}
-
-                    {/* Create New Folder Button */}
-                    <button
-                      onClick={() => setIsFolderModalOpen(true)}
-                      className="w-full mt-4 px-4 py-2 text-gray-800 dark:text-gray-200 border-2 border-dashed border-gray-500 bg-transparent rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="2"
-                        stroke="currentColor"
-                        className="w-5 h-5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 4.5v15m7.5-7.5h-15"
-                        />
-                      </svg>
-                      Create New Folder
-                    </button>
-                  </div>
-                )}
-
-                {/* Admin View: My Files */}
-                {activeTab === "my" && (
-                  <div>
-                    <button
-                      onClick={() => setIsUploadModalOpen(true)}
-                      className="w-full mt-4 px-4 py-2 mb-5 text-gray-800 dark:text-gray-200 border-2 border-dashed border-gray-500 bg-transparent rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="2"
-                        stroke="currentColor"
-                        className="w-5 h-5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 4.5v15m7.5-7.5h-15"
-                        />
-                      </svg>
-                      Upload File
-                    </button>
-
-                    <MyFilesSection
-                      myFiles={user?.myFiles || []}
-                      previousFiles={user?.previousFiles || []}
-                    />
-                  </div>
-                )}
-              </>
-            ) : (
-              // Non-Admin View
-              <>
-                <h2 className="text-2xl font-semibold mb-4">All Files</h2>
-
-                {user && (
-                  <MyFilesSection
-                    myFiles={user?.myFiles || []}
-                    previousFiles={user?.previousFiles || []}
+      {/* Create Folder Modal */}
+      {isFolderModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Create New Folder
+              </h2>
+              <button
+                onClick={() => setIsFolderModalOpen(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
                   />
-                )}
-              </>
-            )}
-          </section>
-          {isUploadModalOpen && (
-            <UploadMyFilesModal
-              isOpen={isUploadModalOpen}
-              closeModal={() => setIsUploadModalOpen(false)}
-              onClose={() => setIsUploadModalOpen(false)}
-              user={user}
-              onUploadSuccess={fetchMyFiles}
-            />
-          )}
+                </svg>
+              </button>
+            </div>
 
-          {isFolderModalOpen && (
-            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-                <h2 className="text-2xl font-semibold mb-6 text-center">
-                  Create New Folder
-                </h2>
-                <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-                  Folder Name
-                </label>
-                <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  className="w-full mb-4 p-2 border border-gray-300 dark:border-gray-700 rounded bg-white text-black dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter folder name"
-                />
-                <button
-                  onClick={handleCreateNewFolder}
-                  className="w-full bg-blue-500 text-white dark:bg-blue-700 px-4 py-2 rounded mb-4"
-                >
-                  Create Folder
-                </button>
-                <button
-                  onClick={() => setIsFolderModalOpen(false)}
-                  className="w-full bg-red-500 text-white px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
+            <div className="mb-4">
+              <label
+                htmlFor="folderName"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Folder Name
+              </label>
+              <input
+                id="folderName"
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter folder name"
+                autoFocus
+              />
+            </div>
+
+            {/* Optional: Add folder category or color */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Folder Color (Optional)
+              </label>
+              <div className="flex space-x-2">
+                {[
+                  "bg-blue-500",
+                  "bg-green-500",
+                  "bg-amber-500",
+                  "bg-red-500",
+                  "bg-purple-500",
+                ].map((color) => (
+                  <button
+                    key={color}
+                    className={`w-8 h-8 rounded-full ${color} border-2 ${
+                      color === "bg-blue-500"
+                        ? "border-blue-700"
+                        : "border-transparent"
+                    }`}
+                  ></button>
+                ))}
               </div>
             </div>
-          )}
-        </div>
-      </section>
 
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setIsFolderModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateNewFolder}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                disabled={!newFolderName.trim()}
+              >
+                Create Folder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isUploadModalOpen && (
+        <UploadMyFilesModal
+          isOpen={isUploadModalOpen}
+          closeModal={() => setIsUploadModalOpen(false)}
+          onClose={() => setIsUploadModalOpen(false)}
+          user={user}
+          onUploadSuccess={fetchMyFiles}
+        />
+      )}
+      {/* Your existing ChangesModal */}
       {selectedPendingFile && (
         <ChangesModal
           file={selectedPendingFile}

@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: "media", // Enables dark mode using a class
+  darkMode: "class", // Changed from "media" to "class"
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,9 +10,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        mainBg: "#101827", // Dark navy (for main background, always)
-        asideBg: "#1f2937", // Light gray (for aside background, always)
-        tag: "#06b6d4",
+        mainBg: "#f9fafb", // Update to match gray-50
+        asideBg: "#1e3a8a", // Update to match blue-900
+        tag: "#06b6d4", // Keep this as is
       },
     },
   },
