@@ -127,8 +127,6 @@ export default function PieceDetails({ fileId, onClose }) {
     return text.length > limit ? text.slice(0, limit).trim() : text;
   };
 
-  console.log(previousOwners);
-
   const handleUpdateDescription = async () => {
     try {
       if (!fileId) {

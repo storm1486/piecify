@@ -16,9 +16,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useUser } from "@/src/context/UserContext";
 import SignUpModal from "@/components/SignUpModal";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
-import PendingIntroChangesPanel from "@/components/PendingIntroChanges";
-import ChangesModal from "@/components/ChangesModal";
 import MyFilesSection from "@/components/MyFilesSection";
+import PendingIntroChangesModal from "@/components/PendingIntroChangesModal";
 
 export default function Home() {
   const {
@@ -58,7 +57,8 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [file, setFile] = useState([]);
-  const [selectedPendingFile, setSelectedPendingFile] = useState(null);
+  const [pendingIntroFiles, setPendingIntroFiles] = useState([]);
+  const [showPendingIntroModal, setShowPendingIntroModal] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -71,6 +71,25 @@ export default function Home() {
       setActiveTab(user.role === "admin" ? "all" : "my");
     }
   }, [user, activeTab]);
+
+  useEffect(() => {
+    if (user?.role === "admin") {
+      fetchPendingIntroChanges();
+    }
+  }, [user]);
+
+  const fetchPendingIntroChanges = async () => {
+    try {
+      const filesSnapshot = await getDocs(collection(db, "files"));
+      const filesWithPendingChanges = filesSnapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((file) => file.pendingIntroChange);
+
+      setPendingIntroFiles(filesWithPendingChanges);
+    } catch (error) {
+      console.error("Error fetching pending intro changes:", error);
+    }
+  };
 
   if (loading) {
     return <p>Loading...</p>; // Show a loading state while fetching user data
@@ -177,6 +196,9 @@ export default function Home() {
       setIsSigningUp(false); // Re-enable the button
     }
   };
+  const handlePendingIntroClick = async () => {
+    setShowPendingIntroModal(true);
+  };
 
   const handleUploadToMyFiles = async () => {
     if (!file) {
@@ -244,7 +266,7 @@ export default function Home() {
     }
 
     try {
-      if (userRole === "admin") {
+      if (user?.role === "admin") {
         // Admin: Search all files in the `folders` collection
         const foldersSnapshot = await getDocs(collection(db, "folders"));
         const allFiles = [];
@@ -450,8 +472,8 @@ export default function Home() {
               Admin
             </h3>
             <div
-              className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer"
-              onClick={() => setSelectedPendingFile(null)}
+              className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer relative"
+              onClick={handlePendingIntroClick}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -467,7 +489,14 @@ export default function Home() {
                   d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                 />
               </svg>
-              Pending Introduction Changes
+              <span>Pending Intro Changes</span>
+
+              {/* 🔵 Notification Badge */}
+              {pendingIntroFiles.length > 0 && (
+                <span className=" bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
+                  {pendingIntroFiles.length}
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -896,52 +925,6 @@ export default function Home() {
                     myFiles={user?.myFiles || []}
                     previousFiles={user?.previousFiles || []}
                   />
-
-                  {/* Empty state for when there are no files */}
-                  {(!user?.myFiles || user.myFiles.length === 0) && (
-                    <div className="p-8 text-center">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-12 w-12 mx-auto text-gray-400 mb-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                        />
-                      </svg>
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">
-                        No pieces yet
-                      </h3>
-                      <p className="text-gray-500 mb-4">
-                        Upload your first piece to get started
-                      </p>
-                      <button
-                        onClick={() => setIsUploadModalOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium inline-flex items-center transition-colors"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-5 w-5 mr-2"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                          />
-                        </svg>
-                        Upload Piece
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -1192,10 +1175,12 @@ export default function Home() {
         />
       )}
       {/* Your existing ChangesModal */}
-      {selectedPendingFile && (
-        <ChangesModal
-          file={selectedPendingFile}
-          onClose={() => setSelectedPendingFile(null)}
+      {showPendingIntroModal && (
+        <PendingIntroChangesModal
+          pendingFiles={pendingIntroFiles}
+          setPendingFiles={setPendingIntroFiles}
+          onClose={() => setShowPendingIntroModal(false)}
+          refreshPendingChanges={fetchPendingIntroChanges}
         />
       )}
     </main>
