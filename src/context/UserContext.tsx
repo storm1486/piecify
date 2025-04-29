@@ -48,6 +48,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const openLoginModal = () => setIsLoginModalOpen(true);
+  const closeLoginModal = () => setIsLoginModalOpen(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -124,38 +126,46 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         const previousFileRefs = data.previousFiles || [];
 
         // Resolve file references for `myFiles`
-        const myFilePromises = myFileRefs.map(async (fileEntry: { fileRef: { path: any; }; dateGiven: any; }) => {
-          const filePath =
-            typeof fileEntry === "string" ? fileEntry : fileEntry.fileRef?.path;
-          const dateGiven =
-            typeof fileEntry === "object" ? fileEntry.dateGiven : null;
+        const myFilePromises = myFileRefs.map(
+          async (fileEntry: { fileRef: { path: any }; dateGiven: any }) => {
+            const filePath =
+              typeof fileEntry === "string"
+                ? fileEntry
+                : fileEntry.fileRef?.path;
+            const dateGiven =
+              typeof fileEntry === "object" ? fileEntry.dateGiven : null;
 
-          if (!filePath) return null; // Skip if no valid path
+            if (!filePath) return null; // Skip if no valid path
 
-          const fileDocRef = doc(db, filePath);
-          const fileDocSnapshot = await getDoc(fileDocRef);
+            const fileDocRef = doc(db, filePath);
+            const fileDocSnapshot = await getDoc(fileDocRef);
 
-          return fileDocSnapshot.exists()
-            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
-            : null;
-        });
+            return fileDocSnapshot.exists()
+              ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
+              : null;
+          }
+        );
 
         // Resolve file references for `previousFiles`
-        const previousFilePromises = previousFileRefs.map(async (fileEntry: { fileRef: { path: any; }; dateGiven: any; }) => {
-          const filePath =
-            typeof fileEntry === "string" ? fileEntry : fileEntry.fileRef?.path;
-          const dateGiven =
-            typeof fileEntry === "object" ? fileEntry.dateGiven : null;
+        const previousFilePromises = previousFileRefs.map(
+          async (fileEntry: { fileRef: { path: any }; dateGiven: any }) => {
+            const filePath =
+              typeof fileEntry === "string"
+                ? fileEntry
+                : fileEntry.fileRef?.path;
+            const dateGiven =
+              typeof fileEntry === "object" ? fileEntry.dateGiven : null;
 
-          if (!filePath) return null; // Skip if no valid path
+            if (!filePath) return null; // Skip if no valid path
 
-          const fileDocRef = doc(db, filePath);
-          const fileDocSnapshot = await getDoc(fileDocRef);
+            const fileDocRef = doc(db, filePath);
+            const fileDocSnapshot = await getDoc(fileDocRef);
 
-          return fileDocSnapshot.exists()
-            ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
-            : null;
-        });
+            return fileDocSnapshot.exists()
+              ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
+              : null;
+          }
+        );
 
         // Fetch all files
         const resolvedMyFiles = (await Promise.all(myFilePromises)).filter(
@@ -260,6 +270,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     try {
       await signOut(auth); // Ensure Firebase logs out the user
       setUser(null); // Reset user state safely
+      console.log("user", user);
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -272,8 +283,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         setUser,
         loading,
         isLoginModalOpen,
-        openLoginModal: () => setIsLoginModalOpen(true),
-        closeLoginModal: () => setIsLoginModalOpen(false),
+        openLoginModal,
+        closeLoginModal,
         fetchMyFiles,
         toggleFavorite,
         handleLogout,
@@ -292,6 +303,3 @@ export const useUser = () => {
   }
   return context;
 };
-function closeLoginModal() {
-  throw new Error("Function not implemented.");
-}

@@ -200,60 +200,6 @@ export default function Home() {
     setShowPendingIntroModal(true);
   };
 
-  const handleUploadToMyFiles = async () => {
-    if (!file) {
-      setError("Please select a file.");
-      return;
-    }
-    setUploading(true);
-    setError(null);
-
-    try {
-      // ✅ Generate a unique fileId
-      const fileId = doc(collection(db, "files")).id;
-
-      // ✅ Store file in Firebase Storage
-      const storageRef = ref(storage, `user_files/${user.uid}/${file.name}`);
-      await uploadBytes(storageRef, file);
-      const fileUrl = await getDownloadURL(storageRef);
-
-      // ✅ Create Firestore document in `files`
-      const fileData = {
-        fileId,
-        fileName: file.name,
-        fileUrl,
-        uploadedAt: new Date().toISOString(),
-        pieceDescription: "No description provided.",
-        previouslyOwned: [],
-        editedVersions: [],
-        trackRecord: [],
-      };
-
-      const fileRef = doc(db, "files", fileId);
-      await setDoc(fileRef, fileData);
-
-      // ✅ Append { fileRef, dateGiven } to user’s `myFiles` array
-      const fileEntry = {
-        fileRef,
-        dateGiven: new Date().toISOString(),
-      };
-
-      await updateDoc(doc(db, "users", user.uid), {
-        myFiles: arrayUnion(fileEntry),
-      });
-
-      console.log("File uploaded and added to myFiles:", fileId);
-
-      // ✅ Refresh user state to show new file
-      fetchMyFiles();
-      setIsUploadModalOpen(false);
-    } catch (err) {
-      console.error("Error uploading file:", err);
-      setError("Upload failed. Please try again.");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
