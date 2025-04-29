@@ -712,6 +712,7 @@ export default function Home() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {allFolders.map((folder) => (
                     <Link
+                      key={folder.id}
                       href={`/folders/${folder.id}`}
                       className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
