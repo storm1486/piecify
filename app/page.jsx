@@ -47,18 +47,15 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState(""); // For search input
   const [searchResults, setSearchResults] = useState([]); // For storing search results
   const [searching, setSearching] = useState(false); // Loading state for search
-  const [userRole, setUserRole] = useState(null); // To store the user's role
   const [userFiles, setUserFiles] = useState([]); // To store the user's files (for non-admins)
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
-  const [file, setFile] = useState([]);
   const [pendingIntroFiles, setPendingIntroFiles] = useState([]);
   const [showPendingIntroModal, setShowPendingIntroModal] = useState(false);
+  const [selectedColor, setSelectedColor] = useState("bg-blue-500");
 
   useEffect(() => {
     if (user) {
@@ -123,6 +120,7 @@ export default function Home() {
       const docRef = await addDoc(collection(db, "folders"), {
         name: newFolderName,
         createdAt: new Date().toISOString(),
+        color: selectedColor,
       });
       setFolders([
         ...folders,
@@ -130,6 +128,7 @@ export default function Home() {
           id: docRef.id,
           name: newFolderName,
           createdAt: new Date().toISOString(),
+          color: selectedColor,
         },
       ]);
       setIsFolderModalOpen(false);
@@ -199,7 +198,6 @@ export default function Home() {
   const handlePendingIntroClick = async () => {
     setShowPendingIntroModal(true);
   };
-
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -666,7 +664,9 @@ export default function Home() {
                         key={folder.id}
                         className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden hover:-translate-y-1 transition-transform duration-200"
                       >
-                        <div className="h-2 bg-blue-500"></div>
+                        <div
+                          className={`h-2 ${folder.color || "bg-blue-500"}`}
+                        ></div>
                         <div className="p-5">
                           <div className="flex justify-between">
                             <div className="flex items-center">
@@ -1083,11 +1083,13 @@ export default function Home() {
                 ].map((color) => (
                   <button
                     key={color}
+                    onClick={() => setSelectedColor(color)}
                     className={`w-8 h-8 rounded-full ${color} border-2 ${
-                      color === "bg-blue-500"
-                        ? "border-blue-700"
+                      selectedColor === color
+                        ? "border-black"
                         : "border-transparent"
                     }`}
+                    type="button"
                   ></button>
                 ))}
               </div>
