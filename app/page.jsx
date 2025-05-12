@@ -18,6 +18,7 @@ import SignUpModal from "@/components/SignUpModal";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
 import MyFilesSection from "@/components/MyFilesSection";
 import PendingIntroChangesModal from "@/components/PendingIntroChangesModal";
+import PendingAccessRequestsModal from "@/components/PendingAccessRequestModal";
 
 export default function Home() {
   const {
@@ -29,6 +30,8 @@ export default function Home() {
     handleLogout,
     handleLogin,
   } = useUser();
+
+  // console.log("user", user)
 
   const [folders, setFolders] = useState([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
@@ -56,6 +59,9 @@ export default function Home() {
   const [pendingIntroFiles, setPendingIntroFiles] = useState([]);
   const [showPendingIntroModal, setShowPendingIntroModal] = useState(false);
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [showPendingRequestsModal, setShowPendingRequestsModal] =
+    useState(false);
 
   useEffect(() => {
     if (user) {
@@ -72,8 +78,91 @@ export default function Home() {
   useEffect(() => {
     if (user?.role === "admin") {
       fetchPendingIntroChanges();
+      fetchPendingRequests(); // Add this line
     }
   }, [user]);
+
+  // Add this function to fetch all pending requests
+  const fetchPendingRequests = async () => {
+    try {
+      const filesSnapshot = await getDocs(collection(db, "files"));
+      const allRequests = [];
+
+      for (const fileDoc of filesSnapshot.docs) {
+        const fileData = fileDoc.data();
+        if (fileData.accessRequests && Array.isArray(fileData.accessRequests)) {
+          // Get all pending requests for this file
+          const fileRequests = fileData.accessRequests
+            .filter(
+              (request) => request.status === "pending" || !request.status
+            )
+            .map((request) => ({
+              fileId: fileDoc.id,
+              fileName: fileData.fileName,
+              requestDate: request.requestedAt,
+              userId: request.userId,
+              userName: request.userName || "Unknown User",
+              requestId:
+                request.userId + "-" + (request.requestedAt || Date.now()),
+            }));
+
+          allRequests.push(...fileRequests);
+        }
+      }
+
+      setPendingRequests(allRequests);
+    } catch (error) {
+      console.error("Error fetching pending requests:", error);
+    }
+  };
+
+  // Add function to handle approval/rejection
+  const handleRequestAction = async (fileId, userId, action) => {
+    try {
+      const fileRef = doc(db, "files", fileId);
+      const fileDoc = await getDoc(fileRef);
+
+      if (!fileDoc.exists()) {
+        console.error("File not found");
+        return;
+      }
+
+      const fileData = fileDoc.data();
+      const accessRequests = fileData.accessRequests || [];
+
+      // Find the specific request
+      const updatedRequests = accessRequests.map((request) => {
+        if (request.userId === userId) {
+          return { ...request, status: action };
+        }
+        return request;
+      });
+
+      // Update the file document
+      await updateDoc(fileRef, { accessRequests: updatedRequests });
+
+      // If approved, add file to user's myFiles
+      if (action === "approved") {
+        const userRef = doc(db, "users", userId);
+        const fileEntry = {
+          fileRef: fileRef,
+          dateGiven: new Date().toISOString(),
+        };
+        await updateDoc(userRef, {
+          myFiles: arrayUnion(fileEntry),
+        });
+      }
+
+      // Refresh the requests list
+      fetchPendingRequests();
+    } catch (error) {
+      console.error(`Error ${action} request:`, error);
+    }
+  };
+
+  const handlePendingRequestsClick = () => {
+    setShowPendingRequestsModal(true);
+  };
 
   const fetchPendingIntroChanges = async () => {
     try {
@@ -251,9 +340,9 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen bg-mainBg text-gray-900">
+    <main className="flex min-h-screen bg-mainBg text-gray-900 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-72 bg-asideBg text-white p-6 flex flex-col">
+      <aside className="w-72 bg-asideBg text-white p-6 flex flex-col h-screen sticky top-0 overflow-y-auto">
         {/* Logo */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">
@@ -324,7 +413,10 @@ export default function Home() {
               </a>
             </li>
             <li>
-              <a className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors">
+              <Link
+                href="/viewPieces"
+                className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3"
@@ -336,11 +428,11 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                    d="M9 12h6m-6 4h6M4 6h16M4 10h16M4 14h16M4 18h16"
                   />
                 </svg>
-                My Pieces
-              </a>
+                View Pieces
+              </Link>
             </li>
           </ul>
         </nav>
@@ -435,10 +527,39 @@ export default function Home() {
               </svg>
               <span>Pending Intro Changes</span>
 
-              {/* 🔵 Notification Badge */}
+              {/* Notification Badge */}
               {pendingIntroFiles.length > 0 && (
-                <span className=" bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
+                <span className="bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
                   {pendingIntroFiles.length}
+                </span>
+              )}
+            </div>
+
+            {/* Add this new menu item */}
+            <div
+              className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer relative mt-2"
+              onClick={handlePendingRequestsClick}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                />
+              </svg>
+              <span>Pending Access Requests</span>
+
+              {/* Notification Badge */}
+              {pendingRequests.length > 0 && (
+                <span className="bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
+                  {pendingRequests.length}
                 </span>
               )}
             </div>
@@ -448,7 +569,7 @@ export default function Home() {
 
       {/* Main Content Area */}
       {user && (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-y-auto h-screen">
           {/* Header with Search Bar */}
           <header className="bg-white shadow-sm p-4 sticky top-0 z-10">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -871,6 +992,7 @@ export default function Home() {
                   <MyFilesSection
                     myFiles={user?.myFiles || []}
                     previousFiles={user?.previousFiles || []}
+                    requestedFiles={user?.requestedFiles || []}
                   />
                 </div>
               </div>
@@ -1130,6 +1252,15 @@ export default function Home() {
           setPendingFiles={setPendingIntroFiles}
           onClose={() => setShowPendingIntroModal(false)}
           refreshPendingChanges={fetchPendingIntroChanges}
+        />
+      )}
+      {/* Access Requests Modal */}
+      {showPendingRequestsModal && (
+        <PendingAccessRequestsModal
+          pendingRequests={pendingRequests}
+          setPendingRequests={setPendingRequests}
+          onClose={() => setShowPendingRequestsModal(false)}
+          refreshPendingRequests={fetchPendingRequests}
         />
       )}
     </main>

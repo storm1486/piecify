@@ -24,6 +24,7 @@ interface User {
   graduationYear: number | null; // New field (nullable)
   myFiles: Array<any>;
   previousFiles: Array<any>;
+  requestedFiles: Array<any>; // ✅ Add this
   favoriteFolders: Array<string>;
   allFolders: Array<any>;
 }
@@ -70,6 +71,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             graduationYear: null, // Default value
             myFiles: [],
             previousFiles: [],
+            requestedFiles: [],
             favoriteFolders: [],
             allFolders: [],
           };
@@ -112,7 +114,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch user's files
   const fetchMyFiles = async () => {
     if (!user) return;
 
@@ -124,18 +125,52 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         const data = userDoc.data();
         const myFileRefs = data.myFiles || [];
         const previousFileRefs = data.previousFiles || [];
+        const requestedFileRefs = data.requestedFiles || [];
 
-        // Resolve file references for `myFiles`
+        const now = new Date();
+
+        // 🔹 Resolve requested files
+        const requestedFilePromises = requestedFileRefs.map(
+          async (fileEntry: {
+            fileRef: { path: any };
+            dateGiven: any;
+            expiresAt: string;
+          }) => {
+            const filePath = fileEntry.fileRef?.path;
+            const dateGiven = fileEntry.dateGiven;
+            const expiresAt = fileEntry.expiresAt;
+
+            if (!filePath) return null;
+
+            const fileDocRef = doc(db, filePath);
+            const fileDocSnapshot = await getDoc(fileDocRef);
+
+            return fileDocSnapshot.exists()
+              ? {
+                  id: fileDocSnapshot.id,
+                  ...fileDocSnapshot.data(),
+                  dateGiven,
+                  expiresAt,
+                }
+              : null;
+          }
+        );
+
+        const resolvedRequestedFiles = (
+          await Promise.all(requestedFilePromises)
+        ).filter(Boolean);
+        const validRequestedFiles = resolvedRequestedFiles.filter((file) => {
+          const expiresAt = file.expiresAt ? new Date(file.expiresAt) : null;
+          return !expiresAt || expiresAt > now;
+        });
+
+        // 🔹 Resolve myFiles
         const myFilePromises = myFileRefs.map(
           async (fileEntry: { fileRef: { path: any }; dateGiven: any }) => {
-            const filePath =
-              typeof fileEntry === "string"
-                ? fileEntry
-                : fileEntry.fileRef?.path;
-            const dateGiven =
-              typeof fileEntry === "object" ? fileEntry.dateGiven : null;
+            const filePath = fileEntry.fileRef?.path;
+            const dateGiven = fileEntry.dateGiven;
 
-            if (!filePath) return null; // Skip if no valid path
+            if (!filePath) return null;
 
             const fileDocRef = doc(db, filePath);
             const fileDocSnapshot = await getDoc(fileDocRef);
@@ -146,17 +181,17 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           }
         );
 
-        // Resolve file references for `previousFiles`
+        const resolvedMyFiles = (await Promise.all(myFilePromises)).filter(
+          Boolean
+        );
+
+        // 🔹 Resolve previousFiles
         const previousFilePromises = previousFileRefs.map(
           async (fileEntry: { fileRef: { path: any }; dateGiven: any }) => {
-            const filePath =
-              typeof fileEntry === "string"
-                ? fileEntry
-                : fileEntry.fileRef?.path;
-            const dateGiven =
-              typeof fileEntry === "object" ? fileEntry.dateGiven : null;
+            const filePath = fileEntry.fileRef?.path;
+            const dateGiven = fileEntry.dateGiven;
 
-            if (!filePath) return null; // Skip if no valid path
+            if (!filePath) return null;
 
             const fileDocRef = doc(db, filePath);
             const fileDocSnapshot = await getDoc(fileDocRef);
@@ -165,22 +200,18 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
               : null;
           }
-        );
-
-        // Fetch all files
-        const resolvedMyFiles = (await Promise.all(myFilePromises)).filter(
-          (file) => file !== null
         );
 
         const resolvedPreviousFiles = (
           await Promise.all(previousFilePromises)
-        ).filter((file) => file !== null);
+        ).filter(Boolean);
 
-        // Update the user context
+        // 🔹 Set into user context
         setUser((prevUser) => ({
           ...prevUser!,
-          myFiles: resolvedMyFiles, // Store resolved myFiles
-          previousFiles: resolvedPreviousFiles, // Store resolved previousFiles
+          myFiles: resolvedMyFiles,
+          previousFiles: resolvedPreviousFiles,
+          requestedFiles: validRequestedFiles, // ✅ Include valid temporary files
         }));
       }
     } catch (error) {
@@ -243,6 +274,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           graduationYear: data.graduationYear || null,
           myFiles: data.myFiles || [],
           previousFiles: data.previousFiles || [],
+          requestedFiles: [],
           favoriteFolders: data.favoriteFolders || [],
           allFolders: [],
         };
