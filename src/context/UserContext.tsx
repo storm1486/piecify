@@ -13,6 +13,7 @@ import {
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, collection, getDocs, setDoc } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 // Define the shape of the user data
 interface User {
@@ -51,6 +52,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const openLoginModal = () => setIsLoginModalOpen(true);
   const closeLoginModal = () => setIsLoginModalOpen(false);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -302,7 +304,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     try {
       await signOut(auth); // Ensure Firebase logs out the user
       setUser(null); // Reset user state safely
-      console.log("user", user);
+      router.push("/login"); // Add this line to navigate to login page
     } catch (error) {
       console.error("Error logging out:", error);
     }

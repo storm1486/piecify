@@ -1,67 +1,28 @@
 "use client";
 import { useState, useEffect } from "react";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage, auth } from "./firebase/firebase"; // Adjust the path as necessary
-import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  setDoc,
-  updateDoc,
-  arrayUnion,
-} from "firebase/firestore";
+import { db } from "./firebase/firebase"; // Adjust the path as necessary
+import { collection, addDoc, getDocs } from "firebase/firestore";
 import Link from "next/link";
-import { createUserWithEmailAndPassword } from "firebase/auth";
 import { useUser } from "@/src/context/UserContext";
-import SignUpModal from "@/components/SignUpModal";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
 import MyFilesSection from "@/components/MyFilesSection";
-import PendingIntroChangesModal from "@/components/PendingIntroChangesModal";
-import PendingAccessRequestsModal from "@/components/PendingAccessRequestModal";
+import Sidebar from "@/components/Sidebar";
 
 export default function Home() {
-  const {
-    user,
-    setUser,
-    loading,
-    toggleFavorite,
-    fetchMyFiles,
-    handleLogout,
-    handleLogin,
-  } = useUser();
-
-  // console.log("user", user)
+  const { user, loading, toggleFavorite, fetchMyFiles } = useUser();
 
   const [folders, setFolders] = useState([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [isAscending, setIsAscending] = useState(true); // State for sorting direction
-  const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupRole, setSignupRole] = useState("user");
-  const [signupError, setSignupError] = useState("");
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
   const [activeTab, setActiveTab] = useState(null); // Default tab is "All Files"
   const allFolders = user?.allFolders || [];
   const [searchQuery, setSearchQuery] = useState(""); // For search input
   const [searchResults, setSearchResults] = useState([]); // For storing search results
   const [searching, setSearching] = useState(false); // Loading state for search
   const [userFiles, setUserFiles] = useState([]); // To store the user's files (for non-admins)
-  const [isSigningUp, setIsSigningUp] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [graduationYear, setGraduationYear] = useState("");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [pendingIntroFiles, setPendingIntroFiles] = useState([]);
-  const [showPendingIntroModal, setShowPendingIntroModal] = useState(false);
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
-  const [pendingRequests, setPendingRequests] = useState([]);
-  const [showPendingRequestsModal, setShowPendingRequestsModal] =
-    useState(false);
 
   useEffect(() => {
     if (user) {
@@ -75,117 +36,9 @@ export default function Home() {
     }
   }, [user, activeTab]);
 
-  useEffect(() => {
-    if (user?.role === "admin") {
-      fetchPendingIntroChanges();
-      fetchPendingRequests(); // Add this line
-    }
-  }, [user]);
-
-  // Add this function to fetch all pending requests
-  const fetchPendingRequests = async () => {
-    try {
-      const filesSnapshot = await getDocs(collection(db, "files"));
-      const allRequests = [];
-
-      for (const fileDoc of filesSnapshot.docs) {
-        const fileData = fileDoc.data();
-        if (fileData.accessRequests && Array.isArray(fileData.accessRequests)) {
-          // Get all pending requests for this file
-          const fileRequests = fileData.accessRequests
-            .filter(
-              (request) => request.status === "pending" || !request.status
-            )
-            .map((request) => ({
-              fileId: fileDoc.id,
-              fileName: fileData.fileName,
-              requestDate: request.requestedAt,
-              userId: request.userId,
-              userName: request.userName || "Unknown User",
-              requestId:
-                request.userId + "-" + (request.requestedAt || Date.now()),
-            }));
-
-          allRequests.push(...fileRequests);
-        }
-      }
-
-      setPendingRequests(allRequests);
-    } catch (error) {
-      console.error("Error fetching pending requests:", error);
-    }
-  };
-
-  // Add function to handle approval/rejection
-  const handleRequestAction = async (fileId, userId, action) => {
-    try {
-      const fileRef = doc(db, "files", fileId);
-      const fileDoc = await getDoc(fileRef);
-
-      if (!fileDoc.exists()) {
-        console.error("File not found");
-        return;
-      }
-
-      const fileData = fileDoc.data();
-      const accessRequests = fileData.accessRequests || [];
-
-      // Find the specific request
-      const updatedRequests = accessRequests.map((request) => {
-        if (request.userId === userId) {
-          return { ...request, status: action };
-        }
-        return request;
-      });
-
-      // Update the file document
-      await updateDoc(fileRef, { accessRequests: updatedRequests });
-
-      // If approved, add file to user's myFiles
-      if (action === "approved") {
-        const userRef = doc(db, "users", userId);
-        const fileEntry = {
-          fileRef: fileRef,
-          dateGiven: new Date().toISOString(),
-        };
-        await updateDoc(userRef, {
-          myFiles: arrayUnion(fileEntry),
-        });
-      }
-
-      // Refresh the requests list
-      fetchPendingRequests();
-    } catch (error) {
-      console.error(`Error ${action} request:`, error);
-    }
-  };
-
-  const handlePendingRequestsClick = () => {
-    setShowPendingRequestsModal(true);
-  };
-
-  const fetchPendingIntroChanges = async () => {
-    try {
-      const filesSnapshot = await getDocs(collection(db, "files"));
-      const filesWithPendingChanges = filesSnapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((file) => file.pendingIntroChange);
-
-      setPendingIntroFiles(filesWithPendingChanges);
-    } catch (error) {
-      console.error("Error fetching pending intro changes:", error);
-    }
-  };
-
   if (loading) {
     return <p>Loading...</p>; // Show a loading state while fetching user data
   }
-
-  const handleLoginClick = async () => {
-    await handleLogin(loginEmail, loginPassword);
-    setLoginEmail(""); // Clear input fields
-    setLoginPassword("");
-  };
 
   const handleSortByName = () => {
     const sortedFolders = [...folders].sort((a, b) => {
@@ -225,67 +78,6 @@ export default function Home() {
     } catch (error) {
       console.error("Error creating new folder:", error);
     }
-  };
-
-  const handleSignup = async () => {
-    if (
-      !signupEmail ||
-      !signupPassword ||
-      !firstName ||
-      !lastName ||
-      !graduationYear
-    ) {
-      setSignupError("All fields are required.");
-      return;
-    }
-
-    if (isSigningUp) return; // Prevent duplicate submissions
-    setIsSigningUp(true);
-
-    try {
-      setSignupError(""); // Clear previous errors
-      setIsSignUpModalOpen(false); // Close the modal immediately
-
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        signupEmail,
-        signupPassword
-      );
-
-      const user = userCredential.user;
-
-      // Add user to Firestore with new fields
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        email: user.email,
-        role: signupRole, // Default role
-        favoriteFolders: [],
-        myFiles: [],
-        previousFiles: [],
-        favoriteFiles: [],
-        firstName, // Add firstName
-        lastName, // Add lastName
-        graduationYear, // Add graduationYear
-      });
-
-      console.log("User created and added to Firestore:", user.uid);
-
-      // Reset the inputs
-      setSignupEmail("");
-      setSignupPassword("");
-      setFirstName("");
-      setLastName("");
-      setGraduationYear("");
-      setSignupRole("user");
-    } catch (error) {
-      console.error("Error signing up:", error);
-      setSignupError(error.message); // Display error message
-    } finally {
-      setIsSigningUp(false); // Re-enable the button
-    }
-  };
-  const handlePendingIntroClick = async () => {
-    setShowPendingIntroModal(true);
   };
 
   const handleSearch = async (query) => {
@@ -342,231 +134,7 @@ export default function Home() {
   return (
     <main className="flex min-h-screen bg-mainBg text-gray-900 overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-72 bg-asideBg text-white p-6 flex flex-col h-screen sticky top-0 overflow-y-auto">
-        {/* Logo */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-white">Piece</span>
-            <span className="text-blue-300">ify</span>
-          </h1>
-          <p className="text-blue-200 text-sm mt-1">
-            Your performances, organized.
-          </p>
-        </div>
-
-        {/* User Profile */}
-        {user ? (
-          <div className="mb-8 bg-blue-800 rounded-lg p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
-                {user.firstName && user.firstName[0]}
-                {user.lastName && user.lastName[0]}
-              </div>
-              <div>
-                <p className="font-medium">
-                  {user.firstName && user.lastName
-                    ? `${user.firstName} ${user.lastName}`
-                    : user.email}
-                </p>
-                <p className="text-xs text-blue-300">
-                  {user.role === "admin" ? "Administrator" : "User"}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="mt-3 text-sm text-blue-300 hover:text-white transition-colors"
-            >
-              Log out
-            </button>
-          </div>
-        ) : (
-          <p className="text-sm mb-6">Please log in to access your files.</p>
-        )}
-
-        {/* Navigation */}
-        <nav className="flex-1">
-          <div className="mb-4">
-            <h3 className="text-blue-300 uppercase text-xs font-semibold tracking-wider">
-              Navigation
-            </h3>
-          </div>
-
-          <ul className="space-y-2">
-            <li>
-              <a className="flex items-center p-2 rounded-md bg-blue-800/50 font-medium">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                  />
-                </svg>
-                Dashboard
-              </a>
-            </li>
-            <li>
-              <Link
-                href="/viewPieces"
-                className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6M4 6h16M4 10h16M4 14h16M4 18h16"
-                  />
-                </svg>
-                View Pieces
-              </Link>
-            </li>
-          </ul>
-        </nav>
-
-        {/* Favorited Folders */}
-        <div className="mt-6">
-          <h3 className="text-blue-300 uppercase text-xs font-semibold tracking-wider mb-4">
-            Favorited Folders
-          </h3>
-          {user?.favoriteFolders?.length > 0 ? (
-            <div className="space-y-2">
-              {allFolders
-                .filter((folder) => user.favoriteFolders.includes(folder.id))
-                .map((folder) => (
-                  <Link
-                    key={folder.id}
-                    href={`/folders/${folder.id}`}
-                    passHref
-                    className="block"
-                  >
-                    <div className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 mr-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                        />
-                      </svg>
-                      <span>{folder.name}</span>
-                    </div>
-                  </Link>
-                ))}
-            </div>
-          ) : (
-            <p className="text-sm text-blue-400">No favorites yet. Add some!</p>
-          )}
-        </div>
-
-        {/* Other Links */}
-        <div className="mt-6">
-          <Link href="/team">
-            <div className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-              Current Team
-            </div>
-          </Link>
-        </div>
-
-        {/* Admin Panel */}
-        {user?.role === "admin" && (
-          <div className="mt-6">
-            <h3 className="text-blue-300 uppercase text-xs font-semibold tracking-wider mb-4">
-              Admin
-            </h3>
-            <div
-              className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer relative"
-              onClick={handlePendingIntroClick}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
-              <span>Pending Intro Changes</span>
-
-              {/* Notification Badge */}
-              {pendingIntroFiles.length > 0 && (
-                <span className="bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
-                  {pendingIntroFiles.length}
-                </span>
-              )}
-            </div>
-
-            {/* Add this new menu item */}
-            <div
-              className="flex items-center p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer relative mt-2"
-              onClick={handlePendingRequestsClick}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                />
-              </svg>
-              <span>Pending Access Requests</span>
-
-              {/* Notification Badge */}
-              {pendingRequests.length > 0 && (
-                <span className="bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">
-                  {pendingRequests.length}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </aside>
-
+      <Sidebar activePage="dashboard" />
       {/* Main Content Area */}
       {user && (
         <div className="flex-1 overflow-y-auto h-screen">
@@ -1001,148 +569,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Login Modal */}
-      {!user && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-              Welcome to Piecify
-            </h2>
-
-            {/* Login Form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleLoginClick();
-              }}
-            >
-              <div className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Email Address
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Enter your email"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="password"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Enter your password"
-                    required
-                  />
-                </div>
-
-                {/* Error Message */}
-                {loginError && (
-                  <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
-                    {loginError}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <input
-                      id="remember-me"
-                      name="remember-me"
-                      type="checkbox"
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label
-                      htmlFor="remember-me"
-                      className="ml-2 block text-sm text-gray-900"
-                    >
-                      Remember me
-                    </label>
-                  </div>
-
-                  <div className="text-sm">
-                    <a
-                      href="#"
-                      className="font-medium text-blue-600 hover:text-blue-500"
-                    >
-                      Forgot password?
-                    </a>
-                  </div>
-                </div>
-
-                <div>
-                  <button
-                    type="submit"
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Sign in
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">
-                    Don&apos;t have an account?
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <button
-                  onClick={() => setIsSignUpModalOpen(true)}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  Create New Account
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Keep your existing SignUpModal component */}
-          <SignUpModal
-            isOpen={isSignUpModalOpen}
-            onClose={() => setIsSignUpModalOpen(false)}
-            onSignUp={handleSignup}
-            email={signupEmail}
-            password={signupPassword}
-            firstName={firstName}
-            lastName={lastName}
-            graduationYear={graduationYear}
-            role={signupRole}
-            onEmailChange={(e) => setSignupEmail(e.target.value)}
-            onPasswordChange={(e) => setSignupPassword(e.target.value)}
-            onFirstNameChange={(e) => setFirstName(e.target.value)}
-            onLastNameChange={(e) => setLastName(e.target.value)}
-            onGraduationYearChange={(e) => setGraduationYear(e.target.value)}
-            onRoleChange={(e) => setSignupRole(e.target.value)}
-            error={signupError}
-            disabled={isSigningUp}
-          />
-        </div>
-      )}
-
       {/* Create Folder Modal */}
       {isFolderModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
@@ -1235,7 +661,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
       {isUploadModalOpen && (
         <UploadMyFilesModal
           isOpen={isUploadModalOpen}
@@ -1243,24 +668,6 @@ export default function Home() {
           onClose={() => setIsUploadModalOpen(false)}
           user={user}
           onUploadSuccess={fetchMyFiles}
-        />
-      )}
-      {/* Your existing ChangesModal */}
-      {showPendingIntroModal && (
-        <PendingIntroChangesModal
-          pendingFiles={pendingIntroFiles}
-          setPendingFiles={setPendingIntroFiles}
-          onClose={() => setShowPendingIntroModal(false)}
-          refreshPendingChanges={fetchPendingIntroChanges}
-        />
-      )}
-      {/* Access Requests Modal */}
-      {showPendingRequestsModal && (
-        <PendingAccessRequestsModal
-          pendingRequests={pendingRequests}
-          setPendingRequests={setPendingRequests}
-          onClose={() => setShowPendingRequestsModal(false)}
-          refreshPendingRequests={fetchPendingRequests}
         />
       )}
     </main>

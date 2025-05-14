@@ -19,6 +19,7 @@ import FileSearchSelect from "@/components/FileSearchSelect";
 import FileCard from "@/components/FileCard";
 import TabButton from "@/components/TabButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Sidebar from "@/components/Sidebar";
 
 export default function FolderPage() {
   const { folderId } = useParams();
@@ -477,183 +478,31 @@ export default function FolderPage() {
   return (
     <div className="flex h-screen bg-slate-50 text-gray-800">
       {/* Sidebar */}
-      <aside className="w-72 bg-indigo-900 text-white p-6 flex flex-col">
-        {/* Logo */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-white">Piece</span>
-            <span className="text-indigo-300">ify</span>
-          </h1>
-          <p className="text-indigo-200 text-sm mt-1">Your music, organized.</p>
-        </div>
-
-        {/* User Profile */}
-        <div className="mb-8 bg-indigo-800 rounded-lg p-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium">
-              {user.firstName?.[0] || ""}
-              {user.lastName?.[0] || ""}
-            </div>
-            <div>
-              <p className="font-medium">
-                {user.firstName} {user.lastName}
-              </p>
-              <p className="text-xs text-indigo-300">
-                {user.role === "admin" ? "Administrator" : "User"}
-              </p>
-            </div>
-          </div>
-          <button className="mt-3 text-sm text-indigo-300 hover:text-white transition-colors">
-            Log out
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1">
-          <div className="mb-4">
-            <h3 className="text-indigo-300 uppercase text-xs font-semibold tracking-wider">
-              Navigation
-            </h3>
-          </div>
-
-          <ul className="space-y-2">
-            <li>
-              <Link href="/">
-                <div className="flex items-center p-2 rounded-md text-indigo-200 hover:bg-indigo-800/50 hover:text-white transition-colors">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mr-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                    />
-                  </svg>
-                  Dashboard
-                </div>
-              </Link>
-            </li>
-            <li>
-              <Link href="/folders">
-                <div className="flex items-center p-2 rounded-md bg-indigo-800/50 font-medium">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mr-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                    />
-                  </svg>
-                  All Folders
-                </div>
-              </Link>
-            </li>
-            <li>
-              <a className="flex items-center p-2 rounded-md text-indigo-200 hover:bg-indigo-800/50 hover:text-white transition-colors">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-                  />
-                </svg>
-                My Files
-              </a>
-            </li>
-            <li>
-              <a className="flex items-center p-2 rounded-md text-indigo-200 hover:bg-indigo-800/50 hover:text-white transition-colors">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                  />
-                </svg>
-                Team
-              </a>
-            </li>
-          </ul>
-        </nav>
-
-        {/* Admin section if user is admin */}
-        {user?.role === "admin" && (
-          <div className="mt-8">
-            <h3 className="text-indigo-300 uppercase text-xs font-semibold tracking-wider mb-4">
-              Admin
-            </h3>
-            <ul className="space-y-2">
-              <li>
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="w-full flex items-center p-2 rounded-md text-indigo-200 hover:bg-indigo-800/50 hover:text-white transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mr-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                    />
-                  </svg>
-                  Manage Assignments
-                </button>
-              </li>
-            </ul>
-          </div>
-        )}
-
-        {/* Help & Support */}
-        <div className="mt-8 pt-4 border-t border-indigo-800">
-          <button className="text-sm text-indigo-300 hover:text-white transition-colors flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            Help &amp; Support
-          </button>
-        </div>
-      </aside>
+      <Sidebar
+        activePage="folders"
+        customButtons={[
+          {
+            label: "Manage Assignments",
+            onClick: () => setIsModalOpen(true),
+            icon: (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                />
+              </svg>
+            ),
+          },
+        ]}
+      />
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
