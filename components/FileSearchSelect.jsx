@@ -59,28 +59,40 @@ export default function FileSearchSelect({
       />
       {showDropdown && filteredFiles.length > 0 && (
         <ul className="absolute w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg mt-1 max-h-40 overflow-y-auto z-50">
-          {filteredFiles.map((file) => (
-            <li
-              key={file.id}
-              className={`p-2 flex justify-between items-center ${
-                file.currentOwner?.length > 0
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-              }`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                if (file.currentOwner && file.currentOwner.length > 0) return;
-                handleSelect(file);
-              }}
-            >
-              <span>{file.fileName}</span>
-              {file.currentOwner && file.currentOwner.length > 0 && (
-                <span className="text-xs text-red-500 ml-2">
-                  Already assigned
-                </span>
-              )}
-            </li>
-          ))}
+          {filteredFiles.map((file) => {
+            const isDuo =
+              file.attributes?.includes("DUO") ||
+              ["Boy-Boy", "Girl-Girl", "Boy-Girl"].some((tag) =>
+                file.attributes?.includes(tag)
+              );
+            const currentOwners = file.currentOwner || [];
+            const isFullyAssigned =
+              (!isDuo && currentOwners.length > 0) ||
+              (isDuo && currentOwners.length >= 2);
+
+            return (
+              <li
+                key={file.id}
+                className={`p-2 flex justify-between items-center ${
+                  isFullyAssigned
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                }`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  if (isFullyAssigned) return;
+                  handleSelect(file);
+                }}
+              >
+                <span>{file.fileName}</span>
+                {isFullyAssigned && (
+                  <span className="text-xs text-red-500 ml-2">
+                    Already assigned
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       {showDropdown &&

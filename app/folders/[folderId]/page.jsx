@@ -20,6 +20,7 @@ import FileCard from "@/components/FileCard";
 import TabButton from "@/components/TabButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Sidebar from "@/components/Sidebar";
+import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
 
 export default function FolderPage() {
   const { folderId } = useParams();
@@ -47,14 +48,7 @@ export default function FolderPage() {
   const [tagFilter, setTagFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState(""); // For search functionality
 
-  const tagOptions = [
-    "Boy",
-    "Girl",
-    "Boy-Boy",
-    "Girl-Girl",
-    "Boy-Girl",
-    "Novice Friendly",
-  ];
+  const tagOptions = sortedAttributeOptions.map((opt) => opt.value);
 
   const filteredModalFiles =
     assignLengthFilter === "all"
@@ -94,10 +88,12 @@ export default function FolderPage() {
 
       await Promise.all(
         files.map(async (file) => {
-          if (file.currentOwner && file.currentOwner.length > 0) {
-            const ownerId = file.currentOwner[0].userId;
-            const ownerName = await fetchOwnerName(ownerId);
-            newOwnersMap[file.id] = ownerName;
+          if (
+            Array.isArray(file.currentOwner) &&
+            file.currentOwner.length > 0
+          ) {
+            const names = await fetchOwnerNames(file.currentOwner);
+            newOwnersMap[file.id] = names; // ← store as array
           }
         })
       );
@@ -214,21 +210,26 @@ export default function FolderPage() {
     }
   };
 
-  const fetchOwnerName = async (userId) => {
+  const fetchOwnerNames = async (ownerEntries) => {
     try {
-      const userRef = doc(db, "users", userId);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        return userData.firstName && userData.lastName
-          ? `${userData.firstName} ${userData.lastName}`
-          : userData.email || "Unknown User";
-      }
+      const names = await Promise.all(
+        ownerEntries.map(async (entry) => {
+          const userRef = doc(db, "users", entry.userId);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            return data.firstName && data.lastName
+              ? `${data.firstName} ${data.lastName}`
+              : data.email || "Unknown User";
+          }
+          return "Unknown User";
+        })
+      );
+      return names;
     } catch (error) {
-      console.error("Error fetching owner name:", error);
+      console.error("Error fetching owner names:", error);
+      return ["Unknown"];
     }
-    return "Unknown User";
   };
 
   const handleToggleMode = () => {
@@ -270,7 +271,15 @@ export default function FolderPage() {
       const fileData = fileSnapshot.data();
 
       // Check if there is already a current owner
-      if (fileData.currentOwner && fileData.currentOwner.length > 0) {
+      const isDuo =
+        fileData.attributes?.includes("DUO") ||
+        ["Boy-Boy", "Girl-Girl", "Boy-Girl"].some((tag) =>
+          fileData.attributes?.includes(tag)
+        );
+
+      const currentOwners = fileData.currentOwner || [];
+
+      if (!isDuo && fileData.currentOwner.length > 0) {
         const currentOwnerId = fileData.currentOwner[0].userId;
 
         // Fetch the current owner's user details
@@ -290,7 +299,13 @@ export default function FolderPage() {
           type: "error",
           text: `This file is already assigned to ${currentOwnerName}.`,
         });
-        return;
+        if (isDuo && currentOwners.length >= 2) {
+          setAssignMessage({
+            type: "error",
+            text: "This DUO piece already has two assigned users.",
+          });
+          return;
+        }
       }
 
       // New structure for assignment history
@@ -315,7 +330,7 @@ export default function FolderPage() {
       // Update the file document
       await updateDoc(topLevelFileRef, {
         previouslyOwned: arrayUnion(assignmentEntry),
-        currentOwner: [currentOwnerEntry],
+        currentOwner: arrayUnion(currentOwnerEntry),
       });
 
       // Assign file reference to the selected user
@@ -331,7 +346,9 @@ export default function FolderPage() {
       setAssignMessage({
         type: "success",
         text: `File "${file.fileName}" successfully assigned to ${
-          userData.name || userData.email || "this user"
+          `${userData.firstName} ${userData.lastName}` ||
+          userData.email ||
+          "this user"
         }.`,
       });
 
@@ -755,7 +772,13 @@ export default function FolderPage() {
                                     d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                                   />
                                 </svg>
-                                {ownersMap[file.id] || "Loading..."}
+                                <div className="flex flex-col">
+                                  {(ownersMap[file.id] || ["Loading..."]).map(
+                                    (name, idx) => (
+                                      <span key={idx}>{name}</span>
+                                    )
+                                  )}
+                                </div>
                               </div>
                             )}
                         </div>
@@ -901,7 +924,13 @@ export default function FolderPage() {
                               d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                             />
                           </svg>
-                          {ownersMap[file.id] || "Loading..."}
+                          <div className="flex flex-col">
+                            {(ownersMap[file.id] || ["Loading..."]).map(
+                              (name, idx) => (
+                                <span key={idx}>{name}</span>
+                              )
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))

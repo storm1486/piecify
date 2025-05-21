@@ -38,8 +38,11 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen bg-mainBg text-gray-900 overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 p-6 bg-blue-900 text-white text-3xl font-bold text-center z-10 shadow-md">
-        Piecify
+      <div className="absolute top-0 left-0 right-0 p-6 bg-blue-900 text-white text-center z-10 shadow-md">
+        <div className="text-3xl font-bold">Piecify</div>
+        <div className="text-sm font-medium mt-1 text-gray-200">
+          Your performances, organized.
+        </div>
       </div>
 
       <div className="flex-1 flex items-center justify-center p-8">
