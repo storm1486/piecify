@@ -102,11 +102,11 @@ export default function MyFilesSection({
         </div>
       )}
 
-      {requestedFiles.length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-lg font-medium text-gray-900 px-6 py-4 border-b border-gray-200">
-            Requested Pieces
-          </h3>
+      <div className="mt-8">
+        <h3 className="text-lg font-medium text-gray-900 px-6 py-4 border-b border-gray-200">
+          Requested Pieces
+        </h3>
+        {requestedFiles.length > 0 ? (
           <ul className="divide-y divide-gray-200">
             {requestedFiles.map((file, index) => (
               <li key={index} className="p-4 hover:bg-gray-50">
@@ -185,8 +185,12 @@ export default function MyFilesSection({
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-gray-500">No requested files.</p>
+          </div>
+        )}
+      </div>
 
       {/* Previous Pieces Section */}
       {previousFiles?.length > 0 && (
