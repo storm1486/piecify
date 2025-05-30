@@ -47,6 +47,9 @@ export default function FolderPage() {
   const [availableLengths, setAvailableLengths] = useState([]);
   const [tagFilter, setTagFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState(""); // For search functionality
+  const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+  const [reassignFile, setReassignFile] = useState(null);
+  const [reassignFromUser, setReassignFromUser] = useState(null);
 
   const tagOptions = sortedAttributeOptions.map((opt) => opt.value);
 
@@ -424,6 +427,74 @@ export default function FolderPage() {
       fetchUserFiles(userId);
     } catch (error) {
       console.error("Error unassigning file:", error);
+    }
+  };
+
+  const reassignFileToUser = async (fromUserId, toUserId, file) => {
+    try {
+      const fileRef = doc(db, "files", file.id);
+      const fileSnap = await getDoc(fileRef);
+
+      if (!fileSnap.exists()) {
+        throw new Error("File does not exist.");
+      }
+
+      const fileData = fileSnap.data();
+      const oldOwnerArray = Array.isArray(fileData.currentOwner)
+        ? fileData.currentOwner
+        : [];
+
+      // Remove `fromUserId` from `currentOwner`
+      const newOwnerArray = oldOwnerArray.filter(
+        (entry) => entry.userId !== fromUserId
+      );
+
+      // Add `toUserId` to `currentOwner`
+      newOwnerArray.push({
+        userId: toUserId,
+        dateGiven: new Date().toISOString(),
+      });
+
+      // Add reassignment history
+      const reassignmentEntry = {
+        dateGiven: new Date().toISOString(),
+        userId: user.uid, // assigning admin
+        fromUser: fromUserId,
+        assignedUser: toUserId,
+      };
+
+      // Step 1: Update the file document
+      await updateDoc(fileRef, {
+        currentOwner: newOwnerArray,
+        previouslyOwned: arrayUnion(reassignmentEntry),
+      });
+
+      // Step 2: Remove from old user's myFiles
+      const fromUserRef = doc(db, "users", fromUserId);
+      const fromUserSnap = await getDoc(fromUserRef);
+      if (fromUserSnap.exists()) {
+        const fromUserData = fromUserSnap.data();
+        const updatedFiles = (fromUserData.myFiles || []).filter(
+          (entry) =>
+            entry.fileRef?.id !== fileRef.id &&
+            entry.fileRef?.path !== fileRef.path
+        );
+        await updateDoc(fromUserRef, { myFiles: updatedFiles });
+      }
+
+      // Step 3: Add to new user's myFiles
+      const toUserRef = doc(db, "users", toUserId);
+      await updateDoc(toUserRef, {
+        myFiles: arrayUnion({
+          fileRef: fileRef,
+          dateGiven: new Date().toISOString(),
+        }),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error reassigning file:", error);
+      return { success: false, error: error.message };
     }
   };
 
@@ -893,44 +964,87 @@ export default function FolderPage() {
                     assignedPieces.map((file) => (
                       <div
                         key={file.id}
-                        className="border border-gray-300 rounded-lg p-4 bg-white hover:bg-gray-50 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
+                        className="border border-gray-300 rounded-lg bg-white hover:bg-gray-50 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
                         onClick={() => handleFileClick(file.id)}
                       >
-                        <div className="flex justify-between items-start">
-                          <span className="font-bold text-left w-full">
-                            {file.fileName}
-                          </span>
-
-                          {file.length && (
-                            <div className="ml-2 px-2 py-1 bg-indigo-100 text-xs font-semibold rounded-full whitespace-nowrap text-indigo-800">
-                              {file.length}
+                        <div className="p-4 flex flex-col h-full">
+                          {/* Main Content - Centered */}
+                          <div className="flex-1 flex items-center justify-between">
+                            <div className="flex-1 flex items-center justify-between">
+                              <span className="font-bold text-left">
+                                {file.fileName}
+                              </span>
+                              {file.length && (
+                                <div className="px-2 py-1 bg-indigo-100 text-xs font-semibold rounded-full whitespace-nowrap text-indigo-800">
+                                  {file.length}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-
-                        {/* Only show owner information */}
-                        <div className="mt-2 text-sm text-gray-500 flex items-center">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4 mr-1"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                            />
-                          </svg>
-                          <div className="flex flex-col">
-                            {(ownersMap[file.id] || ["Loading..."]).map(
-                              (name, idx) => (
-                                <span key={idx}>{name}</span>
-                              )
-                            )}
                           </div>
+
+                          {/* Owner information - Centered */}
+                          <div className="flex-1 flex items-center mt-2">
+                            <div className="text-sm text-gray-500 flex items-center">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4 mr-1"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                />
+                              </svg>
+                              <div className="flex flex-col">
+                                {(ownersMap[file.id] || ["Loading..."]).map(
+                                  (name, idx) => (
+                                    <span key={idx}>{name}</span>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Divider Line and Reassign Button */}
+                          {user.role === "admin" &&
+                            file.currentOwner.length === 1 && (
+                              <>
+                                <hr className="border-gray-200 my-3" />
+                                <div className="flex justify-end">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // <- THIS IS CRITICAL
+                                      setReassignFile(file);
+                                      setReassignFromUser(
+                                        file.currentOwner[0].userId
+                                      );
+                                      setIsReassignModalOpen(true);
+                                    }}
+                                    className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-all duration-200 group"
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-3 w-3 mr-1 group-hover:rotate-12 transition-transform duration-200"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={2}
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                                      />
+                                    </svg>
+                                    Reassign
+                                  </button>
+                                </div>
+                              </>
+                            )}
                         </div>
                       </div>
                     ))
@@ -1145,6 +1259,68 @@ export default function FolderPage() {
                     >
                       Close
                     </button>
+                  </div>
+                </div>
+              )}
+              {isReassignModalOpen && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                  <div className="bg-white p-6 rounded-lg shadow-lg w-[400px]">
+                    <h3 className="text-xl font-bold mb-4">Reassign File</h3>
+                    <p className="mb-2 text-sm text-gray-700">
+                      <strong>File:</strong> {reassignFile?.fileName}
+                    </p>
+
+                    <UserSearchSelect
+                      users={users}
+                      label="New Assignee"
+                      onSelect={(newUserId) => {
+                        setSelectedUser(newUserId); // Store the selected user
+                      }}
+                    />
+
+                    {/* Confirm and Cancel Buttons */}
+                    <div className="flex gap-3 mt-4">
+                      <button
+                        onClick={async () => {
+                          if (selectedUser) {
+                            const result = await reassignFileToUser(
+                              reassignFromUser,
+                              selectedUser,
+                              reassignFile
+                            );
+
+                            if (result.success) {
+                              setIsReassignModalOpen(false);
+                              setAssignMessage({
+                                type: "success",
+                                text: `Successfully reassigned file.`,
+                              });
+                              setTimeout(() => fetchFolderData(), 300); // Refresh
+                              setSelectedUser(null); // Reset selection
+                            } else {
+                              setAssignMessage({
+                                type: "error",
+                                text: result.error,
+                              });
+                            }
+                          }
+                        }}
+                        disabled={!selectedUser}
+                        className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Confirm Reassignment
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsReassignModalOpen(false);
+                          setSelectedUser(null); // Reset selection
+                        }}
+                        className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

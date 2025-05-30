@@ -157,7 +157,7 @@ export default function DocumentTags({ attributes, fileId, isAdmin }) {
               {latestAttributes.length === 0 ? (
                 <span>Add tags</span>
               ) : (
-                <span>Edit</span>
+                <span> Edit</span>
               )}
             </button>
           )}
