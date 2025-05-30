@@ -18,7 +18,6 @@ import Sidebar from "@/components/Sidebar";
 
 export default function ViewPieces() {
   const { folderId } = useParams();
-  const router = useRouter();
   const { user, loading } = useUser();
   const [pieces, setPieces] = useState([]);
   const [requestedIds, setRequestedIds] = useState(new Set());
@@ -26,6 +25,7 @@ export default function ViewPieces() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredPieces, setFilteredPieces] = useState([]);
+  const [requestStatuses, setRequestStatuses] = useState(new Map());
 
   useEffect(() => {
     if (folderId && !loading && user) {
@@ -56,6 +56,15 @@ export default function ViewPieces() {
     }
   };
 
+  const isRequestStillValid = (requestedAt, expirationHours = 24) => {
+    const now = new Date();
+    const requestTime = new Date(requestedAt);
+    const expirationTime = new Date(
+      requestTime.getTime() + expirationHours * 60 * 60 * 1000
+    );
+    return now < expirationTime;
+  };
+
   const fetchFiles = async () => {
     try {
       setIsLoading(true);
@@ -63,9 +72,8 @@ export default function ViewPieces() {
         collection(db, "folders", folderId, "files")
       );
       const fileData = [];
-      const userRequestedIds = new Set();
+      const requestStatusesMap = new Map();
 
-      // Loop through snapshot docs first to minimize async operations
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
         if (data.fileRef) {
@@ -78,15 +86,26 @@ export default function ViewPieces() {
           if (fileDoc.exists()) {
             const fileInfo = fileDoc.data();
 
-            // Check if user has already requested this file (only if user exists)
-            if (user && user.uid && fileInfo.accessRequests) {
-              const userRequested = fileInfo.accessRequests.some(
-                (request) =>
-                  request.userId === user.uid && request.status === "pending"
+            // Determine request status for current user
+            if (user && user.uid && Array.isArray(fileInfo.accessRequests)) {
+              const userRequests = fileInfo.accessRequests.filter(
+                (r) => r.userId === user.uid && r.requestedAt
               );
 
-              if (userRequested) {
-                userRequestedIds.add(fileDoc.id);
+              if (userRequests.length > 0) {
+                const mostRecent = userRequests.sort(
+                  (a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)
+                )[0];
+
+                if (
+                  mostRecent &&
+                  ["pending", "approved", "rejected"].includes(
+                    mostRecent.status
+                  ) &&
+                  isRequestStillValid(mostRecent.requestedAt)
+                ) {
+                  requestStatusesMap.set(fileDoc.id, mostRecent.status); // "pending", "approved", "rejected"
+                }
               }
             }
 
@@ -100,9 +119,9 @@ export default function ViewPieces() {
         }
       }
 
-      setRequestedIds(userRequestedIds);
       setPieces(fileData);
       setFilteredPieces(fileData);
+      setRequestStatuses(requestStatusesMap);
     } catch (error) {
       console.error("Error fetching files:", error);
     } finally {
@@ -113,20 +132,27 @@ export default function ViewPieces() {
   const requestAccess = async (fileId) => {
     try {
       const fileRef = doc(db, "files", fileId);
+      const newRequest = {
+        userId: user.uid,
+        requestedAt: new Date().toISOString(),
+        status: "pending",
+        userName:
+          user.firstName && user.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user.email,
+        requestType: "view",
+      };
+
       await updateDoc(fileRef, {
-        accessRequests: arrayUnion({
-          userId: user.uid,
-          requestedAt: new Date().toISOString(),
-          status: "pending",
-          userName:
-            user.firstName && user.lastName
-              ? `${user.firstName} ${user.lastName}`
-              : user.email,
-          requestType: "view", // ✅ this is what was missing
-        }),
+        accessRequests: arrayUnion(newRequest),
       });
 
-      setRequestedIds((prev) => new Set([...prev, fileId]));
+      // Update local requestStatuses so button changes immediately
+      setRequestStatuses((prev) => {
+        const updated = new Map(prev);
+        updated.set(fileId, "pending");
+        return updated;
+      });
     } catch (error) {
       console.error("Error requesting access:", error);
     }
@@ -228,90 +254,92 @@ export default function ViewPieces() {
 
           {filteredPieces.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPieces.map((piece) => (
-                <div
-                  key={piece.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-100"
-                >
-                  <div className="p-6">
-                    <div className="flex items-center mb-3">
-                      <div className="p-2 rounded-lg mr-3 bg-blue-100 text-blue-600">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-6 w-6"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                      </div>
-                      <h2 className="text-xl font-semibold">
-                        {piece.fileName}
-                      </h2>
-                    </div>
+              {filteredPieces.map((piece) => {
+                const status = requestStatuses.get(piece.id);
+                const isDisabled =
+                  status === "pending" ||
+                  status === "approved" ||
+                  status === "rejected";
 
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {/* Length tag */}
-                      {piece.length && (
-                        <span className="px-2 py-1 bg-blue-100 text-xs font-medium rounded text-blue-800">
-                          {piece.length}
-                        </span>
-                      )}
-
-                      {/* Other attribute tags */}
-                      {piece.attributes &&
-                        piece.attributes.map((attr, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 bg-gray-100 text-xs font-medium rounded text-gray-800"
-                          >
-                            {attr}
-                          </span>
-                        ))}
-                    </div>
-
-                    <p className="text-gray-600 mb-6 text-sm">
-                      {piece.description || "No description provided."}
-                    </p>
-
-                    <button
-                      onClick={() => requestAccess(piece.id)}
-                      disabled={requestedIds.has(piece.id)}
-                      className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                        requestedIds.has(piece.id)
-                          ? "bg-gray-100 text-blue-600 border border-blue-200 cursor-not-allowed"
-                          : "bg-blue-600 text-white hover:bg-blue-700"
-                      }`}
-                    >
-                      {requestedIds.has(piece.id) ? (
-                        <div className="flex items-center justify-center">
+                return (
+                  <div
+                    key={piece.id}
+                    className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-100"
+                  >
+                    <div className="p-6">
+                      <div className="flex items-center mb-3">
+                        <div className="p-2 rounded-lg mr-3 bg-blue-100 text-blue-600">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 mr-2"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
+                            className="h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
                           >
                             <path
-                              fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                              clipRule="evenodd"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                             />
                           </svg>
-                          Request Submitted
                         </div>
-                      ) : (
-                        "Request Access"
-                      )}
-                    </button>
+                        <h2 className="text-xl font-semibold">
+                          {piece.fileName}
+                        </h2>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {piece.length && (
+                          <span className="px-2 py-1 bg-blue-100 text-xs font-medium rounded text-blue-800">
+                            {piece.length}
+                          </span>
+                        )}
+
+                        {piece.attributes &&
+                          piece.attributes.map((attr, index) => (
+                            <span
+                              key={index}
+                              className="px-2 py-1 bg-gray-100 text-xs font-medium rounded text-gray-800"
+                            >
+                              {attr}
+                            </span>
+                          ))}
+                      </div>
+
+                      <p className="text-gray-600 mb-6 text-sm">
+                        {piece.description || "No description provided."}
+                      </p>
+
+                      <button
+                        onClick={() => requestAccess(piece.id)}
+                        disabled={isDisabled}
+                        className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                          isDisabled
+                            ? "bg-gray-100 text-blue-600 border border-blue-200 cursor-not-allowed"
+                            : "bg-blue-600 text-white hover:bg-blue-700"
+                        }`}
+                      >
+                        {status === "approved" ? (
+                          <div className="flex items-center justify-center">
+                            ✅ Access Approved
+                          </div>
+                        ) : status === "rejected" ? (
+                          <div className="flex items-center justify-center">
+                            ❌ Request Declined
+                          </div>
+                        ) : status === "pending" ? (
+                          <div className="flex items-center justify-center">
+                            ⏳ Request Submitted
+                          </div>
+                        ) : (
+                          "Request Access"
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="bg-white p-8 rounded-xl text-center shadow-sm">
