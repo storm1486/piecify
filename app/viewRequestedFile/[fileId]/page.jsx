@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../../firebase/firebase";
 import { motion } from "framer-motion";
 import DocumentTags from "@/src/componenets/DocumentTags";
+import { useUser } from "@/src/context/UserContext";
 
 export default function ViewRequestedFile() {
   const { fileId } = useParams();
@@ -13,6 +14,9 @@ export default function ViewRequestedFile() {
   const [fileData, setFileData] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useUser();
+  const [hasRequested, setHasRequested] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   useEffect(() => {
     if (!fileId) {
@@ -43,6 +47,33 @@ export default function ViewRequestedFile() {
 
     fetchRequestedFile();
   }, [fileId]);
+
+  const handleAssignmentRequest = async () => {
+    if (!user || !fileId) return;
+
+    setIsRequesting(true);
+    try {
+      const fileRef = doc(db, "files", fileId);
+      await updateDoc(fileRef, {
+        accessRequests: arrayUnion({
+          userId: user.uid,
+          requestedAt: new Date().toISOString(),
+          status: "pending",
+          userName:
+            user.firstName && user.lastName
+              ? `${user.firstName} ${user.lastName}`
+              : user.email,
+          requestType: "assign",
+        }),
+      });
+
+      setHasRequested(true);
+    } catch (err) {
+      console.error("Error submitting assignment request:", err);
+    } finally {
+      setIsRequesting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -264,6 +295,23 @@ export default function ViewRequestedFile() {
                 </div>
               </div>
             </div>
+            {user && (
+              <div className="mt-6">
+                {hasRequested ? (
+                  <p className="text-green-600 text-sm font-medium">
+                    Assignment request submitted!
+                  </p>
+                ) : (
+                  <button
+                    onClick={handleAssignmentRequest}
+                    disabled={isRequesting}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                  >
+                    {isRequesting ? "Requesting..." : "Request Assignment"}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Document Tags */}

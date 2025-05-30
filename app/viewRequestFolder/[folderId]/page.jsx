@@ -122,6 +122,7 @@ export default function ViewPieces() {
             user.firstName && user.lastName
               ? `${user.firstName} ${user.lastName}`
               : user.email,
+          requestType: "view", // ✅ this is what was missing
         }),
       });
 
@@ -154,7 +155,7 @@ export default function ViewPieces() {
   return (
     <main className="flex min-h-screen bg-mainBg text-gray-900">
       {/* Sidebar */}
-      <Sidebar activePage="viewRequestFiles"/>
+      <Sidebar activePage="viewRequestFiles" />
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-auto">

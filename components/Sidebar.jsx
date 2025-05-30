@@ -78,8 +78,10 @@ export default function Sidebar({
               requestDate: request.requestedAt,
               userId: request.userId,
               userName: request.userName || "Unknown User",
+              requestType: request.requestType || "view",
               requestId:
                 request.userId + "-" + (request.requestedAt || Date.now()),
+              currentOwners: fileData.currentOwner || [], // ✅ add this line
             }));
 
           allRequests.push(...fileRequests);
@@ -303,35 +305,34 @@ export default function Sidebar({
               </li>
             )}
           </ul>
-        {/* Other Links */}
-        <div className="mt-6">
-          <Link
-            href="/team"
-            className={`flex items-center p-2 rounded-md ${
-              activePage === "team"
-                ? "bg-blue-800/50 font-medium"
-                : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
-            }`}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 mr-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          {/* Other Links */}
+          <div className="mt-6">
+            <Link
+              href="/team"
+              className={`flex items-center p-2 rounded-md ${
+                activePage === "team"
+                  ? "bg-blue-800/50 font-medium"
+                  : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-              />
-            </svg>
-            Current Team
-          </Link>
-        </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                />
+              </svg>
+              Current Team
+            </Link>
+          </div>
         </nav>
-
 
         {/* Admin Panel */}
         {user?.role === "admin" && (

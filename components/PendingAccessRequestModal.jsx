@@ -41,15 +41,39 @@ export default function PendingAccessRequestsModal({
 
       // If approved, add file to user's requestedFiles
       if (action === "approved") {
-        const userRef = doc(db, "users", userId);
-        const fileEntry = {
-          fileRef: fileRef,
-          dateGiven: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 1 day access
-        };
-        await updateDoc(userRef, {
-          requestedFiles: arrayUnion(fileEntry),
-        });
+        // 🔍 Find the actual request object for this user
+        const matchedRequest = accessRequests.find(
+          (r) => r.userId === userId && r.status === "pending"
+        );
+
+        if (!matchedRequest) {
+          throw new Error("Matching request not found or already handled.");
+        }
+
+        if (matchedRequest.requestType === "assign") {
+          // Assignment: Add user to currentOwner
+          const currentOwner = fileData.currentOwner || [];
+          await updateDoc(fileRef, {
+            currentOwner: [
+              ...currentOwner,
+              {
+                userId: userId,
+                dateGiven: new Date().toISOString(),
+              },
+            ],
+          });
+        } else {
+          // View: Add to user's requestedFiles
+          const userRef = doc(db, "users", userId);
+          const fileEntry = {
+            fileRef: fileRef,
+            dateGiven: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          };
+          await updateDoc(userRef, {
+            requestedFiles: arrayUnion(fileEntry),
+          });
+        }
       }
 
       // Remove request from UI
@@ -146,6 +170,12 @@ export default function PendingAccessRequestsModal({
                     scope="col"
                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
+                    Request Type
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Actions
                   </th>
                 </tr>
@@ -182,21 +212,43 @@ export default function PendingAccessRequestsModal({
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(request.requestDate).toLocaleDateString()}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {request.requestType === "assign" ? "Assignment" : "View"}
+
+                      {request.requestType === "assign" &&
+                        request.currentOwners?.length > 0 && (
+                          <div className="text-xs text-red-600 mt-1">
+                            Currently assigned to {request.currentOwners.length}{" "}
+                            {request.currentOwners.length === 1
+                              ? "user"
+                              : "users"}
+                          </div>
+                        )}
+                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">
-                        <button
-                          onClick={() =>
-                            handleRequestAction(
-                              request.fileId,
-                              request.userId,
-                              "approved"
-                            )
-                          }
-                          disabled={loading}
-                          className="px-3 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors disabled:opacity-50"
-                        >
-                          Approve
-                        </button>
+                        {/* Approve button only shown if request is not for assign OR there are no current owners */}
+                        {!(
+                          request.requestType === "assign" &&
+                          request.currentOwners?.length > 0
+                        ) && (
+                          <button
+                            onClick={() =>
+                              handleRequestAction(
+                                request.fileId,
+                                request.userId,
+                                "approved"
+                              )
+                            }
+                            disabled={loading}
+                            className="px-3 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                        )}
+
+                        {/* Always show Decline */}
                         <button
                           onClick={() =>
                             handleRequestAction(
