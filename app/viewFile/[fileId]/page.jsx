@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@/src/context/UserContext";
+import { motion } from "framer-motion";
 import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
 import DocumentTags from "@/src/componenets/DocumentTags";
@@ -12,9 +13,7 @@ export default function ViewFile() {
   const [docData, setDocData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
-  const { user } = useUser();
-  const [isMenu2Open, setIsMenu2Open] = useState(false);
-  const menu2Ref = useRef(null);
+  const { user, handleLogout} = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
@@ -40,9 +39,6 @@ export default function ViewFile() {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setIsMenuOpen(false);
       }
-      if (menu2Ref.current && !menu2Ref.current.contains(event.target)) {
-        setIsMenu2Open(false);
-      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -52,19 +48,49 @@ export default function ViewFile() {
   const handleOpenPieceDetails = () => {
     setIsPieceDetailsOpen(true);
     setIsMenuOpen(false);
-    setIsMenu2Open(false);
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-500"></div>
       </div>
     );
   }
 
   if (!docData) {
-    return <p>File not found!</p>;
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-12 w-12 mx-auto text-gray-400 mb-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+          <h3 className="text-lg font-medium text-gray-900 mb-1">
+            File not found
+          </h3>
+          <p className="text-gray-500 mb-4">
+            The requested file could not be located
+          </p>
+          <button
+            onClick={() => router.back()}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const handleViewFull = () => {
@@ -75,109 +101,356 @@ export default function ViewFile() {
   };
 
   return (
-    <main className="flex flex-col items-center justify-start min-h-screen pt-20">
-      {/* Fixed Header */}
-      <header className="fixed top-0 left-0 w-full bg-gray-200 dark:bg-gray-800 shadow-md z-10">
-        <div className="relative flex justify-between items-center p-4">
-          <div>
+    <div className="flex h-screen bg-slate-50 text-gray-800">
+      {/* Sidebar */}
+      <motion.aside
+        initial={{ x: -300 }}
+        animate={{ x: 0 }}
+        transition={{ duration: 0.3 }}
+        className="w-72 bg-indigo-900 text-white p-6 flex flex-col"
+      >
+        {/* Logo */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">
+            <span className="text-white">Piece</span>
+            <span className="text-indigo-300">ify</span>
+          </h1>
+          <p className="text-indigo-200 text-sm mt-1">
+            Your performances, organized.
+          </p>
+        </div>
+
+        {/* User Profile */}
+        {user && (
+          <div className="mb-8 bg-indigo-800 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium">
+                {user.firstName?.[0]}
+                {user.lastName?.[0]}
+              </div>
+              <div>
+                <p className="font-medium">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="text-xs text-indigo-300">
+                  {user.role === "admin" ? "Administrator" : "User"}
+                </p>
+              </div>
+            </div>
+
             <button
-              onClick={() => router.back()}
-              className="bg-blue-500 text-white px-4 py-2 rounded"
+              onClick={handleLogout}
+              className="mt-3 text-sm text-indigo-300 hover:text-white transition-colors"
             >
-              Back to Files
+              Log out
             </button>
           </div>
-          <h1 className="absolute left-1/2 transform -translate-x-1/2 text-xl font-bold text-center">
-            {docData.fileName}
-          </h1>
+        )}
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleViewFull}
-              className="bg-green-500 text-white px-4 py-2 rounded"
-            >
-              Edit/Print
-            </button>
+        {/* Navigation */}
+        <nav className="flex-1">
+          <div className="mb-4">
+            <h3 className="text-indigo-300 uppercase text-xs font-semibold tracking-wider">
+              Navigation
+            </h3>
+          </div>
 
-            {/* Ellipsis Menu Button */}
-            <div className="relative" ref={menuRef}>
+          <ul className="space-y-2">
+            <li>
               <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 rounded-full hover:bg-gray-300 dark:hover:bg-gray-700"
+                onClick={() => router.push("/")}
+                className="w-full flex items-center p-2 rounded-md text-indigo-200 hover:bg-indigo-800/50 hover:text-white transition-colors"
               >
-                {/* Vertical Ellipsis Icon */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-3"
                   fill="none"
                   viewBox="0 0 24 24"
-                  strokeWidth="2"
                   stroke="currentColor"
-                  className="w-6 h-6 text-gray-700 dark:text-white"
                 >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    d="M12 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.25a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"
+                    strokeWidth={2}
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
                   />
                 </svg>
+                Dashboard
+              </button>
+            </li>
+            <li>
+              <a className="flex items-center p-2 rounded-md bg-indigo-800/50 font-medium">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
+                </svg>
+                Viewing File
+              </a>
+            </li>
+            <li>
+              <button
+                onClick={() => router.back()}
+                className="w-full flex items-center p-2 rounded-md text-indigo-200 hover:bg-indigo-800/50 hover:text-white transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+                Back to Files
+              </button>
+            </li>
+          </ul>
+        </nav>
+
+        <div className="mt-8 pt-4 border-t border-indigo-800">
+          <button className="text-sm text-indigo-300 hover:text-white transition-colors flex items-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 mr-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            Help &amp; Support
+          </button>
+        </div>
+      </motion.aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <motion.header
+          initial={{ y: -50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white shadow-sm p-4 z-10"
+        >
+          <div className="flex items-center justify-between">
+            {/* File Title and Info */}
+            <div className="flex items-center space-x-4">
+              <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {docData.fileName}
+                </h1>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleViewFull}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+                Edit/Print
               </button>
 
-              {/* Dropdown Menu */}
-              {isMenuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 shadow-lg rounded-lg z-20">
-                  <ul className="py-2 text-gray-800 dark:text-white">
-                    <li
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        handleOpenVersionsModal();
-                      }}
-                    >
-                      Edited Versions
-                    </li>
-                    <li
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        alert("Track Record Clicked");
-                      }}
-                    >
-                      Track Record
-                    </li>
-                    <li
-                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        handleOpenPieceDetails();
-                      }}
-                    >
-                      Piece Details
-                    </li>
-                  </ul>
-                </div>
-              )}
+              {/* Menu Dropdown */}
+              <div className="relative" ref={menuRef}>
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="p-2 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                    />
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {isMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.1 }}
+                    className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg z-20 border border-gray-200"
+                  >
+                    <ul className="py-2">
+                      <li>
+                        <button
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            handleOpenVersionsModal();
+                          }}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4 mr-3 text-gray-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          Edited Versions
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            alert("Track Record Clicked");
+                          }}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4 mr-3 text-gray-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                            />
+                          </svg>
+                          Track Record
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            handleOpenPieceDetails();
+                          }}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4 mr-3 text-gray-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          Piece Details
+                        </button>
+                      </li>
+                    </ul>
+                  </motion.div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-        <DocumentTags
-          attributes={docData.attributes}
-          fileId={fileId}
-          isAdmin={user?.role === "admin"}
-        />
-      </header>
 
-      {/* Document Viewer */}
-      <div className="w-full flex-grow flex items-center justify-center mt-10">
-        <iframe
-          src={`https://docs.google.com/gview?url=${encodeURIComponent(
-            docData.fileUrl
-          )}&embedded=true`}
-          className="w-full h-[calc(100vh-80px)]"
-          title={docData.fileName}
-          onLoad={() => setIsLoading(false)}
-        />
-      </div>
+          {/* Document Tags */}
+          <div className="mt-4">
+            <DocumentTags
+              attributes={docData.attributes}
+              fileId={fileId}
+              isAdmin={user?.role === "admin"}
+            />
+          </div>
+        </motion.header>
 
+        {/* Document Viewer */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="flex-1 p-4 overflow-hidden"
+        >
+          <div className="h-full bg-white rounded-lg shadow-sm overflow-hidden">
+            <iframe
+              src={`https://docs.google.com/gview?url=${encodeURIComponent(
+                docData.fileUrl
+              )}&embedded=true`}
+              className="w-full h-full border-0"
+              title={docData.fileName}
+              onLoad={() => setIsLoading(false)}
+            />
+          </div>
+        </motion.div>
+      </main>
+
+      {/* Modals */}
       {isPieceDetailsOpen && (
         <PieceDetails
           fileId={fileId}
@@ -191,6 +464,6 @@ export default function ViewFile() {
           onClose={handleCloseVersionsModal}
         />
       )}
-    </main>
+    </div>
   );
 }
