@@ -14,6 +14,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, collection, getDocs, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { createUserWithEmailAndPassword } from "firebase/auth"; // At the top
 
 // Define the shape of the user data
 interface User {
@@ -42,6 +43,14 @@ interface UserContextProps {
   toggleFavorite: (folderId: string) => Promise<void>;
   handleLogin: (email: string, password: string) => Promise<void>; // 🔹 Added
   handleLogout: () => Promise<void>;
+  handleSignUp: (data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    graduationYear: string;
+    role: string;
+  }) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextProps | undefined>(undefined);
@@ -310,6 +319,49 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const handleSignUp = async ({
+    email,
+    password,
+    firstName,
+    lastName,
+    graduationYear,
+    role,
+  }: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    graduationYear: string;
+    role: string;
+  }) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email: user.email,
+        role,
+        firstName,
+        lastName,
+        graduationYear,
+        favoriteFolders: [],
+        myFiles: [],
+        previousFiles: [],
+        favoriteFiles: [],
+      });
+
+      console.log("User successfully signed up:", user.uid);
+    } catch (error) {
+      console.error("Error signing up user:", error);
+      throw error;
+    }
+  };
+
   return (
     <UserContext.Provider
       value={{
@@ -323,6 +375,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         toggleFavorite,
         handleLogout,
         handleLogin,
+        handleSignUp,
       }}
     >
       {children}
