@@ -162,8 +162,8 @@ export default function ViewPiecesPage() {
                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              Browse available folders to view and request pieces. Pieces you've
-              been assigned will appear in your "My Pieces" section.
+              Browse available folders to view and request pieces. Pieces you&apos;ve
+              been assigned will appear in your &quot;My Pieces&quot; section.
             </p>
           </div>
 
