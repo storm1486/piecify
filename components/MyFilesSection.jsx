@@ -42,6 +42,17 @@ export default function MyFilesSection({
                         <div className="text-sm font-medium text-gray-900">
                           {file.fileName || "Unnamed File"}
                         </div>
+
+                        {/* 👇 Display "cutting of..." if it's an edited version */}
+                        {file.originalFileName && (
+                          <p className="text-xs italic text-gray-500">
+                            This is your cutting of{" "}
+                            <span className="font-medium">
+                              {file.originalFileName}
+                            </span>
+                          </p>
+                        )}
+
                         <div className="text-xs text-gray-500">
                           Added on{" "}
                           {file.dateGiven

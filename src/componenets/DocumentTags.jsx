@@ -132,7 +132,7 @@ export default function DocumentTags({ attributes, fileId, isAdmin }) {
     <>
       <div className="w-full border-t border-gray-200 pt-3">
         <div className="flex flex-wrap items-center gap-2">
-          {latestAttributes.map((tag, index) => {
+          {latestAttributes?.map((tag, index) => {
             const Icon = attributeIcons[tag] || HelpCircle;
             return (
               <span
@@ -154,7 +154,7 @@ export default function DocumentTags({ attributes, fileId, isAdmin }) {
               title="Add/Edit attributes"
             >
               <Plus className="w-4 h-4" />
-              {latestAttributes.length === 0 ? (
+              {latestAttributes?.length === 0 ? (
                 <span>Add tags</span>
               ) : (
                 <span> Edit</span>

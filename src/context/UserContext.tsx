@@ -186,9 +186,26 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             const fileDocRef = doc(db, filePath);
             const fileDocSnapshot = await getDoc(fileDocRef);
 
-            return fileDocSnapshot.exists()
-              ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
-              : null;
+            if (!fileDocSnapshot.exists()) return null;
+
+            const fileData = fileDocSnapshot.data();
+            let originalFileName = null;
+
+            // 🧠 If this is a cutting, fetch its original file name
+            if (fileData.originalFileId) {
+              const originalRef = doc(db, "files", fileData.originalFileId);
+              const originalSnap = await getDoc(originalRef);
+              if (originalSnap.exists()) {
+                originalFileName = originalSnap.data().fileName || null;
+              }
+            }
+
+            return {
+              id: fileDocSnapshot.id,
+              ...fileData,
+              dateGiven,
+              originalFileName, // ✅ Add to be used in UI
+            };
           }
         );
 

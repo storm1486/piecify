@@ -20,7 +20,7 @@ export default function UploadEditedVersionFileModal({
 }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [newFileName, setNewFileName] = useState("");
-  const { fetchMyFiles } = useUser();
+  const { user, fetchMyFiles } = useUser();
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
@@ -38,46 +38,50 @@ export default function UploadEditedVersionFileModal({
     if (!selectedFile || newFileName.trim() === "") return;
 
     setUploading(true);
-    setUploadSuccess(false); // ✅ Reset the button state before upload starts
+    setUploadSuccess(false);
 
     try {
-      const newFileId = doc(collection(db, "files")).id; // Generate unique file ID
+      const newFileId = doc(collection(db, "files")).id;
 
-      // Upload the file to Firebase Storage
       const storageRef = ref(storage, `files/${newFileId}/${newFileName}`);
       await uploadBytes(storageRef, selectedFile);
       const downloadURL = await getDownloadURL(storageRef);
 
-      // Create a new document in the 'files' collection
       const newFileDocRef = doc(db, "files", newFileId);
       await setDoc(newFileDocRef, {
         fileId: newFileId,
         fileName: newFileName.trim(),
         fileUrl: downloadURL,
         uploadedAt: Timestamp.now(),
-        originalFileId: fileId, // Reference to the original file
+        originalFileId: fileId,
       });
 
-      // Add the document reference to 'editedVersions' in the original file document
       const originalFileRef = doc(db, "files", fileId);
       await updateDoc(originalFileRef, {
-        editedVersions: arrayUnion(newFileDocRef), // Store as Firestore document reference
+        editedVersions: arrayUnion(newFileDocRef),
+      });
+
+      // ✅ Add edited version to user's myFiles with dateGiven
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        myFiles: arrayUnion({
+          fileRef: newFileDocRef,
+          dateGiven: new Date().toISOString(),
+        }),
       });
 
       setUploadMessage("Edited version uploaded successfully!");
       setUploadSuccess(true);
+      await fetchMyFiles();
 
-      await fetchMyFiles(); // Refresh user's files
-
-      // ✅ Clear the selected file and rename field
       setSelectedFile(null);
       setNewFileName("");
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""; // ✅ Clears the file input field
+        fileInputRef.current.value = "";
       }
     } catch (error) {
       console.error("Error uploading edited version:", error);
-      setUploadMessage("Failed to upload the edited verison.");
+      setUploadMessage("Failed to upload the edited version.");
     } finally {
       setUploading(false);
     }
@@ -88,7 +92,7 @@ export default function UploadEditedVersionFileModal({
     setSelectedFile(null);
     setNewFileName("");
     setUploadMessage("");
-    setUploadSuccess(false)
+    setUploadSuccess(false);
     onClose(); // Close modal
   };
 
