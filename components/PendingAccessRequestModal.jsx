@@ -214,39 +214,25 @@ export default function PendingAccessRequestsModal({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {request.requestType === "assign" ? "Assignment" : "View"}
-
-                      {request.requestType === "assign" &&
-                        request.currentOwners?.length > 0 && (
-                          <div className="text-xs text-red-600 mt-1">
-                            Currently assigned to {request.currentOwners.length}{" "}
-                            {request.currentOwners.length === 1
-                              ? "user"
-                              : "users"}
-                          </div>
-                        )}
                     </td>
 
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">
                         {/* Approve button only shown if request is not for assign OR there are no current owners */}
-                        {!(
-                          request.requestType === "assign" &&
-                          request.currentOwners?.length > 0
-                        ) && (
-                          <button
-                            onClick={() =>
-                              handleRequestAction(
-                                request.fileId,
-                                request.userId,
-                                "approved"
-                              )
-                            }
-                            disabled={loading}
-                            className="px-3 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                        )}
+
+                        <button
+                          onClick={() =>
+                            handleRequestAction(
+                              request.fileId,
+                              request.userId,
+                              "approved"
+                            )
+                          }
+                          disabled={loading}
+                          className="px-3 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors disabled:opacity-50"
+                        >
+                          Approve
+                        </button>
 
                         {/* Always show Decline */}
                         <button

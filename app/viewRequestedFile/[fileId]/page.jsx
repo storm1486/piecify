@@ -17,6 +17,7 @@ export default function ViewRequestedFile() {
   const { user } = useUser();
   const [hasRequested, setHasRequested] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [isOwned, setIsOwned] = useState(false);
 
   useEffect(() => {
     if (!fileId) {
@@ -36,7 +37,25 @@ export default function ViewRequestedFile() {
           return;
         }
 
-        setFileData(fileDoc.data());
+        const data = fileDoc.data();
+        const currentOwners = data.currentOwner || [];
+
+        const ownerNames = [];
+
+        for (const owner of currentOwners) {
+          const userSnap = await getDoc(doc(db, "users", owner.userId));
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            ownerNames.push(
+              userData.firstName && userData.lastName
+                ? `${userData.firstName} ${userData.lastName}`
+                : userData.email
+            );
+          }
+        }
+
+        setFileData({ ...data, ownerNames });
+        setIsOwned(currentOwners.length > 0);
       } catch (err) {
         console.error("Error fetching requested file:", err);
         setError("An error occurred while fetching the file.");
@@ -301,11 +320,20 @@ export default function ViewRequestedFile() {
                   <p className="text-green-600 text-sm font-medium">
                     Assignment request submitted!
                   </p>
+                ) : isOwned ? (
+                  <p className="text-sm text-red-500 font-medium">
+                    This piece is already assigned to{" "}
+                    {fileData.ownerNames?.join(", ") || "someone"}.
+                  </p>
                 ) : (
                   <button
                     onClick={handleAssignmentRequest}
                     disabled={isRequesting}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isRequesting
+                        ? "bg-gray-400 text-white cursor-not-allowed"
+                        : "bg-green-600 hover:bg-green-700 text-white"
+                    }`}
                   >
                     {isRequesting ? "Requesting..." : "Request Assignment"}
                   </button>
