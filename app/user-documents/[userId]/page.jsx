@@ -215,7 +215,7 @@ export default function UserDocuments({ params }) {
             <span className="text-white">Piece</span>
             <span className="text-indigo-300">ify</span>
           </h1>
-          <p className="text-indigo-200 text-sm mt-1">Your music, organized.</p>
+          <p className="text-indigo-200 text-sm mt-1">Your performances, organized.</p>
         </div>
 
         {/* User Profile */}

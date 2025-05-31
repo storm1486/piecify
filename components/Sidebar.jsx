@@ -279,7 +279,7 @@ export default function Sidebar({
             {user?.role === "admin" && (
               <li>
                 <Link
-                  href="/folders"
+                  href="/allFolders"
                   className={`flex items-center p-2 rounded-md ${
                     activePage === "folders"
                       ? "bg-blue-800/50 font-medium"

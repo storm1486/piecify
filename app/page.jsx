@@ -5,7 +5,7 @@ import { collection, addDoc, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
-import MyFilesSection from "@/components/MyFilesSection";
+import MyFilesGroupedSection from "@/components/MyFilesGroupedSection"; // at the top
 import Sidebar from "@/components/Sidebar";
 
 export default function Home() {
@@ -513,9 +513,9 @@ export default function Home() {
                 </div>
 
                 {/* Files list */}
-                <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-                  <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">
+                <div className="bg-white shadow-sm rounded-lg overflow-hidden ">
+                  <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between ">
+                    <h3 className="text-2xl font-medium text-gray-900">
                       Your Pieces
                     </h3>
                     <div className="flex space-x-2">
@@ -557,7 +557,8 @@ export default function Home() {
                   </div>
 
                   {/* Your MyFilesSection component */}
-                  <MyFilesSection
+
+                  <MyFilesGroupedSection
                     myFiles={user?.myFiles || []}
                     previousFiles={user?.previousFiles || []}
                     requestedFiles={user?.requestedFiles || []}
