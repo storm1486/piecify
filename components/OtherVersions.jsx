@@ -5,7 +5,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../app/firebase/firebase"; // Adjust path as necessary
 import UploadEditedVersionFileModal from "./UploadEditedVersionModal";
 
-export default function OtherVersions({ fileId, onClose }) {
+export default function OtherVersions({ fileId, onClose, disableUpload = false }) {
   const [originalFile, setOriginalFile] = useState(null);
   const [editedVersions, setEditedVersions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +29,9 @@ export default function OtherVersions({ fileId, onClose }) {
             const versionDocs = await Promise.all(
               fileData.editedVersions.map(async (versionRef) => {
                 const versionSnap = await getDoc(versionRef);
-                return versionSnap.exists() ? versionSnap.data() : null;
+                return versionSnap.exists()
+                  ? { id: versionSnap.id, ...versionSnap.data() }
+                  : null;
               })
             );
             setEditedVersions(versionDocs.filter((v) => v !== null));
@@ -77,9 +79,7 @@ export default function OtherVersions({ fileId, onClose }) {
                 {editedVersions.map((version, index) => (
                   <li key={index} className="mt-2">
                     <a
-                      href={version.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={`/viewFile/${version.id}`}
                       className="text-blue-500 hover:underline"
                     >
                       {version.fileName}
