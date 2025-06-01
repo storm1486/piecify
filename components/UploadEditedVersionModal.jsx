@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   arrayUnion,
@@ -9,9 +9,47 @@ import {
   doc,
   collection,
   setDoc,
+  getDoc,
 } from "firebase/firestore";
 import { storage, db } from "../app/firebase/firebase"; // Adjust path as needed
 import { useUser } from "@/src/context/UserContext"; // Import the user context
+import CreatableSelect from "react-select/creatable";
+import { sortedAttributeOptions } from "../src/componenets/AttributeIcons";
+
+const customStyles = {
+  control: (provided, state) => ({
+    ...provided,
+    backgroundColor: "#ffffff",
+    borderColor: state.isFocused ? "#6366f1" : "#d1d5db",
+    color: "#1f2937",
+    padding: "0.25rem",
+    borderRadius: "0.5rem",
+    boxShadow: state.isFocused ? "0 0 0 1px #6366f1" : null,
+  }),
+  menu: (provided) => ({
+    ...provided,
+    zIndex: 20,
+  }),
+  multiValue: (provided) => ({
+    ...provided,
+    backgroundColor: "#e0e7ff",
+    color: "#4f46e5",
+    borderRadius: "0.375rem",
+    padding: "0.125rem",
+  }),
+  multiValueLabel: (provided) => ({
+    ...provided,
+    color: "#4f46e5",
+  }),
+  multiValueRemove: (provided) => ({
+    ...provided,
+    color: "#4f46e5",
+    "&:hover": {
+      backgroundColor: "#c7d2fe",
+      color: "#4338ca",
+    },
+  }),
+};
 
 export default function UploadEditedVersionFileModal({
   fileId,
@@ -25,12 +63,49 @@ export default function UploadEditedVersionFileModal({
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [intro, setIntro] = useState("");
+  const [pieceDescription, setPieceDescription] = useState("");
+  const [attributes, setAttributes] = useState([]);
+  const [length, setLength] = useState("10 min");
+  const [originalFileName, setOriginalFileName] = useState("");
+
+  useEffect(() => {
+    const fetchOriginalFileData = async () => {
+      if (!fileId || !isOpen) return;
+
+      try {
+        const docRef = doc(db, "files", fileId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setIntro(data.intro || "");
+          setPieceDescription(data.pieceDescription || "");
+          setAttributes(data.attributes || []);
+          setLength(data.length || "10 min");
+          setOriginalFileName(data.fileName || "");
+
+          // Set auto-generated name
+          const userName = `${user.firstName} ${user.lastName}`;
+          setNewFileName(`${userName}'s version of ${data.fileName}`);
+        }
+      } catch (err) {
+        console.error("Failed to fetch original file data:", err);
+      }
+    };
+
+    fetchOriginalFileData();
+  }, [fileId, isOpen]);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (file) {
       setSelectedFile(file);
-      setNewFileName(file.name);
+
+      // Preserve the auto-generated name and don't overwrite it
+      if (originalFileName && user?.firstName && user?.lastName) {
+        const userName = `${user.firstName} ${user.lastName}`;
+        setNewFileName(`${userName}'s version of ${originalFileName}`);
+      }
     }
   };
 
@@ -42,8 +117,9 @@ export default function UploadEditedVersionFileModal({
 
     try {
       const newFileId = doc(collection(db, "files")).id;
+      const safeFileName = newFileName.replace(/[^\w\s.-]/gi, "").trim();
 
-      const storageRef = ref(storage, `files/${newFileId}/${newFileName}`);
+      const storageRef = ref(storage, `files/${newFileId}/${safeFileName}`);
       await uploadBytes(storageRef, selectedFile);
       const downloadURL = await getDownloadURL(storageRef);
 
@@ -54,6 +130,10 @@ export default function UploadEditedVersionFileModal({
         fileUrl: downloadURL,
         uploadedAt: Timestamp.now(),
         originalFileId: fileId,
+        intro,
+        pieceDescription,
+        attributes,
+        length,
       });
 
       const originalFileRef = doc(db, "files", fileId);
@@ -113,15 +193,79 @@ export default function UploadEditedVersionFileModal({
         />
 
         {selectedFile && (
-          <div>
-            <label className="block text-sm font-medium">Rename File</label>
-            <input
-              type="text"
-              value={newFileName}
-              onChange={(e) => setNewFileName(e.target.value)}
-              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded mt-1 bg-white dark:bg-gray-700 text-black dark:text-white"
-            />
-          </div>
+          <>
+            <div>
+              <label className="block text-sm font-medium">Rename File</label>
+              <input
+                type="text"
+                value={newFileName}
+                readOnly
+                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded mt-1 bg-gray-100 dark:bg-gray-700 text-black dark:text-white"
+              />
+            </div>
+            {/* Piece Description */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Piece Description
+              </label>
+              <textarea
+                value={pieceDescription}
+                onChange={(e) => setPieceDescription(e.target.value)}
+                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded mt-1 bg-white dark:bg-gray-700 text-black dark:text-white text-sm"
+                rows={3}
+                placeholder="Enter a description for the piece"
+              />
+            </div>
+
+            {/* Intro Paragraph */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Intro Paragraph
+              </label>
+              <textarea
+                value={intro}
+                onChange={(e) => setIntro(e.target.value)}
+                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded mt-1 bg-white dark:bg-gray-700 text-black dark:text-white text-sm"
+                rows={3}
+                placeholder="Enter the intro paragraph"
+              />
+            </div>
+            {/* Attributes */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Attributes
+              </label>
+              <CreatableSelect
+                isMulti
+                options={sortedAttributeOptions}
+                value={attributes.map((attr) => ({
+                  value: attr,
+                  label: attr.charAt(0).toUpperCase() + attr.slice(1),
+                }))}
+                onChange={(selected) =>
+                  setAttributes(selected.map((item) => item.value))
+                }
+                styles={customStyles}
+                placeholder="Select or create attributes"
+                className="text-sm"
+              />
+            </div>
+
+            {/* Length */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Piece Length
+              </label>
+              <select
+                value={length}
+                onChange={(e) => setLength(e.target.value)}
+                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-black dark:text-white text-sm"
+              >
+                <option value="5 min">5 min</option>
+                <option value="10 min">10 min</option>
+              </select>
+            </div>
+          </>
         )}
 
         <div className="flex justify-end space-x-2 mt-3">
