@@ -5,7 +5,8 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, collection } from "firebase/firestore";
 import { db, storage } from "../app/firebase/firebase";
 import CreatableSelect from "react-select/creatable";
-import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
+import { sortedAttributeOptions } from "../src/componenets/AttributeIcons";
+import { useUser } from "../src/context/UserContext";
 
 const customStyles = {
   control: (provided, state) => ({
@@ -68,6 +69,7 @@ const customStyles = {
 export default function UploadFileModal({
   isUploadModalOpen,
   folderId,
+  user,
   onUploadSuccess,
   closeModal,
 }) {
@@ -124,6 +126,9 @@ export default function UploadFileModal({
         fileId,
         fileName: customFileName || file.name,
         fileUrl,
+        uploadedBy: user.uid,
+        uploadedByEmail: user.email,
+        uploadedByName: `${user.firstName} ${user.lastName}`,
         uploadedAt: new Date().toISOString(),
         pieceDescription: pieceDescription || "No description provided.",
         intro: intro || "", // Include intro here

@@ -1328,6 +1328,7 @@ export default function FolderPage() {
               <UploadFileModal
                 isUploadModalOpen={isUploadModalOpen}
                 folderId={folderId}
+                user={user}
                 onUploadSuccess={fetchFolderData}
                 closeModal={() => setIsUploadModalOpen(false)}
               />

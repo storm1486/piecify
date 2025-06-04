@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import CreatableSelect from "react-select/creatable";
 import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
+import { useUser } from "@/src/context/UserContext";
 
 // Updated custom styles for the select component
 const customStyles = {
@@ -69,7 +70,7 @@ export default function UploadMyFilesModal({
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
   const [pieceDescription, setPieceDescription] = useState("");
-  const [attributes, setAttributes] = useState("");
+  const [attributes, setAttributes] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -158,6 +159,9 @@ export default function UploadMyFilesModal({
         fileId,
         fileName: fileName || file.name,
         fileUrl,
+        uploadedBy: user.uid,
+        uploadedByEmail: user.email,
+        uploadedByName: `${user.firstName} ${user.lastName}`,
         uploadedAt: new Date().toISOString(),
         pieceDescription: pieceDescription || "No description provided.",
         attributes: attributes || [],

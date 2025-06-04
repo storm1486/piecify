@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase/firebase"; // Adjust the path as necessary
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
@@ -22,6 +22,10 @@ export default function Home() {
   const [searching, setSearching] = useState(false); // Loading state for search
   const [userFiles, setUserFiles] = useState([]); // To store the user's files (for non-admins)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [allFilesWithUploader, setAllFilesWithUploader] = useState([]);
+  const [loadingAllFiles, setLoadingAllFiles] = useState(false);
+  const hasFetchedAllFiles = useRef(false); // prevent refetch loop
+
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
 
   useEffect(() => {
@@ -35,6 +39,115 @@ export default function Home() {
       setActiveTab(user.role === "admin" ? "all" : "my");
     }
   }, [user, activeTab]);
+
+  useEffect(() => {
+    const fetchAllFilesWithUploader = async () => {
+      if (!user?.role || user.role !== "admin" || hasFetchedAllFiles.current)
+        return;
+      hasFetchedAllFiles.current = true;
+
+      setLoadingAllFiles(true);
+      const allFiles = [];
+      const userCache = {}; // prevent repeated user lookups
+
+      try {
+        // 📁 Step 1: Fetch files from folders
+        const foldersSnapshot = await getDocs(collection(db, "folders"));
+
+        for (const folderDoc of foldersSnapshot.docs) {
+          const folderId = folderDoc.id;
+          const folderName = folderDoc.data().name;
+
+          const filesSnapshot = await getDocs(
+            collection(db, "folders", folderId, "files")
+          );
+
+          for (const fileDoc of filesSnapshot.docs) {
+            const filePath = fileDoc.data().fileRef?.path;
+            if (!filePath) continue;
+
+            const fileRef = doc(db, filePath);
+            const fileSnap = await getDoc(fileRef);
+            if (!fileSnap.exists()) continue;
+
+            const fileData = fileSnap.data();
+            const uploaderUid = fileData.uploadedBy;
+            let uploaderInfo = { email: "Unknown" };
+
+            if (uploaderUid) {
+              if (userCache[uploaderUid]) {
+                uploaderInfo = userCache[uploaderUid];
+              } else {
+                const uploaderDoc = await getDoc(doc(db, "users", uploaderUid));
+                if (uploaderDoc.exists()) {
+                  const data = uploaderDoc.data();
+                  uploaderInfo = {
+                    email: data.email || "Unknown",
+                    firstName: data.firstName || "",
+                    lastName: data.lastName || "",
+                  };
+                  userCache[uploaderUid] = uploaderInfo;
+                }
+              }
+            }
+
+            allFiles.push({
+              ...fileData,
+              fileId: fileSnap.id,
+              folderId,
+              folderName,
+              uploader: uploaderInfo,
+            });
+          }
+        }
+
+        // 📄 Step 2: Fetch ungrouped files (not in folders)
+        const globalFilesSnapshot = await getDocs(collection(db, "files"));
+        for (const fileDoc of globalFilesSnapshot.docs) {
+          const fileData = fileDoc.data();
+
+          // Only include files that don't have a folderId (ungrouped)
+          if (!fileData.folderId) {
+            const uploaderUid = fileData.uploadedBy;
+            let uploaderInfo = { email: "Unknown" };
+
+            if (uploaderUid) {
+              if (userCache[uploaderUid]) {
+                uploaderInfo = userCache[uploaderUid];
+              } else {
+                const uploaderDoc = await getDoc(doc(db, "users", uploaderUid));
+                if (uploaderDoc.exists()) {
+                  const data = uploaderDoc.data();
+                  uploaderInfo = {
+                    email: data.email || "Unknown",
+                    firstName: data.firstName || "",
+                    lastName: data.lastName || "",
+                  };
+                  userCache[uploaderUid] = uploaderInfo;
+                }
+              }
+            }
+
+            allFiles.push({
+              ...fileData,
+              fileId: fileDoc.id,
+              folderId: null,
+              folderName: "Unassigned",
+              uploader: uploaderInfo,
+            });
+          }
+        }
+
+        setAllFilesWithUploader(allFiles);
+      } catch (error) {
+        console.error("Error fetching all files:", error);
+      } finally {
+        setLoadingAllFiles(false);
+      }
+    };
+
+    fetchAllFilesWithUploader();
+  }, [user]);
 
   if (loading) {
     return <p>Loading...</p>; // Show a loading state while fetching user data
@@ -273,9 +386,23 @@ export default function Home() {
                         : "text-gray-500 hover:text-gray-700"
                     }`}
                   >
+                    All Folders
+                  </button>
+                )}
+
+                {user?.role === "admin" && (
+                  <button
+                    onClick={() => setActiveTab("allFiles")}
+                    className={`pb-4 px-1 font-medium text-sm ${
+                      activeTab === "allFiles"
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
                     All Files
                   </button>
                 )}
+
                 <button
                   onClick={() => setActiveTab("my")}
                   className={`pb-4 px-1 font-medium text-sm ${
@@ -310,7 +437,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* All Files Tab Content */}
+            {/* All Folders Tab Content */}
             {activeTab === "all" && user?.role === "admin" && (
               <div>
                 <div className="flex justify-between items-center mb-6">
@@ -453,6 +580,68 @@ export default function Home() {
                     </h3>
                   </div>
                 </div>
+              </div>
+            )}
+            {activeTab === "allFiles" && user?.role === "admin" && (
+              <div>
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    All Files
+                  </h2>
+                  <p className="text-gray-500">
+                    See every file uploaded by users
+                  </p>
+                </div>
+
+                {loadingAllFiles ? (
+                  <p>Loading files...</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full table-auto border-collapse border border-gray-200">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="px-4 py-2 text-left border border-gray-300">
+                            File Name
+                          </th>
+                          <th className="px-4 py-2 text-left border border-gray-300">
+                            Uploaded By
+                          </th>
+                          <th className="px-4 py-2 text-left border border-gray-300">
+                            Folder
+                          </th>
+                          <th className="px-4 py-2 text-left border border-gray-300">
+                            View
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allFilesWithUploader.map((file, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 border border-gray-200">
+                              {file.fileName}
+                            </td>
+                            <td className="px-4 py-2 border border-gray-200">
+                              {file.uploadedByName ||
+                                file.uploadedByEmail ||
+                                "Unknown"}
+                            </td>
+                            <td className="px-4 py-2 border border-gray-200">
+                              {file.folderName || "Unnamed"}
+                            </td>
+                            <td className="px-4 py-2 border border-gray-200">
+                              <Link
+                                href={`/viewDocuments/${file.folderId}/${file.fileId}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                View
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
