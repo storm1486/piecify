@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
 import DocumentTags from "@/src/componenets/DocumentTags";
+import { getDoc, doc } from "firebase/firestore";
 
 export default function ViewFile() {
   const { fileId } = useParams();
@@ -13,25 +14,70 @@ export default function ViewFile() {
   const [docData, setDocData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
-  const { user, handleLogout} = useUser();
+  const { user, handleLogout, loading: userLoading } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
+  const [isEditedVersion, setIsEditedVersion] = useState(false);
 
   const handleOpenVersionsModal = () => setIsVersionsModalOpen(true);
   const handleCloseVersionsModal = () => setIsVersionsModalOpen(false);
 
   useEffect(() => {
-    if (user && fileId) {
-      const file = user.myFiles.find((f) => f.id === fileId);
-      if (file) {
-        setDocData(file);
-      } else {
-        console.error("File not found in user's myFiles!");
+    if (userLoading || !fileId) return;
+
+    const fetchFile = async () => {
+      const localEntry = user?.myFiles?.find(
+        (f) => f.fileRef?.id === fileId || f.id === fileId
+      );
+
+      // ✅ Case 1: file was stored with { fileRef, dateGiven }
+      if (localEntry?.fileRef) {
+        try {
+          const fileSnap = await getDoc(localEntry.fileRef);
+          if (fileSnap.exists()) {
+            const fileData = fileSnap.data();
+            const combined = { ...fileData, id: fileSnap.id };
+            setDocData(combined);
+            setIsEditedVersion(!!combined.originalFileId);
+          } else {
+            console.error("Referenced file not found.");
+          }
+        } catch (err) {
+          console.error("Error fetching referenced file:", err);
+        } finally {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
-    }
-  }, [user, fileId]);
+
+      // ✅ Case 2: file was stored directly in myFiles (e.g. original files)
+      else if (localEntry) {
+        setDocData(localEntry);
+        setIsEditedVersion(!!localEntry.originalFileId);
+        setIsLoading(false);
+      }
+
+      // ✅ Case 3: fallback — not found in myFiles, fetch from Firestore directly
+      else {
+        try {
+          const fileDoc = await getDoc(doc(db, "files", fileId));
+          if (fileDoc.exists()) {
+            const fetched = { id: fileDoc.id, ...fileDoc.data() };
+            setDocData(fetched);
+            setIsEditedVersion(!!fetched.originalFileId);
+          } else {
+            console.error("File not found in Firestore.");
+          }
+        } catch (error) {
+          console.error("Error fetching file:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchFile();
+  }, [userLoading, fileId, user]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -338,55 +384,59 @@ export default function ViewFile() {
                     className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg z-20 border border-gray-200"
                   >
                     <ul className="py-2">
-                      <li>
-                        <button
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            handleOpenVersionsModal();
-                          }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4 mr-3 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
+                      {!isEditedVersion && (
+                        <li>
+                          <button
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              handleOpenVersionsModal();
+                            }}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                          Edited Versions
-                        </button>
-                      </li>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 mr-3 text-gray-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            Edited Versions
+                          </button>
+                        </li>
+                      )}
                       <li>
-                        <button
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            alert("Track Record Clicked");
-                          }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4 mr-3 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
+                        {!isEditedVersion && (
+                          <button
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              alert("Track Record Clicked");
+                            }}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                          </svg>
-                          Track Record
-                        </button>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 mr-3 text-gray-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                              />
+                            </svg>
+                            Track Record
+                          </button>
+                        )}
                       </li>
                       <li>
                         <button
@@ -462,6 +512,7 @@ export default function ViewFile() {
           fileId={fileId}
           isOpen={isVersionsModalOpen}
           onClose={handleCloseVersionsModal}
+          disableUpload={isEditedVersion}
         />
       )}
     </div>
