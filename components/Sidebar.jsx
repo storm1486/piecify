@@ -277,32 +277,60 @@ export default function Sidebar({
               </li>
             )}
             {user?.role === "admin" && (
-              <li>
-                <Link
-                  href="/allFolders"
-                  className={`flex items-center p-2 rounded-md ${
-                    activePage === "folders"
-                      ? "bg-blue-800/50 font-medium"
-                      : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
-                  }`}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mr-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+              <>
+                <li>
+                  <Link
+                    href="/allFolders"
+                    className={`flex items-center p-2 rounded-md ${
+                      activePage === "folders"
+                        ? "bg-blue-800/50 font-medium"
+                        : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
+                    }`}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                    />
-                  </svg>
-                  All Folders
-                </Link>
-              </li>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                      />
+                    </svg>
+                    All Folders
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/practiceSorter"
+                    className={`flex items-center p-2 rounded-md ${
+                      activePage === "practiceSorter"
+                        ? "bg-blue-800/50 font-medium"
+                        : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
+                    }`}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 6h16M4 12h16M4 18h16"
+                      />
+                    </svg>
+                    Practice Sorter
+                  </Link>
+                </li>
+              </>
             )}
           </ul>
           {/* Other Links */}
