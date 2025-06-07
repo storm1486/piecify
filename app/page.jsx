@@ -1,7 +1,15 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase/firebase"; // Adjust the path as necessary
-import { collection, addDoc, getDocs, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  getDoc,
+  updateDoc,
+  setDoc,
+} from "firebase/firestore";
 import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
@@ -91,6 +99,8 @@ export default function Home() {
               }
             }
 
+            if (fileData.originalFileId) continue; // 🚫 Skip edited versions
+
             allFiles.push({
               ...fileData,
               fileId: fileSnap.id,
@@ -127,6 +137,8 @@ export default function Home() {
                 }
               }
             }
+
+            if (fileData.originalFileId) continue; // 🚫 Skip edited versions
 
             allFiles.push({
               ...fileData,
@@ -241,6 +253,38 @@ export default function Home() {
       console.error("Error searching files:", error);
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleAssignToFolder = async (fileId, folderId) => {
+    try {
+      // 1. Update the file's `folderId` field in the main files collection
+      const fileRef = doc(db, "files", fileId);
+      await updateDoc(fileRef, { folderId });
+
+      // 2. Create reference in the folder's subcollection
+      await setDoc(doc(db, "folders", folderId, "files", fileId), {
+        fileRef: `/files/${fileId}`,
+      });
+
+      // 3. Optionally: Refresh table or just update state locally
+      setAllFilesWithUploader((prev) =>
+        prev.map((f) =>
+          f.fileId === fileId
+            ? {
+                ...f,
+                folderId,
+                folderName:
+                  user.allFolders.find((fld) => fld.id === folderId)?.name ||
+                  "Unknown",
+              }
+            : f
+        )
+      );
+
+      console.log(`File ${fileId} assigned to folder ${folderId}`);
+    } catch (error) {
+      console.error("Error assigning file to folder:", error);
     }
   };
 
@@ -615,29 +659,64 @@ export default function Home() {
                         </tr>
                       </thead>
                       <tbody>
-                        {allFilesWithUploader.map((file, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 border border-gray-200">
-                              {file.fileName}
-                            </td>
-                            <td className="px-4 py-2 border border-gray-200">
-                              {file.uploadedByName ||
-                                file.uploadedByEmail ||
-                                "Unknown"}
-                            </td>
-                            <td className="px-4 py-2 border border-gray-200">
-                              {file.folderName || "Unnamed"}
-                            </td>
-                            <td className="px-4 py-2 border border-gray-200">
-                              <Link
-                                href={`/viewDocuments/${file.folderId}/${file.fileId}`}
-                                className="text-blue-600 hover:underline"
-                              >
-                                View
-                              </Link>
+                        {allFilesWithUploader.filter(
+                          (f) => !f.folderId && !f.originalFileId
+                        ).length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="text-center text-sm text-gray-500 italic py-6"
+                            >
+                              No files have been uploaded outside of a folder.
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          allFilesWithUploader
+                            .filter(
+                              (file) => !file.folderId && !file.originalFileId
+                            )
+                            .map((file, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-4 py-2 border border-gray-200">
+                                  {file.fileName}
+                                </td>
+                                <td className="px-4 py-2 border border-gray-200">
+                                  {file.uploader?.firstName ||
+                                    file.uploader?.email ||
+                                    "Unknown"}
+                                </td>
+                                <td className="px-4 py-2 border border-gray-200">
+                                  <select
+                                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                                    onChange={(e) =>
+                                      handleAssignToFolder(
+                                        file.fileId,
+                                        e.target.value
+                                      )
+                                    }
+                                    defaultValue=""
+                                  >
+                                    <option value="" disabled>
+                                      Assign to folder...
+                                    </option>
+                                    {user.allFolders.map((folder) => (
+                                      <option key={folder.id} value={folder.id}>
+                                        {folder.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="px-4 py-2 border border-gray-200">
+                                  <Link
+                                    href={`/viewDocuments/null/${file.fileId}`}
+                                    className="text-blue-600 hover:underline"
+                                  >
+                                    View
+                                  </Link>
+                                </td>
+                              </tr>
+                            ))
+                        )}
                       </tbody>
                     </table>
                   </div>
