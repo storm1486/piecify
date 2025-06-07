@@ -6,7 +6,6 @@ import { doc, setDoc, collection } from "firebase/firestore";
 import { db, storage } from "../app/firebase/firebase";
 import CreatableSelect from "react-select/creatable";
 import { sortedAttributeOptions } from "../src/componenets/AttributeIcons";
-import { useUser } from "../src/context/UserContext";
 
 const customStyles = {
   control: (provided, state) => ({

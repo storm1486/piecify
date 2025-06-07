@@ -16,8 +16,6 @@ import { useUser } from "@/src/context/UserContext";
 import UploadFileModal from "@/components/UploadFileModal";
 import UserSearchSelect from "@/components/UserSearchSelect";
 import FileSearchSelect from "@/components/FileSearchSelect";
-import FileCard from "@/components/FileCard";
-import TabButton from "@/components/TabButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Sidebar from "@/components/Sidebar";
 import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
@@ -28,7 +26,6 @@ export default function FolderPage() {
   const { user, loading } = useUser();
   const [folderName, setFolderName] = useState("");
   const [files, setFiles] = useState([]);
-  const [fileError, setFileError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [users, setUsers] = useState([]);
@@ -207,7 +204,6 @@ export default function FolderPage() {
       );
     } catch (error) {
       console.error("Error fetching folder data:", error);
-      setFileError("Failed to load folder data.");
     } finally {
       setIsLoading(false);
     }

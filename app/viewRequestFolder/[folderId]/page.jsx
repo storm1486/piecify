@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   collection,
   getDocs,
@@ -20,7 +20,6 @@ export default function ViewPieces() {
   const { folderId } = useParams();
   const { user, loading } = useUser();
   const [pieces, setPieces] = useState([]);
-  const [requestedIds, setRequestedIds] = useState(new Set());
   const [folderName, setFolderName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -265,9 +264,9 @@ export default function ViewPieces() {
                 return (
                   <div
                     key={piece.id}
-                    className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-100"
+                    className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-100 flex flex-col h-full"
                   >
-                    <div className="p-6">
+                    <div className="p-6 flex flex-col flex-grow">
                       <div className="flex items-center mb-3">
                         <div className="p-2 rounded-lg mr-3 bg-blue-100 text-blue-600">
                           <svg
@@ -315,7 +314,7 @@ export default function ViewPieces() {
                       <button
                         onClick={() => requestAccess(piece.id)}
                         disabled={isDisabled}
-                        className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                        className={`mt-auto w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                           isDisabled
                             ? "bg-gray-100 text-blue-600 border border-blue-200 cursor-not-allowed"
                             : "bg-blue-600 text-white hover:bg-blue-700"

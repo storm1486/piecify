@@ -11,7 +11,6 @@ import {
 } from "firebase/firestore";
 import CreatableSelect from "react-select/creatable";
 import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
-import { useUser } from "@/src/context/UserContext";
 
 // Updated custom styles for the select component
 const customStyles = {

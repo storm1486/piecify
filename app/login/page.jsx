@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useUser } from "@/src/context/UserContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Sidebar from "@/components/Sidebar"; // Adjust path as needed
 
 export default function LoginPage() {
   const { user, handleLogin } = useUser();

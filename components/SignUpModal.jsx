@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function SignUpModal({
   isOpen,
   onClose,
@@ -20,11 +18,6 @@ export default function SignUpModal({
   disabled,
 }) {
   if (!isOpen) return null;
-
-  const capitalize = (str) =>
-    typeof str === "string" && str.length > 0
-      ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
-      : "";
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
