@@ -22,6 +22,13 @@ export default function PracticeSorterPage() {
   const [dynamicRooms, setDynamicRooms] = useState([]);
   const [assignments, setAssignments] = useState({});
   const printRef = useRef(null);
+  const [presetPeople, setPresetPeople] = useState(
+    Object.fromEntries(Object.keys(ROOMS).map((room) => [room, ""]))
+  );
+  const coachRooms = Object.entries(ROOMS).filter(([_, coach]) => coach.trim());
+  const nonCoachRooms = Object.entries(ROOMS).filter(
+    ([_, coach]) => !coach.trim()
+  );
 
   const handleFixedVolunteerChange = (room, value) => {
     setVolunteers((prev) => ({ ...prev, [room]: value }));
@@ -44,33 +51,58 @@ export default function PracticeSorterPage() {
   };
 
   const handleSort = () => {
-    const names = nameInput
+    const allNames = nameInput
       .split("\n")
       .map((n) => n.trim())
       .filter(Boolean);
 
-    const fixedRoomList = Object.entries(ROOMS).map(
-      ([room, defaultVolunteer]) => ({
+    const coachRoomNames = Object.values(presetPeople)
+      .flatMap((names) => names.split("\n").map((n) => n.trim()))
+      .filter(Boolean);
+
+    // Filter names that were already assigned to coach rooms
+    const unassignedNames = allNames.filter(
+      (name) => !coachRoomNames.includes(name)
+    );
+
+    const result = {};
+
+    // Add coach rooms with manual entries
+    coachRooms.forEach(([room, coach]) => {
+      const manualPeople =
+        presetPeople[room]
+          ?.split("\n")
+          .map((n) => n.trim())
+          .filter(Boolean) || [];
+
+      result[room] = {
+        volunteer: volunteers[room],
+        people: manualPeople,
+      };
+    });
+
+    // Add non-coach rooms
+    const extraRooms = dynamicRooms.filter((r) => r.name.trim());
+    const nonCoachRoomObjects = [
+      ...nonCoachRooms.map(([room]) => ({
         name: room,
         volunteer: volunteers[room] || "",
-      })
-    );
+      })),
+      ...extraRooms,
+    ];
 
-    const extraRooms = dynamicRooms.filter((r) => r.name.trim() !== "");
+    nonCoachRoomObjects.forEach((r) => {
+      result[r.name] = {
+        volunteer: r.volunteer,
+        people: [],
+      };
+    });
 
-    const allRooms = [...fixedRoomList, ...extraRooms];
-
-    if (!names.length || !allRooms.length) return;
-
-    const shuffled = [...names].sort(() => Math.random() - 0.5);
-    const result = {};
-    allRooms.forEach(
-      (r) => (result[r.name] = { volunteer: r.volunteer, people: [] })
-    );
-
+    // Distribute remaining names among non-coach rooms
+    const shuffled = [...unassignedNames].sort(() => Math.random() - 0.5);
     shuffled.forEach((name, i) => {
-      const roomIndex = i % allRooms.length;
-      result[allRooms[roomIndex].name].people.push(name);
+      const roomIndex = i % nonCoachRoomObjects.length;
+      result[nonCoachRoomObjects[roomIndex].name].people.push(name);
     });
 
     setAssignments(result);
@@ -114,6 +146,30 @@ export default function PracticeSorterPage() {
                   value={volunteers[room]}
                   onChange={(e) =>
                     setVolunteers((prev) => ({
+                      ...prev,
+                      [room]: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          {/* Coach Room Manual Assignments */}
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-2">
+              Coach Room Manual Additions
+            </h2>
+            {coachRooms.map(([room]) => (
+              <div key={room} className="mb-4">
+                <label className="block font-medium mb-1">
+                  {room} (Coach: {volunteers[room]})
+                </label>
+                <textarea
+                  className="w-full border rounded p-2 h-20"
+                  placeholder={`Names for ${room}, one per line`}
+                  value={presetPeople[room] || ""}
+                  onChange={(e) =>
+                    setPresetPeople((prev) => ({
                       ...prev,
                       [room]: e.target.value,
                     }))
