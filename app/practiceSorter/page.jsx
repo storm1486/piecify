@@ -60,7 +60,6 @@ export default function PracticeSorterPage() {
       .flatMap((names) => names.split("\n").map((n) => n.trim()))
       .filter(Boolean);
 
-    // Filter names that were already assigned to coach rooms
     const unassignedNames = allNames.filter(
       (name) => !coachRoomNames.includes(name)
     );
@@ -81,7 +80,7 @@ export default function PracticeSorterPage() {
       };
     });
 
-    // Add non-coach rooms
+    // Prepare non-coach rooms
     const extraRooms = dynamicRooms.filter((r) => r.name.trim());
     const nonCoachRoomObjects = [
       ...nonCoachRooms.map(([room]) => ({
@@ -98,12 +97,30 @@ export default function PracticeSorterPage() {
       };
     });
 
-    // Distribute remaining names among non-coach rooms
-    const shuffled = [...unassignedNames].sort(() => Math.random() - 0.5);
-    shuffled.forEach((name, i) => {
-      const roomIndex = i % nonCoachRoomObjects.length;
-      result[nonCoachRoomObjects[roomIndex].name].people.push(name);
+    // Initialize a map to track room load
+    const roomLoad = {};
+    nonCoachRoomObjects.forEach((r) => {
+      roomLoad[r.name] = 0;
     });
+
+    // Shuffle names before sorting
+    const shuffled = [...unassignedNames].sort(() => Math.random() - 0.5);
+
+    for (const name of shuffled) {
+      // Sort rooms by current load, ascending
+      const sortedRooms = Object.entries(roomLoad)
+        .sort(([, a], [, b]) => a - b)
+        .map(([room]) => room)
+        .filter((room) => !result[room].people.includes(name)); // Avoid dupes
+
+      if (sortedRooms.length < 2) continue; // Can't place twice uniquely
+
+      const [roomA, roomB] = sortedRooms.slice(0, 2);
+      result[roomA].people.push(name);
+      result[roomB].people.push(name);
+      roomLoad[roomA]++;
+      roomLoad[roomB]++;
+    }
 
     setAssignments(result);
   };
