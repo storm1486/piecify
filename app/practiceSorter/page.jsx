@@ -64,6 +64,9 @@ export default function PracticeSorterPage() {
       (name) => !coachRoomNames.includes(name)
     );
 
+    const NUM_REPS = 2;
+    const personUsedPositions = {};
+
     const result = {};
 
     // Add coach rooms with manual entries
@@ -97,29 +100,58 @@ export default function PracticeSorterPage() {
       };
     });
 
-    // Initialize a map to track room load
+    // Initialize load tracker
     const roomLoad = {};
     nonCoachRoomObjects.forEach((r) => {
       roomLoad[r.name] = 0;
     });
 
-    // Shuffle names before sorting
-    const shuffled = [...unassignedNames].sort(() => Math.random() - 0.5);
+    // Shuffle unassigned names
+    const shuffledNames = [...unassignedNames].sort(() => Math.random() - 0.5);
 
-    for (const name of shuffled) {
-      // Sort rooms by current load, ascending
-      const sortedRooms = Object.entries(roomLoad)
-        .sort(([, a], [, b]) => a - b)
-        .map(([room]) => room)
-        .filter((room) => !result[room].people.includes(name)); // Avoid dupes
+    for (const name of shuffledNames) {
+      // Get rooms sorted by load, with random tie-breaking
+      const availableRooms = [...nonCoachRoomObjects]
+        .map((r) => r.name)
+        .filter((room) => !result[room].people.includes(name));
 
-      if (sortedRooms.length < 2) continue; // Can't place twice uniquely
+      // Sort by load, with randomized tie-breaking
+      const sortedRooms = availableRooms
+        .map((room) => ({
+          room,
+          load: roomLoad[room],
+          rand: Math.random(),
+        }))
+        .sort((a, b) => {
+          if (a.load === b.load) return a.rand - b.rand;
+          return a.load - b.load;
+        })
+        .map((entry) => entry.room);
 
-      const [roomA, roomB] = sortedRooms.slice(0, 2);
-      result[roomA].people.push(name);
-      result[roomB].people.push(name);
-      roomLoad[roomA]++;
-      roomLoad[roomB]++;
+      const selectedRooms = sortedRooms.slice(0, NUM_REPS);
+
+      if (selectedRooms.length < NUM_REPS) continue; // skip if not enough unique rooms
+      if (!personUsedPositions[name]) personUsedPositions[name] = new Set();
+
+      selectedRooms.forEach((room) => {
+        const roomPeople = result[room].people;
+
+        // Find the lowest index this person hasn't used yet
+        let insertIndex = 0;
+        while (personUsedPositions[name].has(insertIndex)) {
+          insertIndex++;
+        }
+
+        // Insert the name at the desired index
+        if (insertIndex >= roomPeople.length) {
+          roomPeople.push(name);
+        } else {
+          roomPeople.splice(insertIndex, 0, name);
+        }
+
+        personUsedPositions[name].add(insertIndex);
+        roomLoad[room]++;
+      });
     }
 
     setAssignments(result);
