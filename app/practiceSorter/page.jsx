@@ -32,6 +32,7 @@ export default function PracticeSorterPage() {
   const nonCoachRooms = Object.entries(ROOMS).filter(
     ([_, coach]) => !coach.trim()
   );
+  const [numReps, setNumReps] = useState(2); // Default to 2 reps
 
   const handleFixedVolunteerChange = (room, value) => {
     setVolunteers((prev) => ({ ...prev, [room]: value }));
@@ -72,7 +73,6 @@ export default function PracticeSorterPage() {
       (name) => !coachRoomNames.includes(name)
     );
 
-    const NUM_REPS = 2;
     const personUsedPositions = {};
 
     const result = {};
@@ -108,6 +108,10 @@ export default function PracticeSorterPage() {
       };
     });
 
+    const NUM_REPS = Math.max(
+      1,
+      Math.min(parseInt(numReps || "2", 10), nonCoachRoomObjects.length)
+    );
     // Initialize load tracker
     const roomLoad = {};
     nonCoachRoomObjects.forEach((r) => {
@@ -235,6 +239,24 @@ export default function PracticeSorterPage() {
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
                 placeholder="John Doe&#10;Jane Smith&#10;Mike Johnson"
+              />
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <div className="w-2 h-2 bg-indigo-500 rounded-full mr-3"></div>
+                Assignment Settings
+              </h2>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Number of reps each person should do:
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={Object.keys(ROOMS).length + dynamicRooms.length}
+                className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                value={numReps}
+                onChange={(e) => setNumReps(e.target.value)}
+                placeholder="e.g. 2"
               />
             </div>
 
@@ -378,7 +400,7 @@ export default function PracticeSorterPage() {
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleSort}
-                disabled={isLoading || !nameInput.trim()}
+                disabled={isLoading || !nameInput.trim() || !numReps}
                 className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200 font-medium flex items-center justify-center gap-2"
               >
                 {isLoading ? (
