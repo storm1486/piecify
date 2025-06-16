@@ -441,67 +441,95 @@ export default function PracticeSorterPage() {
             ref={printRef}
           >
             {Object.keys(assignments).length > 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                  Room Assignments
-                </h2>
-                <div className="grid gap-4">
-                  {Object.entries(assignments).map(([room, data]) => (
-                    <div
-                      key={room}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold text-lg text-gray-900">
-                          {room}
-                        </h3>
-                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                          {data.people.length}{" "}
-                          {data.people.length === 1 ? "person" : "people"}
-                        </span>
-                      </div>
-                      {data.volunteer && (
-                        <p className="text-sm text-gray-600 mb-3 flex items-center">
-                          <svg
-                            className="w-4 h-4 mr-1"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                            />
-                          </svg>
-                          Volunteer: {data.volunteer}
-                        </p>
-                      )}
-                      {data.people.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {data.people.map((person, i) => (
-                            <div
-                              key={i}
-                              className="flex items-center text-sm text-gray-700 bg-gray-50 rounded px-3 py-2"
-                            >
-                              <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-medium mr-2">
-                                {i + 1}
-                              </span>
-                              {person}
-                            </div>
-                          ))}
+              <>
+                {/* Screen Layout - Hidden When Printing */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 print:hidden">
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                    Room Assignments
+                  </h2>
+                  <div className="grid gap-4">
+                    {Object.entries(assignments).map(([room, data]) => (
+                      <div
+                        key={room}
+                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-semibold text-lg text-gray-900">
+                            {room}
+                          </h3>
+                          <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            {data.people.length}{" "}
+                            {data.people.length === 1 ? "person" : "people"}
+                          </span>
                         </div>
-                      ) : (
-                        <p className="text-gray-500 italic text-sm">
-                          No participants assigned
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                        {data.volunteer && (
+                          <p className="text-sm text-gray-600 mb-3 flex items-center">
+                            <svg
+                              className="w-4 h-4 mr-1"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                              />
+                            </svg>
+                            Volunteer: {data.volunteer}
+                          </p>
+                        )}
+                        {data.people.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {data.people.map((person, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center text-sm text-gray-700 bg-gray-50 rounded px-3 py-2"
+                              >
+                                <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-medium mr-2">
+                                  {i + 1}
+                                </span>
+                                {person}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 italic text-sm">
+                            No participants assigned
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+
+                {/* Simple Print Layout */}
+                <div className="hidden print:block">
+                  <h1 className="text-xl font-bold mb-4">Room Assignments</h1>
+                  <div className="print:grid print:grid-cols-2 print:gap-4 print:text-xs print:leading-snug">
+                    {Object.entries(assignments).map(([room, data]) => (
+                      <div key={room}>
+                        <h2 className="font-semibold text-base mb-1">
+                          {room} {data.volunteer && `- ${data.volunteer}`}
+                        </h2>
+                        {data.people.length > 0 ? (
+                          <ul className="list-disc list-inside text-sm">
+                            {data.people.map((person, index) => (
+                              <li key={index}>{person}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm italic text-gray-600">
+                            No participants assigned
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
