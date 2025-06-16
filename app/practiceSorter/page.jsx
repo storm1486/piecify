@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 const ROOMS = {
   G108: "Dejesa",
@@ -26,7 +27,7 @@ export default function PracticeSorterPage() {
     Object.fromEntries(Object.keys(ROOMS).map((room) => [room, ""]))
   );
   const [isLoading, setIsLoading] = useState(false);
-
+  const router = useRouter();
   const coachRooms = Object.entries(ROOMS).filter(([_, coach]) => coach.trim());
   const nonCoachRooms = Object.entries(ROOMS).filter(
     ([_, coach]) => !coach.trim()
@@ -186,6 +187,15 @@ export default function PracticeSorterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 print:bg-white print:min-h-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
+        <div className="flex justify-start print:hidden">
+          <button
+            onClick={() => router.push("/")}
+            className="text-sm text-blue-600 hover:underline transition-all duration-200 mb-2"
+          >
+            ← Go Home
+          </button>
+        </div>
+
         {/* Header */}
         <div className="mb-8 print:hidden">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
