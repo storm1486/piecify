@@ -19,6 +19,7 @@ const ROOMS = {
 
 export default function PracticeSorterPage() {
   const [nameInput, setNameInput] = useState("");
+  const [fixedRooms, setFixedRooms] = useState(Object.keys(ROOMS));
   const [volunteers, setVolunteers] = useState({ ...ROOMS });
   const [dynamicRooms, setDynamicRooms] = useState([]);
   const [assignments, setAssignments] = useState({});
@@ -40,6 +41,20 @@ export default function PracticeSorterPage() {
 
   const handleAddRoom = () => {
     setDynamicRooms([...dynamicRooms, { name: "", volunteer: "" }]);
+  };
+
+  const handleRemoveFixedRoom = (room) => {
+    setFixedRooms((prev) => prev.filter((r) => r !== room));
+    setVolunteers((prev) => {
+      const updated = { ...prev };
+      delete updated[room];
+      return updated;
+    });
+    setPresetPeople((prev) => {
+      const updated = { ...prev };
+      delete updated[room];
+      return updated;
+    });
   };
 
   const handleRemoveRoom = (index) => {
@@ -65,7 +80,16 @@ export default function PracticeSorterPage() {
       .map((n) => n.trim())
       .filter(Boolean);
 
-    const coachRoomNames = Object.values(presetPeople)
+    const coachRooms = fixedRooms
+      .filter((room) => volunteers[room]?.trim())
+      .map((room) => [room, volunteers[room]]);
+
+    const nonCoachRooms = fixedRooms
+      .filter((room) => !volunteers[room]?.trim())
+      .map((room) => [room, volunteers[room]]);
+
+    const coachRoomNames = coachRooms
+      .map(([room]) => presetPeople[room] || "")
       .flatMap((names) => names.split("\n").map((n) => n.trim()))
       .filter(Boolean);
 
@@ -252,7 +276,7 @@ export default function PracticeSorterPage() {
               <input
                 type="number"
                 min={1}
-                max={Object.keys(ROOMS).length + dynamicRooms.length}
+                max={fixedRooms.length + dynamicRooms.length}
                 className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 value={numReps}
                 onChange={(e) => setNumReps(e.target.value)}
@@ -267,14 +291,35 @@ export default function PracticeSorterPage() {
                 Room Volunteers
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {Object.keys(ROOMS).map((room) => (
-                  <div key={room} className="flex items-center gap-3">
-                    <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded min-w-[60px] text-center">
+                {fixedRooms.map((room) => (
+                  <div
+                    key={room}
+                    className="w-full flex items-center gap-3 bg-gray-50 rounded-lg p-3"
+                  >
+                    <button
+                      onClick={() => handleRemoveFixedRoom(room)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-all duration-200 shrink-0"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                    <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded min-w-[60px] text-center shrink-0">
                       {room}
                     </span>
                     <input
                       type="text"
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder={ROOMS[room] || "Volunteer name"}
                       value={volunteers[room]}
                       onChange={(e) =>
@@ -284,6 +329,20 @@ export default function PracticeSorterPage() {
                   </div>
                 ))}
               </div>
+              <button
+                onClick={() => {
+                  setFixedRooms(Object.keys(ROOMS));
+                  setVolunteers({ ...ROOMS });
+                  setPresetPeople(
+                    Object.fromEntries(
+                      Object.keys(ROOMS).map((room) => [room, ""])
+                    )
+                  );
+                }}
+                className="text-sm text-gray-600 hover:underline"
+              >
+                Reset Default Rooms
+              </button>
             </div>
 
             {/* Coach Room Assignments */}
