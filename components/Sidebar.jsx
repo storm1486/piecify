@@ -14,6 +14,9 @@ import {
 import PendingIntroChangesModal from "./PendingIntroChangesModal";
 import PendingAccessRequestsModal from "./PendingAccessRequestModal";
 import { db } from "@/app/firebase/firebase";
+import { GrSort } from "react-icons/gr";
+import { MdOutlinePageview } from "react-icons/md";
+import { TbFileSmile } from "react-icons/tb";
 
 export default function Sidebar({
   activePage = "dashboard",
@@ -207,7 +210,7 @@ export default function Sidebar({
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
+                  className="h-6 w-6 mr-3"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -231,20 +234,7 @@ export default function Sidebar({
                     : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
                 }`}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6M4 6h16M4 10h16M4 14h16M4 18h16"
-                  />
-                </svg>
+                <MdOutlinePageview className="mr-3 h-6 w-6" />
                 View Pieces
               </Link>
             </li>
@@ -258,20 +248,7 @@ export default function Sidebar({
                       : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
                   }`}
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mr-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-                    />
-                  </svg>
+                  <TbFileSmile className="mr-3 h-6 w-6" />
                   My Files
                 </Link>
               </li>
@@ -289,7 +266,7 @@ export default function Sidebar({
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-3"
+                      className="h-6 w-6 mr-3"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -313,20 +290,7 @@ export default function Sidebar({
                         : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
                     }`}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 mr-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 6h16M4 12h16M4 18h16"
-                      />
-                    </svg>
+                    <GrSort className="mr-3 h-6 w-6" />
                     Practice Sorter
                   </Link>
                 </li>
@@ -345,7 +309,7 @@ export default function Sidebar({
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-3"
+                className="h-6 w-6 mr-3"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -374,7 +338,7 @@ export default function Sidebar({
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-3"
+                className="h-6 w-6 mr-3"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -403,7 +367,7 @@ export default function Sidebar({
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-3"
+                className="h-6 w-6 mr-3"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
