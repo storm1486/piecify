@@ -6,7 +6,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase/firebase"; // Adjust path
 import { useUser } from "@/src/context/UserContext"; // Assuming you have this context
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
-import Sidebar from "@/components/Sidebar";
+import { useLayout } from "@/src/context/LayoutContext";
 
 export default function ViewPiecesPage() {
   const [folders, setFolders] = useState([]);
@@ -14,6 +14,11 @@ export default function ViewPiecesPage() {
   const { user, loading } = useUser() || { user: null, loading: true };
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredFolders, setFilteredFolders] = useState([]);
+  const { setActivePage } = useLayout();
+
+  useEffect(() => {
+    setActivePage("viewPieces"); // ✅ update current page
+  }, []);
 
   useEffect(() => {
     if (!loading && user) {
@@ -96,9 +101,6 @@ export default function ViewPiecesPage() {
 
   return (
     <main className="flex min-h-screen bg-mainBg text-gray-900">
-      {/* Sidebar */}
-      <Sidebar activePage="viewPieces" />
-
       {/* Main Content Area */}
       <div className="flex-1 overflow-auto">
         {/* Header with Search Bar */}
@@ -162,8 +164,9 @@ export default function ViewPiecesPage() {
                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              Browse available folders to view and request pieces. Pieces you&apos;ve
-              been assigned will appear in your &quot;My Pieces&quot; section.
+              Browse available folders to view and request pieces. Pieces
+              you&apos;ve been assigned will appear in your &quot;My
+              Pieces&quot; section.
             </p>
           </div>
 

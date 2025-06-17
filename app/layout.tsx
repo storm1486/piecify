@@ -1,7 +1,10 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { UserProvider } from "../src/context/UserContext"; // Import the UserProvider
+import { UserProvider } from "../src/context/UserContext";
+import ClientLayout from "./clientlayout"; // 👈 We'll create this
+import { LayoutProvider } from "@/src/context/LayoutContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -12,13 +15,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <UserProvider>{children}</UserProvider>
+        <UserProvider>
+          <LayoutProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </LayoutProvider>
+        </UserProvider>
       </body>
     </html>
   );

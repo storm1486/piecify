@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@/src/context/UserContext";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
 import MyFilesSection from "@/components/MyFilesSection";
-import Sidebar from "@/components/Sidebar";
+import { useLayout } from "@/src/context/LayoutContext";
 
 export default function MyFiles() {
   const { user, loading, fetchMyFiles } = useUser();
@@ -13,6 +13,11 @@ export default function MyFiles() {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [activeTab, setActiveTab] = useState("current");
+  const { setActivePage } = useLayout();
+
+  useEffect(() => {
+    setActivePage("myFiles"); // ✅ update current page
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -58,7 +63,6 @@ export default function MyFiles() {
   if (loading) {
     return (
       <div className="flex min-h-screen bg-mainBg">
-        <Sidebar activePage="myFiles" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -72,7 +76,6 @@ export default function MyFiles() {
   if (!user) {
     return (
       <main className="flex min-h-screen bg-mainBg text-gray-900">
-        <Sidebar activePage="myFiles" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="mx-auto w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mb-4">
@@ -116,8 +119,6 @@ export default function MyFiles() {
 
   return (
     <main className="flex min-h-screen bg-mainBg text-gray-900 overflow-hidden">
-      <Sidebar activePage="myFiles" />
-
       <div className="flex-1 overflow-y-auto h-screen">
         {/* Header with Search Bar */}
         <header className="bg-white shadow-sm p-4 sticky top-0 z-10">

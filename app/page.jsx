@@ -14,11 +14,11 @@ import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
 import MyFilesGroupedSection from "@/components/MyFilesGroupedSection"; // at the top
-import Sidebar from "@/components/Sidebar";
+import { useLayout } from "@/src/context/LayoutContext";
 
 export default function Home() {
   const { user, loading, toggleFavorite, fetchMyFiles } = useUser();
-
+  const { setActivePage } = useLayout();
   const [folders, setFolders] = useState([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -35,6 +35,10 @@ export default function Home() {
   const hasFetchedAllFiles = useRef(false); // prevent refetch loop
 
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
+  
+  useEffect(() => {
+    setActivePage("dashboard"); // ✅ update current page
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -289,16 +293,14 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen bg-mainBg text-gray-900 overflow-hidden">
-      {/* Sidebar */}
-      <Sidebar activePage="dashboard" />
+    <main className="flex flex-col md:flex-row min-h-screen bg-mainBg text-gray-900 overflow-auto">
       {/* Main Content Area */}
       {user && (
         <div className="flex-1 overflow-y-auto h-screen">
           {/* Header with Search Bar */}
           <header className="bg-white shadow-sm p-4 sticky top-0 z-10">
-            <div className="max-w-7xl mx-auto flex items-center justify-between">
-              <div className="relative w-full max-w-xl">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="relative w-full">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -391,7 +393,7 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="flex items-center ml-4 space-x-4">
+              <div className="flex flex-wrap items-center sm:ml-4 space-x-2">
                 <button
                   onClick={() => setIsUploadModalOpen(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
@@ -417,7 +419,7 @@ export default function Home() {
           </header>
 
           {/* Content Area */}
-          <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="max-w-7xl mx-auto px-4 py-6 w-full overflow-x-hidden">
             {/* Tab Navigation */}
             <div className="mb-6 border-b border-gray-200">
               <div className="flex space-x-8">
@@ -841,7 +843,7 @@ export default function Home() {
       {/* Create Folder Modal */}
       {isFolderModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 Create New Folder

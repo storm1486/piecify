@@ -6,7 +6,7 @@ import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/src/context/UserContext";
-import Sidebar from "@/components/Sidebar";
+import { useLayout } from "@/src/context/LayoutContext";
 
 export default function CurrentTeam() {
   const [users, setUsers] = useState([]);
@@ -14,6 +14,11 @@ export default function CurrentTeam() {
   const [menuOpen, setMenuOpen] = useState(null);
   const router = useRouter();
   const { user } = useUser();
+  const { setActivePage } = useLayout();
+
+  useEffect(() => {
+    setActivePage("team"); // ✅ update current page
+  }, []);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -75,9 +80,6 @@ export default function CurrentTeam() {
 
   return (
     <main className="flex min-h-screen bg-mainBg text-gray-900 overflow-hidden">
-      {/* Sidebar */}
-      <Sidebar activePage="team" />
-
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto h-screen">
         {/* Header with Search Bar */}

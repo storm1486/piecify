@@ -1,6 +1,7 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useLayout } from "@/src/context/LayoutContext";
 
 const ROOMS = {
   G108: "Dejesa",
@@ -30,10 +31,12 @@ export default function PracticeSorterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const coachRooms = Object.entries(ROOMS).filter(([_, coach]) => coach.trim());
-  const nonCoachRooms = Object.entries(ROOMS).filter(
-    ([_, coach]) => !coach.trim()
-  );
   const [numReps, setNumReps] = useState(2); // Default to 2 reps
+  const { setActivePage } = useLayout();
+
+  useEffect(() => {
+    setActivePage("practiceSorter"); // ✅ update current page
+  }, []);
 
   const handleFixedVolunteerChange = (room, value) => {
     setVolunteers((prev) => ({ ...prev, [room]: value }));

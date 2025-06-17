@@ -17,13 +17,12 @@ import { db } from "@/app/firebase/firebase";
 import { GrSort } from "react-icons/gr";
 import { MdOutlinePageview } from "react-icons/md";
 import { TbFileSmile } from "react-icons/tb";
+import { useLayout } from "@/src/context/LayoutContext";
 
-export default function Sidebar({
-  activePage = "dashboard",
-  customButtons = [],
-}) {
+export default function Sidebar({ customButtons = [], className = "" }) {
   // Use the useUser hook to get user and handleLogout directly
   const { user, handleLogout } = useUser();
+  const { activePage } = useLayout();
 
   // State for admin modals
   const [pendingIntroFiles, setPendingIntroFiles] = useState([]);
@@ -143,7 +142,9 @@ export default function Sidebar({
 
   return (
     <>
-      <aside className="w-72 bg-blue-900 text-white p-6 flex flex-col h-screen sticky top-0 overflow-y-auto">
+      <aside
+        className={`w-72 bg-blue-900 text-white p-6 flex-col h-screen sticky top-0 overflow-y-auto ${className}`}
+      >
         {/* Logo */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">

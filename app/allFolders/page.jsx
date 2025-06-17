@@ -5,7 +5,7 @@ import { db } from "../firebase/firebase";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
-import Sidebar from "@/components/Sidebar";
+import { useLayout } from "@/src/context/LayoutContext";
 
 export default function AllFolders() {
   const { user, loading, toggleFavorite } = useUser();
@@ -16,6 +16,11 @@ export default function AllFolders() {
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const { setActivePage } = useLayout();
+
+  useEffect(() => {
+    setActivePage("folders"); // ✅ update current page
+  }, []);
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -100,7 +105,6 @@ export default function AllFolders() {
   if (user && user.role !== "admin") {
     return (
       <main className="flex min-h-screen bg-mainBg text-gray-900">
-        <Sidebar activePage="folders" />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">
@@ -117,8 +121,6 @@ export default function AllFolders() {
 
   return (
     <main className="flex min-h-screen bg-mainBg text-gray-900 overflow-hidden">
-      <Sidebar activePage="folders" />
-
       <div className="flex-1 overflow-y-auto h-screen">
         {/* Header with Search Bar */}
         <header className="bg-white shadow-sm p-4 sticky top-0 z-10">
