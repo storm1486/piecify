@@ -15,6 +15,7 @@ import { useUser } from "@/src/context/UserContext";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
 import MyFilesGroupedSection from "@/components/MyFilesGroupedSection"; // at the top
 import { useLayout } from "@/src/context/LayoutContext";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function Home() {
   const { user, loading, toggleFavorite, fetchMyFiles } = useUser();
@@ -35,7 +36,7 @@ export default function Home() {
   const hasFetchedAllFiles = useRef(false); // prevent refetch loop
 
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
-  
+
   useEffect(() => {
     setActivePage("dashboard"); // ✅ update current page
   }, []);
@@ -166,7 +167,7 @@ export default function Home() {
   }, [user]);
 
   if (loading) {
-    return <p>Loading...</p>; // Show a loading state while fetching user data
+    return <LoadingSpinner />; // Show a loading state while fetching user data
   }
 
   const handleSortByName = () => {
