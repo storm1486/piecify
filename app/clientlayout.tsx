@@ -1,10 +1,8 @@
-// components/ClientLayout.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { useLayout } from "@/src/context/LayoutContext";
 
 export default function ClientLayout({
   children,
@@ -12,7 +10,6 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { activePage } = useLayout();
   const pathname = usePathname();
 
   // Close sidebar when route changes
@@ -20,20 +17,23 @@ export default function ClientLayout({
     setIsSidebarOpen(false);
   }, [pathname]);
 
-  // Close sidebar when clicking outside
-  const handleBackdropClick = () => {
-    setIsSidebarOpen(false);
-  };
+  // Define routes that should NOT show the sidebar
+  const hideSidebarRoutes = ["/login", "/signup"];
+  const shouldHideSidebar = hideSidebarRoutes.includes(pathname);
 
-  // Close sidebar function to pass to Sidebar component
+  // Allow modal sidebar to close
   const closeSidebar = () => {
     setIsSidebarOpen(false);
   };
 
+  if (shouldHideSidebar) {
+    // Return children directly for login, signup, etc.
+    return <>{children}</>;
+  }
+
   return (
     <main className="flex flex-col md:flex-row min-h-screen bg-mainBg text-gray-900 overflow-auto">
-      {/* Desktop Sidebar */}
-      <Sidebar className="hidden md:flex" closeSidebar={null} />
+      <Sidebar className="hidden md:flex" closeSidebar={undefined} />
 
       {/* Mobile Hamburger Button */}
       <button
@@ -61,13 +61,11 @@ export default function ClientLayout({
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black bg-opacity-50 flex md:hidden">
           {/* Sidebar Container */}
-          <div className="w-64 bg-blue-900 text-white overflow-y-auto">
+          <div className="w-64 bg-blue-900 text-white overflow-y-auto relative">
             <Sidebar closeSidebar={closeSidebar} />
-
-            {/* Close button inside sidebar */}
             <button
               onClick={closeSidebar}
-              className="absolute top-4 right-4 text-white hover:text-blue-300 transition-colors"
+              className="absolute top-4 right-4 text-white hover:text-blue-300 transition-colors z-10"
               aria-label="Close navigation menu"
             >
               <svg
@@ -87,10 +85,9 @@ export default function ClientLayout({
             </button>
           </div>
 
-          {/* Backdrop - clicking closes sidebar */}
           <div
             className="flex-1"
-            onClick={handleBackdropClick}
+            onClick={closeSidebar}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
