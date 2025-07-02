@@ -38,7 +38,7 @@ export default function ClientLayout({
       {/* Mobile Hamburger Button */}
       <button
         onClick={() => setIsSidebarOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 bg-blue-600 text-white p-2 rounded-md shadow-md"
+        className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md"
         aria-label="Open navigation menu"
       >
         <svg

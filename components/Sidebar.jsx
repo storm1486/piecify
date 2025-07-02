@@ -18,14 +18,11 @@ import { GrSort } from "react-icons/gr";
 import { MdOutlinePageview } from "react-icons/md";
 import { TbFileSmile } from "react-icons/tb";
 import { useLayout } from "@/src/context/LayoutContext";
+import { LuFileQuestion } from "react-icons/lu";
 
-export default function Sidebar({
-  customButtons = [],
-  className = "",
-  closeSidebar,
-}) {
+export default function Sidebar({ className = "", closeSidebar }) {
   const { user, handleLogout } = useUser();
-  const { activePage } = useLayout();
+  const { activePage, customButtons } = useLayout();
 
   // State for admin modals
   const [pendingIntroFiles, setPendingIntroFiles] = useState([]);
@@ -452,20 +449,7 @@ export default function Sidebar({
               className="flex items-center justify-start p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer relative mt-2 text-sm md:text-base"
               onClick={handlePendingRequestsClick}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 md:h-6 md:w-6 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1721 9z"
-                />
-              </svg>
+              <LuFileQuestion className="h-5 w-5 md:h-6 md:w-6 mr-3" />
               <span className="text-sm md:text-base">
                 Pending Access Requests
               </span>
@@ -490,7 +474,7 @@ export default function Sidebar({
                 className="flex items-center justify-start p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer relative text-sm md:text-base"
               >
                 {button.icon ? (
-                  <div className="h-5 w-5 md:h-6 md:w-6 mr-3 flex items-center justify-center">
+                  <div className="mr-3 flex items-center justify-center">
                     {button.icon}
                   </div>
                 ) : (
