@@ -17,7 +17,6 @@ import UploadFileModal from "@/components/UploadFileModal";
 import UserSearchSelect from "@/components/UserSearchSelect";
 import FileSearchSelect from "@/components/FileSearchSelect";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Sidebar from "@/components/Sidebar";
 import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
 import { useLayout } from "@/src/context/LayoutContext";
 
@@ -56,12 +55,12 @@ export default function FolderPage() {
       ? files
       : files.filter((file) => file.length === assignLengthFilter);
 
-  const { setActivePage, setCustomButtons } = useLayout();
+  const { setActivePage, setCustomAdminButtons } = useLayout();
 
   useEffect(() => {
     setActivePage("folders");
 
-    setCustomButtons([
+    setCustomAdminButtons([
       {
         label: "Manage Assignments",
         onClick: () => setIsModalOpen(true),
@@ -84,7 +83,7 @@ export default function FolderPage() {
     ]);
 
     return () => {
-      setCustomButtons([]); // Clean up when leaving the page
+      setCustomAdminButtons([]); // Clean up when leaving the page
     };
   }, []);
 

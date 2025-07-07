@@ -13,16 +13,20 @@ type CustomSidebarButton = {
 type LayoutContextType = {
   activePage: string;
   setActivePage: (page: string) => void;
-  customButtons: CustomSidebarButton[];
-  setCustomButtons: (buttons: CustomSidebarButton[]) => void;
+  customNavButtons: CustomSidebarButton[];
+  setCustomNavButtons: (buttons: CustomSidebarButton[]) => void;
+  customAdminButtons: CustomSidebarButton[];
+  setCustomAdminButtons: (buttons: CustomSidebarButton[]) => void;
 };
 
 // Create the context with default values
 const LayoutContext = createContext<LayoutContextType>({
   activePage: "",
   setActivePage: () => {},
-  customButtons: [],
-  setCustomButtons: () => {},
+  customNavButtons: [],
+  setCustomNavButtons: () => {},
+  customAdminButtons: [],
+  setCustomAdminButtons: () => {},
 });
 
 // Custom hook to access the layout context
@@ -33,15 +37,22 @@ export function useLayout() {
 // Provider component to wrap around your app
 export function LayoutProvider({ children }: { children: ReactNode }) {
   const [activePage, setActivePage] = useState("");
-  const [customButtons, setCustomButtons] = useState<CustomSidebarButton[]>([]);
+  const [customNavButtons, setCustomNavButtons] = useState<
+    CustomSidebarButton[]
+  >([]);
+  const [customAdminButtons, setCustomAdminButtons] = useState<
+    CustomSidebarButton[]
+  >([]);
 
   return (
     <LayoutContext.Provider
       value={{
         activePage,
         setActivePage,
-        customButtons,
-        setCustomButtons,
+        customNavButtons,
+        setCustomNavButtons,
+        customAdminButtons,
+        setCustomAdminButtons,
       }}
     >
       {children}

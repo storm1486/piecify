@@ -14,7 +14,6 @@ import {
 import { db } from "../../firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
-import Sidebar from "@/components/Sidebar";
 
 export default function ViewPieces() {
   const { folderId } = useParams();
@@ -178,10 +177,7 @@ export default function ViewPieces() {
   }
 
   return (
-    <main className="flex min-h-screen bg-mainBg text-gray-900">
-      {/* Sidebar */}
-      <Sidebar activePage="viewRequestFiles" />
-
+    <main className="flex min-h-screen bg-mainBg text-gray-900">      
       {/* Main Content Area */}
       <div className="flex-1 overflow-auto">
         {/* Header with Search Bar */}

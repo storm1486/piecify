@@ -27,11 +27,15 @@ export default function ViewFile() {
     if (userLoading || !fileId) return;
 
     const fetchFile = async () => {
-      const localEntry = user?.myFiles?.find(
-        (f) => f.fileRef?.id === fileId || f.id === fileId
-      );
+      const localEntry =
+        user?.myFiles?.find(
+          (f) => f.fileRef?.id === fileId || f.id === fileId
+        ) ??
+        user?.previousFiles?.find(
+          (f) => f.fileRef?.id === fileId || f.id === fileId
+        );
 
-      // ✅ Case 1: file was stored with { fileRef, dateGiven }
+      // Case 1: file was stored with { fileRef, dateGiven } (in myFiles or previousFiles)
       if (localEntry?.fileRef) {
         try {
           const fileSnap = await getDoc(localEntry.fileRef);
@@ -50,14 +54,14 @@ export default function ViewFile() {
         }
       }
 
-      // ✅ Case 2: file was stored directly in myFiles (e.g. original files)
+      // Case 2: file was stored directly (no fileRef)
       else if (localEntry) {
         setDocData(localEntry);
         setIsEditedVersion(!!localEntry.originalFileId);
         setIsLoading(false);
       }
 
-      // ✅ Case 3: fallback — not found in myFiles, fetch from Firestore directly
+      // Case 3: fallback — fetch from Firestore directly
       else {
         try {
           const fileDoc = await getDoc(doc(db, "files", fileId));
@@ -148,153 +152,6 @@ export default function ViewFile() {
 
   return (
     <div className="flex h-screen bg-slate-50 text-gray-800">
-      {/* Sidebar */}
-      <motion.aside
-        initial={{ x: -300 }}
-        animate={{ x: 0 }}
-        transition={{ duration: 0.3 }}
-        className="w-72 bg-indigo-900 text-white p-6 flex flex-col"
-      >
-        {/* Logo */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            <span className="text-white">Piece</span>
-            <span className="text-indigo-300">ify</span>
-          </h1>
-          <p className="text-indigo-200 text-sm mt-1">
-            Your performances, organized.
-          </p>
-        </div>
-
-        {/* User Profile */}
-        {user && (
-          <div className="mb-8 bg-indigo-800 rounded-lg p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium">
-                {user.firstName?.[0]}
-                {user.lastName?.[0]}
-              </div>
-              <div>
-                <p className="font-medium">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-xs text-indigo-300">
-                  {user.role === "admin" ? "Administrator" : "User"}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="mt-3 text-sm text-indigo-300 hover:text-white transition-colors"
-            >
-              Log out
-            </button>
-          </div>
-        )}
-
-        {/* Navigation */}
-        <nav className="flex-1">
-          <div className="mb-4">
-            <h3 className="text-indigo-300 uppercase text-xs font-semibold tracking-wider">
-              Navigation
-            </h3>
-          </div>
-
-          <ul className="space-y-2">
-            <li>
-              <button
-                onClick={() => router.push("/")}
-                className="w-full flex items-center p-2 rounded-md text-indigo-200 hover:bg-indigo-800/50 hover:text-white transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                  />
-                </svg>
-                Dashboard
-              </button>
-            </li>
-            <li>
-              <a className="flex items-center p-2 rounded-md bg-indigo-800/50 font-medium">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-                Viewing File
-              </a>
-            </li>
-            <li>
-              <button
-                onClick={() => router.back()}
-                className="w-full flex items-center p-2 rounded-md text-indigo-200 hover:bg-indigo-800/50 hover:text-white transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-                Back to Files
-              </button>
-            </li>
-          </ul>
-        </nav>
-
-        <div className="mt-8 pt-4 border-t border-indigo-800">
-          <button className="text-sm text-indigo-300 hover:text-white transition-colors flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            Help &amp; Support
-          </button>
-        </div>
-      </motion.aside>
-
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}

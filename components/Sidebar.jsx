@@ -22,7 +22,7 @@ import { LuFileQuestion } from "react-icons/lu";
 
 export default function Sidebar({ className = "", closeSidebar }) {
   const { user, handleLogout } = useUser();
-  const { activePage, customButtons } = useLayout();
+  const { activePage, customNavButtons, customAdminButtons } = useLayout();
 
   // State for admin modals
   const [pendingIntroFiles, setPendingIntroFiles] = useState([]);
@@ -371,14 +371,12 @@ export default function Sidebar({ className = "", closeSidebar }) {
                 </li>
               </>
             )}
-          </ul>
-
-          {/* Other Links */}
-          <div className="mt-4 md:mt-6">
-            <Link
-              href="/team"
-              onClick={handleNavigation}
-              className={`
+            {/* Other Links */}
+            <li className="mt-4 md:mt-6">
+              <Link
+                href="/team"
+                onClick={handleNavigation}
+                className={`
                 flex items-center justify-start 
                 p-2 rounded-md text-sm md:text-base
                 ${
@@ -387,24 +385,69 @@ export default function Sidebar({ className = "", closeSidebar }) {
                     : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
                 }
               `}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 md:h-6 md:w-6 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-              <span className="text-sm md:text-base">Current Team</span>
-            </Link>
-          </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 md:h-6 md:w-6 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                  />
+                </svg>
+                <span className="text-sm md:text-base">Current Team</span>
+              </Link>
+            </li>
+            <li className="mt-4 md:mt-6">
+              {customNavButtons.length > 0 && (
+                <div>
+                  {customNavButtons.map((button, index) => (
+                    <div
+                      key={index}
+                      onClick={button.onClick}
+                      className="flex items-center justify-start p-2 rounded-md text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors cursor-pointer relative text-sm md:text-base"
+                    >
+                      {button.icon ? (
+                        <div className="mr-3 flex items-center justify-center">
+                          {button.icon}
+                        </div>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5 md:h-6 md:w-6 mr-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                      )}
+                      <span className="text-sm md:text-base">
+                        {button.label}
+                      </span>
+
+                      {/* Optional badge */}
+                      {button.badgeCount > 0 && (
+                        <span className="bg-red-500 text-white rounded-full text-xs w-4 h-4 md:w-5 md:h-5 flex items-center justify-center ml-auto">
+                          {button.badgeCount}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </li>
+          </ul>
         </nav>
 
         {/* Admin Panel - Updated to show text on mobile too */}
@@ -465,9 +508,9 @@ export default function Sidebar({ className = "", closeSidebar }) {
         )}
 
         {/* Custom Buttons */}
-        {customButtons.length > 0 && (
+        {customAdminButtons.length > 0 && (
           <div className="mt-2 space-y-2">
-            {customButtons.map((button, index) => (
+            {customAdminButtons.map((button, index) => (
               <div
                 key={index}
                 onClick={button.onClick}
