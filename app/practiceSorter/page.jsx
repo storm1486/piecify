@@ -2,41 +2,106 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLayout } from "@/src/context/LayoutContext";
-
-const ROOMS = {
-  G108: "Dejesa",
-  G110: "Heather",
-  G111: "Pete",
-  G112: "Cook",
-  G113: "Cara",
-  G114: "",
-  G115: "",
-  G116: "",
-  G118: "",
-  G120: "",
-  G121: "",
-  G123: "Mit",
-};
+import {
+  collection,
+  getDocs,
+  serverTimestamp,
+  addDoc,
+} from "firebase/firestore";
+import { db } from "../firebase/firebase";
+import { useMemo } from "react";
 
 export default function PracticeSorterPage() {
   const [nameInput, setNameInput] = useState("");
-  const [fixedRooms, setFixedRooms] = useState(Object.keys(ROOMS));
-  const [volunteers, setVolunteers] = useState({ ...ROOMS });
+  const [fixedRooms, setFixedRooms] = useState([]); // Empty until template is selected
+  const [volunteers, setVolunteers] = useState({});
+  const [presetPeople, setPresetPeople] = useState({});
+  const [coachRoomFlags, setCoachRoomFlags] = useState({});
   const [dynamicRooms, setDynamicRooms] = useState([]);
   const [assignments, setAssignments] = useState({});
   const printRef = useRef(null);
-  const [presetPeople, setPresetPeople] = useState(
-    Object.fromEntries(Object.keys(ROOMS).map((room) => [room, ""]))
-  );
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const coachRooms = Object.entries(ROOMS).filter(([_, coach]) => coach.trim());
+  const coachRooms = useMemo(() => {
+    return fixedRooms.filter((room) => coachRoomFlags[room]);
+  }, [fixedRooms, coachRoomFlags]);
   const [numReps, setNumReps] = useState(2); // Default to 2 reps
+  const [practiceTemplates, setPracticeTemplates] = useState([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateRooms, setNewTemplateRooms] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const { setActivePage } = useLayout();
+  const roomListRef = useRef();
+
+  useEffect(() => {
+    if (roomListRef.current) {
+      roomListRef.current.scrollTop = roomListRef.current.scrollHeight;
+    }
+  }, [newTemplateRooms.length]); // only when length changes
 
   useEffect(() => {
     setActivePage("practiceSorter"); // ✅ update current page
+    const fetchTemplates = async () => {
+      const ref = collection(db, "practiceTemplates");
+      const snapshot = await getDocs(ref);
+      const templates = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setPracticeTemplates(templates);
+
+      // Try to load the "Default Practice"
+      const defaultTemplate = templates.find(
+        (t) => t.name === "Default Practice"
+      );
+      if (defaultTemplate) {
+        setSelectedTemplateId(defaultTemplate.id); // if tracking selected template
+        loadTemplate(defaultTemplate);
+      }
+    };
+
+    fetchTemplates();
   }, []);
+
+  const handleSaveTemplate = async () => {
+    const rooms = newTemplateRooms.map(({ name, volunteer, coachLed }) => ({
+      name: name.trim(),
+      volunteer: volunteer?.trim() || "",
+      coachLed: !!coachLed,
+    }));
+
+    await addDoc(collection(db, "practiceTemplates"), {
+      name: newTemplateName.trim(),
+      rooms,
+      createdAt: serverTimestamp(),
+    });
+
+    // Reset state and close modal
+    setIsCreateModalOpen(false);
+    setNewTemplateName("");
+    setNewTemplateRooms([]);
+  };
+
+  const loadTemplate = (template) => {
+    const templateRooms = template.rooms || [];
+
+    const roomNames = templateRooms.map((r) => r.name);
+    const volunteerMap = Object.fromEntries(
+      templateRooms.map((r) => [r.name, r.volunteer])
+    );
+    const presetMap = Object.fromEntries(roomNames.map((room) => [room, ""]));
+    const coachMap = Object.fromEntries(
+      templateRooms.map((r) => [r.name, !!r.coachLed])
+    );
+
+    setFixedRooms(roomNames);
+    setVolunteers(volunteerMap);
+    setPresetPeople(presetMap);
+    setCoachRoomFlags(coachMap);
+    setDynamicRooms([]); // Optional: reset extras
+  };
 
   const handleFixedVolunteerChange = (room, value) => {
     setVolunteers((prev) => ({ ...prev, [room]: value }));
@@ -83,13 +148,16 @@ export default function PracticeSorterPage() {
       .map((n) => n.trim())
       .filter(Boolean);
 
-    const coachRooms = fixedRooms
-      .filter((room) => volunteers[room]?.trim())
-      .map((room) => [room, volunteers[room]]);
+    const coachRoomsList = fixedRooms.filter((room) => coachRoomFlags[room]);
+    const nonCoachRoomsList = fixedRooms.filter(
+      (room) => !coachRoomFlags[room]
+    );
 
-    const nonCoachRooms = fixedRooms
-      .filter((room) => !volunteers[room]?.trim())
-      .map((room) => [room, volunteers[room]]);
+    const coachRooms = coachRoomsList.map((room) => [room, volunteers[room]]);
+    const nonCoachRooms = nonCoachRoomsList.map((room) => [
+      room,
+      volunteers[room],
+    ]);
 
     const coachRoomNames = coachRooms
       .map(([room]) => presetPeople[room] || "")
@@ -218,15 +286,6 @@ export default function PracticeSorterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 print:bg-white print:min-h-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
-        <div className="flex justify-start print:hidden">
-          <button
-            onClick={() => router.push("/")}
-            className="text-sm text-blue-600 hover:underline transition-all duration-200 mb-2"
-          >
-            ← Go Home
-          </button>
-        </div>
-
         {/* Header */}
         <div className="mb-8 print:hidden">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
@@ -235,6 +294,7 @@ export default function PracticeSorterPage() {
           <p className="text-lg text-gray-600">
             Organize participants into practice rooms efficiently
           </p>
+
           {totalPeople > 0 && (
             <div className="mt-4 flex gap-6 text-sm">
               <span className="text-blue-600 font-medium">
@@ -252,6 +312,44 @@ export default function PracticeSorterPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Configuration Panel */}
           <div className="space-y-8 print:hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold mb-4">Room Templates</h2>
+
+              {/* Select existing template */}
+              <select
+                className="w-full border px-3 py-2 rounded mb-2"
+                value={selectedTemplateId}
+                onChange={(e) => {
+                  const selected = practiceTemplates.find(
+                    (t) => t.id === e.target.value
+                  );
+                  if (selected) {
+                    setSelectedTemplateId(selected.id);
+                    loadTemplate(selected);
+                  }
+                }}
+              >
+                <option value="">Select a template</option>
+                {practiceTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Input + Save button */}
+              <button
+                onClick={() => {
+                  setNewTemplateName("");
+                  setNewTemplateRooms([]);
+                  setIsCreateModalOpen(true);
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              >
+                + Create New Template
+              </button>
+            </div>
+
             {/* Names Input */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
@@ -265,7 +363,7 @@ export default function PracticeSorterPage() {
                 className="w-full border border-gray-300 rounded-lg p-3 h-32 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="John Doe&#10;Jane Smith&#10;Mike Johnson"
+                placeholder={`John Doe\nJane Smith\nMike Johnson`}
               />
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -323,7 +421,7 @@ export default function PracticeSorterPage() {
                     <input
                       type="text"
                       className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder={ROOMS[room] || "Volunteer name"}
+                      placeholder={"Volunteer name"}
                       value={volunteers[room]}
                       onChange={(e) =>
                         handleFixedVolunteerChange(room, e.target.value)
@@ -334,17 +432,14 @@ export default function PracticeSorterPage() {
               </div>
               <button
                 onClick={() => {
-                  setFixedRooms(Object.keys(ROOMS));
-                  setVolunteers({ ...ROOMS });
-                  setPresetPeople(
-                    Object.fromEntries(
-                      Object.keys(ROOMS).map((room) => [room, ""])
-                    )
-                  );
+                  setFixedRooms([]);
+                  setVolunteers({});
+                  setPresetPeople({});
+                  setCoachRoomFlags({});
                 }}
                 className="text-sm text-gray-600 hover:underline"
               >
-                Reset Default Rooms
+                Clear All Rooms
               </button>
             </div>
 
@@ -356,7 +451,7 @@ export default function PracticeSorterPage() {
                   Coach Room Assignments
                 </h2>
                 <div className="space-y-4">
-                  {coachRooms.map(([room]) => (
+                  {coachRooms.map((room) => (
                     <div
                       key={room}
                       className="border border-gray-200 rounded-lg p-4"
@@ -371,7 +466,7 @@ export default function PracticeSorterPage() {
                       </label>
                       <textarea
                         className="w-full border border-gray-300 rounded-lg p-3 h-20 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
-                        placeholder={`Specific assignments for ${room}, one per line`}
+                        placeholder={`Specific assignments for ${volunteers[room]}, one per line`}
                         value={presetPeople[room] || ""}
                         onChange={(e) =>
                           setPresetPeople((prev) => ({
@@ -642,6 +737,114 @@ export default function PracticeSorterPage() {
             )}
           </div>
         </div>
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6">
+              <h2 className="text-2xl font-bold mb-4">
+                Create Practice Template
+              </h2>
+
+              <label className="block text-sm font-medium mb-2">
+                Template Name
+              </label>
+              <input
+                type="text"
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4"
+                placeholder="e.g. Tuesday Practices"
+              />
+
+              <div
+                className="space-y-3 max-h-64 overflow-y-auto mb-4"
+                ref={roomListRef}
+              >
+                {newTemplateRooms.map((room, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={room.name}
+                      onChange={(e) => {
+                        const updated = [...newTemplateRooms];
+                        updated[index].name = e.target.value;
+                        setNewTemplateRooms(updated);
+                      }}
+                      placeholder="Room number (e.g. G108)"
+                      className="w-1/2 border px-3 py-2 rounded text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={room.volunteer}
+                      onChange={(e) => {
+                        const updated = [...newTemplateRooms];
+                        updated[index].volunteer = e.target.value;
+                        setNewTemplateRooms(updated);
+                      }}
+                      placeholder="Volunteer name"
+                      className="w-1/2 border px-3 py-2 rounded text-sm"
+                    />
+                    <label className="flex items-center gap-1 text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={room.coachLed}
+                        onChange={(e) => {
+                          const updated = [...newTemplateRooms];
+                          updated[index].coachLed = e.target.checked;
+                          setNewTemplateRooms(updated);
+                        }}
+                      />
+                      Coach-led
+                    </label>
+                    <button
+                      onClick={() => {
+                        const updated = newTemplateRooms.filter(
+                          (_, i) => i !== index
+                        );
+                        setNewTemplateRooms(updated);
+                      }}
+                      className="text-red-500 hover:text-red-700"
+                      title="Remove room"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() =>
+                  setNewTemplateRooms([
+                    ...newTemplateRooms,
+                    { name: "", volunteer: "", coachLed: false },
+                  ])
+                }
+                className="text-sm text-blue-600 hover:underline mb-4"
+              >
+                + Add Room
+              </button>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveTemplate}
+                  disabled={
+                    !newTemplateName.trim() ||
+                    newTemplateRooms.length === 0 ||
+                    newTemplateRooms.some(({ name }) => !name.trim())
+                  }
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Save Template
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
