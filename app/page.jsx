@@ -393,29 +393,6 @@ export default function Home() {
                   </div>
                 )}
               </div>
-
-              <div className="flex flex-wrap items-center sm:ml-4 space-x-2">
-                <button
-                  onClick={() => setIsUploadModalOpen(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
-                  Upload New Piece
-                </button>
-              </div>
             </div>
           </header>
 

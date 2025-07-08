@@ -124,8 +124,8 @@ export default function AllFolders() {
       <div className="flex-1 overflow-y-auto h-screen">
         {/* Header with Search Bar */}
         <header className="bg-white shadow-sm p-4 sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="relative w-full max-w-xl">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -149,29 +149,6 @@ export default function AllFolders() {
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
               />
-            </div>
-
-            <div className="flex items-center ml-4 space-x-4">
-              <button
-                onClick={() => setIsFolderModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
-                Create New Folder
-              </button>
             </div>
           </div>
         </header>

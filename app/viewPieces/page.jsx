@@ -105,8 +105,8 @@ export default function ViewPiecesPage() {
       <div className="flex-1 overflow-auto">
         {/* Header with Search Bar */}
         <header className="bg-white shadow-sm p-4 sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="relative w-full max-w-xl">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -140,11 +140,6 @@ export default function ViewPiecesPage() {
             <h1 className="text-3xl font-bold text-blue-900">
               Available Pieces
             </h1>
-            <Link href="/">
-              <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all shadow-md hover:shadow-lg">
-                Back to Home
-              </button>
-            </Link>
           </div>
 
           {/* Status info */}
