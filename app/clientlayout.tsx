@@ -33,33 +33,47 @@ export default function ClientLayout({
 
   return (
     <main className="flex flex-col md:flex-row min-h-screen bg-mainBg text-gray-900 overflow-auto">
-      <Sidebar className="hidden md:flex" closeSidebar={undefined} />
+      <Sidebar
+        className="hidden md:flex print:hidden"
+        closeSidebar={undefined}
+      />
 
-      {/* Mobile Hamburger Button */}
-      <button
-        onClick={() => setIsSidebarOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-md"
-        aria-label="Open navigation menu"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+      {/* OPTION 1: Mobile Header Bar - Recommended */}
+      <div className="md:hidden print:hidden bg-blue-900 text-white px-4 py-3 flex items-center justify-between shadow-lg">
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="flex items-center gap-2 text-white hover:bg-blue-800 p-2 rounded-md transition-colors"
+          aria-label="Open navigation menu"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 6h16M4 12h16M4 18h16"
-          />
-        </svg>
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
+        {/* Mobile Logo */}
+        <div className="flex items-center">
+          <h1 className="text-lg font-bold">
+            <span className="text-white">Piece</span>
+            <span className="text-blue-300">ify</span>
+          </h1>
+        </div>
+        {/* Optional: User avatar or other actions */}
+        <div className="w-8 h-8"></div> {/* Spacer for balance */}
+      </div>
 
-      {/* Mobile Sidebar Drawer */}
+      {/* Mobile Sidebar Drawer - Hidden during print */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black bg-opacity-50 flex md:hidden">
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex md:hidden print:hidden">
           {/* Sidebar Container */}
           <div className="w-64 bg-blue-900 text-white overflow-y-auto relative">
             <Sidebar closeSidebar={closeSidebar} />
@@ -101,7 +115,9 @@ export default function ClientLayout({
       )}
 
       {/* Main Page Content */}
-      <div className="flex-1 overflow-y-auto h-screen">{children}</div>
+      <div className="flex-1 overflow-y-auto h-screen print:h-auto print:overflow-visible">
+        {children}
+      </div>
     </main>
   );
 }
