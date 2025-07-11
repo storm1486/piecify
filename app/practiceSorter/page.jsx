@@ -714,14 +714,15 @@ export default function PracticeSorterPage() {
                         </svg>
                       </button>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded min-w-[60px] text-center">
+                        <span
+                          className={`font-mono text-sm px-2 py-1 rounded min-w-[60px] text-center ${
+                            coachRoomFlags[room]
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-gray-100 text-gray-900"
+                          }`}
+                        >
                           {room}
                         </span>
-                        {coachRoomFlags[room] && (
-                          <span className="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full">
-                            Coach
-                          </span>
-                        )}
                       </div>
                       <input
                         type="text"
@@ -996,7 +997,7 @@ export default function PracticeSorterPage() {
                 </h3>
                 <ul className="text-sm text-blue-800 space-y-1">
                   <li>
-                    • Coach rooms are for manual assignments (won't be
+                    • Coach rooms are for manual assignments (won&apos;t be
                     auto-sorted)
                   </li>
                   <li>
@@ -1196,8 +1197,8 @@ export default function PracticeSorterPage() {
                   No Assignments Yet
                 </h3>
                 <p className="text-gray-500 mb-4">
-                  Add participant names and click "Sort Participants" to
-                  generate room assignments.
+                  Add participant names and click &quot;Sort Participants&quot;
+                  to generate room assignments.
                 </p>
 
                 {!canSort && (
@@ -1306,7 +1307,7 @@ export default function PracticeSorterPage() {
                         </svg>
                         <p className="text-sm">No rooms added yet</p>
                         <p className="text-xs text-gray-400 mt-1">
-                          Click "Add Room" to get started
+                          Click &quot;Add Room&quot; to get started
                         </p>
                       </div>
                     ) : (
