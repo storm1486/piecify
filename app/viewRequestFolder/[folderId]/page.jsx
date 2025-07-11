@@ -14,6 +14,7 @@ import {
 import { db } from "../../firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
+import SearchHeader from "@/components/SearchHeader";
 
 export default function ViewPieces() {
   const { folderId } = useParams();
@@ -177,38 +178,12 @@ export default function ViewPieces() {
   }
 
   return (
-    <main className="flex min-h-screen bg-mainBg text-gray-900">      
+    <main className="flex min-h-screen bg-mainBg text-gray-900">
       {/* Main Content Area */}
       <div className="flex-1 overflow-auto">
         {/* Header with Search Bar */}
         <header className="bg-white shadow-sm p-4 sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="relative w-full max-w-xl">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                  className="w-5 h-5 text-gray-400"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Search pieces..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
+          <SearchHeader />
         </header>
 
         {/* Content Area */}

@@ -5,6 +5,7 @@ import { useUser } from "@/src/context/UserContext";
 import UploadMyFilesModal from "@/components/UploadMyFilesModal";
 import MyFilesSection from "@/components/MyFilesSection";
 import { useLayout } from "@/src/context/LayoutContext";
+import SearchHeader from "@/components/SearchHeader";
 
 export default function MyFiles() {
   const { user, loading, fetchMyFiles } = useUser();
@@ -122,108 +123,7 @@ export default function MyFiles() {
       <div className="flex-1 overflow-y-auto h-screen">
         {/* Header with Search Bar */}
         <header className="bg-white shadow-sm p-4 sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <div className="relative w-full">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                  className="w-5 h-5 text-gray-400"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Search your pieces..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-              />
-
-              {/* Search Results Dropdown */}
-              {searchQuery && (
-                <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto z-50">
-                  {searching ? (
-                    <div className="p-4 flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
-                      <p className="text-gray-500">Searching...</p>
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    <ul className="divide-y divide-gray-200">
-                      {searchResults.map((file, index) => (
-                        <li
-                          key={index}
-                          className="p-3 hover:bg-gray-100 cursor-pointer"
-                        >
-                          <a
-                            href={
-                              file.type === "requested"
-                                ? `/viewRequestedFile/${file.id}`
-                                : `/viewFile/${file.fileId}`
-                            }
-                            className="block"
-                          >
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center">
-                                <div
-                                  className={`p-2 rounded-lg mr-3 ${
-                                    file.type === "current"
-                                      ? "bg-blue-100 text-blue-600"
-                                      : file.type === "previous"
-                                      ? "bg-gray-100 text-gray-600"
-                                      : "bg-yellow-100 text-yellow-600"
-                                  }`}
-                                >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                    />
-                                  </svg>
-                                </div>
-                                <div>
-                                  <span className="font-medium">
-                                    {file.fileName}
-                                  </span>
-                                  <div className="text-xs text-gray-500">
-                                    {file.type === "current"
-                                      ? "Current"
-                                      : file.type === "previous"
-                                      ? "Previous"
-                                      : "Requested"}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="p-4 text-gray-500">
-                      No files match your search.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          <SearchHeader />
         </header>
 
         {/* Content Area */}
