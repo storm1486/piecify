@@ -95,7 +95,10 @@ export default function AllFolders() {
     setSearchResults(filteredFolders);
   };
 
-  const foldersToDisplay = searchQuery ? searchResults : folders;
+  const foldersToDisplay = [...(searchQuery ? searchResults : folders)].sort(
+    (a, b) =>
+      isAscending ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+  );
 
   if (loading) {
     return <p>Loading...</p>;
@@ -183,7 +186,7 @@ export default function AllFolders() {
                     d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"
                   />
                 </svg>
-                Sort {isAscending ? "Z-A" : "A-Z"}
+                Sort {isAscending ? "A-Z ↑" : "Z-A ↓"}
               </button>
             </div>
           </div>

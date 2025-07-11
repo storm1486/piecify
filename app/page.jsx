@@ -487,34 +487,86 @@ export default function Home() {
                           d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"
                         />
                       </svg>
-                      Sort {isAscending ? "Z-A" : "A-Z"}
+                      Sort {isAscending ? "A-Z ↑" : "Z-A ↓"}
                     </button>
                   </div>
                 </div>
 
                 {/* Folders Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {allFolders.map((folder) => (
-                    <Link
-                      key={folder.id}
-                      href={`/folders/${folder.id}`}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      <div
+                  {[...allFolders]
+                    .sort((a, b) =>
+                      isAscending
+                        ? a.name.localeCompare(b.name)
+                        : b.name.localeCompare(a.name)
+                    )
+                    .map((folder) => (
+                      <Link
                         key={folder.id}
-                        className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden hover:-translate-y-1 transition-transform duration-200"
+                        href={`/folders/${folder.id}`}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                       >
                         <div
-                          className={`h-2 ${folder.color || "bg-blue-500"}`}
-                        ></div>
-                        <div className="p-5">
-                          <div className="flex justify-between">
-                            <div className="flex items-center">
-                              <div className="p-2 rounded-lg mr-3 bg-blue-100 text-blue-600">
+                          key={folder.id}
+                          className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden hover:-translate-y-1 transition-transform duration-200"
+                        >
+                          <div
+                            className={`h-2 ${folder.color || "bg-blue-500"}`}
+                          ></div>
+                          <div className="p-5">
+                            <div className="flex justify-between">
+                              <div className="flex items-center">
+                                <div className="p-2 rounded-lg mr-3 bg-blue-100 text-blue-600">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-6 w-6"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                                    />
+                                  </svg>
+                                </div>
+                                <div>
+                                  <h3 className="font-medium text-gray-900">
+                                    {folder.name}
+                                  </h3>
+                                  <p className="text-sm text-gray-500">
+                                    Created:{" "}
+                                    {folder.createdAt?.seconds
+                                      ? new Date(
+                                          folder.createdAt.seconds * 1000
+                                        ).toLocaleDateString()
+                                      : new Date(
+                                          folder.createdAt
+                                        ).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  toggleFavorite(folder.id);
+                                }}
+                                className={`text-gray-400 hover:${
+                                  user.favoriteFolders.includes(folder.id)
+                                    ? "text-red-500"
+                                    : "text-gray-500"
+                                }`}
+                              >
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
-                                  className="h-6 w-6"
-                                  fill="none"
+                                  className="h-5 w-5"
+                                  fill={
+                                    user.favoriteFolders.includes(folder.id)
+                                      ? "currentColor"
+                                      : "none"
+                                  }
                                   viewBox="0 0 24 24"
                                   stroke="currentColor"
                                 >
@@ -522,61 +574,15 @@ export default function Home() {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth={2}
-                                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                                   />
                                 </svg>
-                              </div>
-                              <div>
-                                <h3 className="font-medium text-gray-900">
-                                  {folder.name}
-                                </h3>
-                                <p className="text-sm text-gray-500">
-                                  Created:{" "}
-                                  {folder.createdAt?.seconds
-                                    ? new Date(
-                                        folder.createdAt.seconds * 1000
-                                      ).toLocaleDateString()
-                                    : new Date(
-                                        folder.createdAt
-                                      ).toLocaleDateString()}
-                                </p>
-                              </div>
+                              </button>
                             </div>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                toggleFavorite(folder.id);
-                              }}
-                              className={`text-gray-400 hover:${
-                                user.favoriteFolders.includes(folder.id)
-                                  ? "text-red-500"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-5 w-5"
-                                fill={
-                                  user.favoriteFolders.includes(folder.id)
-                                    ? "currentColor"
-                                    : "none"
-                                }
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                                />
-                              </svg>
-                            </button>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  ))}
+                      </Link>
+                    ))}
 
                   {/* Create new folder card */}
                   <div
@@ -766,42 +772,6 @@ export default function Home() {
                     <h3 className="text-2xl font-medium text-gray-900">
                       Your Pieces
                     </h3>
-                    <div className="flex space-x-2">
-                      <button className="text-sm text-gray-500 flex items-center">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 mr-1"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"
-                          />
-                        </svg>
-                        Sort
-                      </button>
-                      <button className="text-sm text-gray-500 flex items-center">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 mr-1"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-                          />
-                        </svg>
-                        Filter
-                      </button>
-                    </div>
                   </div>
 
                   {/* Your MyFilesSection component */}
