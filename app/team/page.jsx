@@ -199,22 +199,23 @@ export default function CurrentTeam() {
     <main className="flex min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 text-gray-900 overflow-hidden">
       <div className="flex-1 overflow-y-auto h-screen">
         {/* Enhanced Header */}
-        <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200/50 p-6 sticky top-0 z-10">
+        <header className="bg-white shadow-sm border-b border-gray-200 p-4 sm:p-6 sticky top-0 z-10">
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
                     Team Members
                   </h1>
-                  <p className="text-gray-500 mt-1">
+                  <p className="text-sm sm:text-base text-gray-500 mt-1">
                     Manage your team and their access levels
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
-                  {filteredUsers.length} members
+              <div className="flex items-center justify-end sm:justify-start">
+                <div className="px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-sm font-medium whitespace-nowrap">
+                  {filteredUsers.length}{" "}
+                  {filteredUsers.length === 1 ? "member" : "members"}
                 </div>
               </div>
             </div>
@@ -225,7 +226,7 @@ export default function CurrentTeam() {
         <div className="max-w-7xl mx-auto px-6 py-8">
           {/* Enhanced Filters Section */}
           <div className="mb-8">
-            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-200/50">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">
                   Filter & Sort
@@ -327,13 +328,11 @@ export default function CurrentTeam() {
                       </div>
 
                       <div className="flex-1">
-                        <Link href={`/user-documents/${u.id}`}>
-                          <h3 className="font-semibold text-gray-900 hover:text-blue-600 transition-colors text-lg group-hover:text-blue-600">
-                            {u.firstName && u.lastName
-                              ? `${u.firstName} ${u.lastName}`
-                              : u.email}
-                          </h3>
-                        </Link>
+                        <h3 className="font-semibold text-gray-900 hover:text-blue-600 transition-colors text-lg group-hover:text-blue-600">
+                          {u.firstName && u.lastName
+                            ? `${u.firstName} ${u.lastName}`
+                            : u.email}
+                        </h3>
 
                         <div className="flex items-center mt-2 space-x-2">
                           {/* Enhanced role badge */}
@@ -433,7 +432,7 @@ export default function CurrentTeam() {
                   </div>
 
                   {/* Enhanced assignment info */}
-                  <div>
+                  <div className="mb-4">
                     <div className="flex items-center text-sm text-gray-500">
                       <svg
                         className="h-4 w-4 mr-2"
@@ -450,6 +449,28 @@ export default function CurrentTeam() {
                       </svg>
                       {u.myFiles?.length || 0} assigned documents
                     </div>
+                  </div>
+
+                  {/* Enhanced footer */}
+                  <div className="pt-4 border-t border-gray-200/50">
+                    <Link href={`/user-documents/${u.id}`}>
+                      <span className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium group-hover:text-blue-700 transition-colors duration-200">
+                        View documents
+                        <svg
+                          className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform duration-200"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </span>
+                    </Link>
                   </div>
                 </div>
               </div>
