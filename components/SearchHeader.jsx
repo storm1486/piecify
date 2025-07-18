@@ -24,14 +24,16 @@ export default function SearchHeader() {
   useEffect(() => {
     const fetchUserFiles = async () => {
       if (!user || user.role === "admin") return;
-      const userFileRefs = user.myFiles || [];
+      const userFileObjs = user.myFiles || [];
       const files = [];
 
-      for (const fileRef of userFileRefs) {
+      for (const fileObj of userFileObjs) {
+        if (!fileObj.fileId) continue; // skip anything without an ID
+        const fileRef = doc(db, "files", fileObj.fileId);
         try {
-          const fileSnap = await getDoc(doc(db, fileRef.path));
-          if (fileSnap.exists()) {
-            files.push({ ...fileSnap.data(), fileId: fileSnap.id });
+          const snap = await getDoc(fileRef);
+          if (snap.exists()) {
+            files.push({ ...snap.data(), fileId: snap.id });
           }
         } catch (err) {
           console.error("Error fetching user file:", err);
@@ -44,6 +46,7 @@ export default function SearchHeader() {
     fetchUserFiles();
   }, [user]);
 
+  // Fetch all team members
   useEffect(() => {
     const fetchTeamMembers = async () => {
       if (!user) return;
@@ -68,6 +71,7 @@ export default function SearchHeader() {
 
     if (!query.trim()) {
       setSearchResults([]);
+      setMatchedMembers([]);
       setSearching(false);
       return;
     }
@@ -75,7 +79,10 @@ export default function SearchHeader() {
     const queryWords = query.toLowerCase().split(/\s+/);
 
     try {
+      let filesToShow = [];
+
       if (user?.role === "admin") {
+        // Admin: search across all folders & files
         const foldersSnapshot = await getDocs(collection(db, "folders"));
         const allFiles = [];
 
@@ -111,24 +118,28 @@ export default function SearchHeader() {
           }
         }
 
-        setSearchResults(allFiles);
-        const matched = teamMembers.filter((member) => {
-          const fullName = `${member.firstName || ""} ${
-            member.lastName || ""
-          }`.toLowerCase();
-          const email = member.email?.toLowerCase() || "";
-          return queryWords.some(
-            (word) => fullName.includes(word) || email.includes(word)
-          );
-        });
-        setMatchedMembers(matched);
+        filesToShow = allFiles;
       } else {
-        const filtered = userFiles.filter((f) => {
-          const fileName = f.fileName?.toLowerCase() || "";
-          return queryWords.some((word) => fileName.includes(word));
+        // Non-admin: search only user's own files
+        filesToShow = userFiles.filter((f) => {
+          const name = f.fileName?.toLowerCase() || "";
+          return queryWords.some((w) => name.includes(w));
         });
-        setSearchResults(filtered);
       }
+
+      setSearchResults(filesToShow);
+
+      // Search team members for everyone
+      const matched = teamMembers.filter((member) => {
+        const fullName = `${member.firstName || ""} ${
+          member.lastName || ""
+        }`.toLowerCase();
+        const email = member.email?.toLowerCase() || "";
+        return queryWords.some(
+          (w) => fullName.includes(w) || email.includes(w)
+        );
+      });
+      setMatchedMembers(matched);
     } catch (err) {
       console.error("Search error:", err);
     } finally {
@@ -223,6 +234,7 @@ export default function SearchHeader() {
               ) : (
                 <p className="p-4 text-gray-500">No files match your search.</p>
               )}
+
               {matchedMembers.length > 0 && (
                 <div className="border-t border-gray-200">
                   <p className="px-3 py-2 text-xs text-gray-400 uppercase bg-gray-50">

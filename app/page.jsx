@@ -17,6 +17,7 @@ import MyFilesGroupedSection from "@/components/MyFilesGroupedSection"; // at th
 import { useLayout } from "@/src/context/LayoutContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import SearchHeader from "@/components/SearchHeader";
+import TeamFileUpload from "@/components/TeamFileUpload";
 
 export default function Home() {
   const { user, loading, toggleFavorite, fetchMyFiles } = useUser();
@@ -31,6 +32,8 @@ export default function Home() {
   const [allFilesWithUploader, setAllFilesWithUploader] = useState([]);
   const [loadingAllFiles, setLoadingAllFiles] = useState(false);
   const hasFetchedAllFiles = useRef(false); // prevent refetch loop
+  const [teamFiles, setTeamFiles] = useState([]);
+  const [loadingTeamFiles, setLoadingTeamFiles] = useState(false);
 
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
 
@@ -49,6 +52,29 @@ export default function Home() {
       setActiveTab(user.role === "admin" ? "all" : "my");
     }
   }, [user, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "team") {
+      fetchTeamFiles();
+    }
+  }, [activeTab]);
+
+  // after your useState calls
+  const fetchTeamFiles = async () => {
+    setLoadingTeamFiles(true);
+    try {
+      const snap = await getDocs(collection(db, "teamFiles"));
+      const files = snap.docs.map((d) => ({
+        fileId: d.id,
+        ...d.data(),
+      }));
+      setTeamFiles(files);
+    } catch (err) {
+      console.error("Error loading team files:", err);
+    } finally {
+      setLoadingTeamFiles(false);
+    }
+  };
 
   useEffect(() => {
     const fetchAllFilesWithUploader = async () => {
@@ -635,6 +661,52 @@ export default function Home() {
                     requestedFiles={user?.requestedFiles || []}
                   />
                 </div>
+              </div>
+            )}
+
+            {activeTab === "team" && (
+              <div className="max-w-7xl mx-auto px-4 py-6">
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Team Files
+                  </h2>
+                  <p className="text-gray-500">
+                    View team related documents
+                  </p>
+                </div>
+
+                {/* upload component */}
+                {user?.role === "admin" && (
+                  <TeamFileUpload onUploadSuccess={fetchTeamFiles} />
+                )}
+
+                {/* list */}
+                {loadingTeamFiles ? (
+                  <LoadingSpinner />
+                ) : teamFiles.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">
+                    No team files have been uploaded yet.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {teamFiles.map((file) => (
+                      <li
+                        key={file.fileId}
+                        className="bg-white p-4 rounded shadow-sm flex justify-between items-center"
+                      >
+                        <span className="font-medium">{file.fileName}</span>
+                        <a
+                          href={file.downloadURL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          View
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>
