@@ -9,6 +9,9 @@ import {
   getDoc,
   updateDoc,
   setDoc,
+  serverTimestamp,
+  onSnapshot,
+  doc as docRef,
 } from "firebase/firestore";
 import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
@@ -34,8 +37,12 @@ export default function Home() {
   const hasFetchedAllFiles = useRef(false); // prevent refetch loop
   const [teamFiles, setTeamFiles] = useState([]);
   const [loadingTeamFiles, setLoadingTeamFiles] = useState(false);
-
+  const [newTeamFilesCount, setNewTeamFilesCount] = useState(0);
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
+  const [userLastSeen, setUserLastSeen] = useState(null);
+  const [lastSeenLoaded, setLastSeenLoaded] = useState(false);
+  // track previous tab so we can clear ONLY when leaving “team”
+  const prevTab = useRef(null);
 
   useEffect(() => {
     setActivePage("dashboard"); // ✅ update current page
@@ -53,28 +60,82 @@ export default function Home() {
     }
   }, [user, activeTab]);
 
-  useEffect(() => {
-    if (activeTab === "team") {
-      fetchTeamFiles();
-    }
-  }, [activeTab]);
+  // ── At the top of Home(), after your useState calls ──
 
-  // after your useState calls
-  const fetchTeamFiles = async () => {
+  // now change computeNewCount to use that state:
+  const computeNewCount = (files) => {
+    if (!lastSeenLoaded) return; // wait till we’ve loaded the timestamp
+    if (!userLastSeen) {
+      // never seen => everything is new
+      setNewTeamFilesCount(files.length);
+    } else {
+      setNewTeamFilesCount(
+        files.filter((f) => f.createdAt.toDate() > userLastSeen).length
+      );
+    }
+  };
+
+  // and only once we’ve loaded last-seen do we fetch+count:
+  useEffect(() => {
+    if (lastSeenLoaded) {
+      fetchTeamFiles({ withCount: true });
+    }
+  }, [lastSeenLoaded]);
+
+  // fetchTeamFiles now takes a flag: do we want to update the badge?
+  const fetchTeamFiles = async ({ withCount = true } = {}) => {
     setLoadingTeamFiles(true);
     try {
       const snap = await getDocs(collection(db, "teamFiles"));
-      const files = snap.docs.map((d) => ({
-        fileId: d.id,
-        ...d.data(),
-      }));
+      const files = snap.docs.map((d) => ({ fileId: d.id, ...d.data() }));
       setTeamFiles(files);
-    } catch (err) {
-      console.error("Error loading team files:", err);
+      if (withCount) computeNewCount(files);
+    } catch (e) {
+      console.error("Error loading team files:", e);
     } finally {
       setLoadingTeamFiles(false);
     }
   };
+
+  // ── When the tab becomes active ──
+  // when entering the Team tab, just re-fetch the list, don’t clear yet
+  useEffect(() => {
+    if (activeTab === "team") {
+      fetchTeamFiles({ withCount: false });
+    }
+  }, [activeTab]);
+
+  // when we leave the Team tab, then clear highlights & persist lastSeen
+  useEffect(() => {
+    if (prevTab.current === "team" && activeTab !== "team" && user) {
+      // clear the badge/highlight
+      setNewTeamFilesCount(0);
+
+      // write “lastSeenTeamFiles = now” so future visits won’t highlight old files
+      updateDoc(docRef(db, "users", user.uid), {
+        lastSeenTeamFiles: serverTimestamp(),
+      }).catch(console.error);
+    }
+    // update prevTab for next render
+    prevTab.current = activeTab;
+  }, [activeTab, user]);
+
+  // Subscribe to users/{uid} so we always have the current lastSeenTeamFiles
+  useEffect(() => {
+    if (!user) return;
+    const unsub = onSnapshot(
+      docRef(db, "users", user.uid),
+      (snap) => {
+        const data = snap.data() || {};
+        setUserLastSeen(
+          data.lastSeenTeamFiles ? data.lastSeenTeamFiles.toDate() : null
+        );
+        setLastSeenLoaded(true);
+      },
+      (err) => console.error("user doc listen failed", err)
+    );
+    return () => unsub();
+  }, [user]);
 
   useEffect(() => {
     const fetchAllFilesWithUploader = async () => {
@@ -325,6 +386,15 @@ export default function Home() {
                   }`}
                 >
                   Team Files
+                  {newTeamFilesCount > 0 && (
+                    <span
+                      className="ml-1 inline-flex items-center justify-center
+                 px-2 py-0.5 rounded-full text-xs font-medium
+                 bg-red-500 text-white"
+                    >
+                      {newTeamFilesCount}
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -339,7 +409,6 @@ export default function Home() {
                 </button>
               </div>
             </div>
-
             {/* All Folders Tab Content */}
             {activeTab === "all" && user?.role === "admin" && (
               <div>
@@ -588,7 +657,6 @@ export default function Home() {
                 )}
               </div>
             )}
-
             {/* My Pieces Tab Content */}
             {activeTab === "my" && (
               <div>
@@ -670,14 +738,14 @@ export default function Home() {
                   <h2 className="text-xl font-semibold text-gray-900">
                     Team Files
                   </h2>
-                  <p className="text-gray-500">
-                    View team related documents
-                  </p>
+                  <p className="text-gray-500">View team-related documents</p>
                 </div>
 
                 {/* upload component */}
                 {user?.role === "admin" && (
-                  <TeamFileUpload onUploadSuccess={fetchTeamFiles} />
+                  <TeamFileUpload
+                    onUploadSuccess={() => fetchTeamFiles({ withCount: false })}
+                  />
                 )}
 
                 {/* list */}
@@ -689,22 +757,39 @@ export default function Home() {
                   </p>
                 ) : (
                   <ul className="space-y-3">
-                    {teamFiles.map((file) => (
-                      <li
-                        key={file.fileId}
-                        className="bg-white p-4 rounded shadow-sm flex justify-between items-center"
-                      >
-                        <span className="font-medium">{file.fileName}</span>
-                        <a
-                          href={file.downloadURL}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
+                    {teamFiles.map((file) => {
+                      // determine if this file is “new”
+                      const isNew = !userLastSeen
+                        ? true
+                        : file.createdAt.toDate() > userLastSeen;
+
+                      return (
+                        <li
+                          key={file.fileId}
+                          className={`
+                p-4 rounded shadow-sm flex justify-between items-center
+                ${isNew ? "bg-yellow-50 border border-yellow-200" : "bg-white"}
+              `}
                         >
-                          View
-                        </a>
-                      </li>
-                    ))}
+                          <div className="flex items-center">
+                            <span className="font-medium">{file.fileName}</span>
+                            {isNew && (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-200 text-yellow-800">
+                                New
+                              </span>
+                            )}
+                          </div>
+                          <a
+                            href={file.downloadURL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 hover:underline text-sm"
+                          >
+                            View
+                          </a>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
