@@ -3,8 +3,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext";
+import { useLayout } from "@/src/context/LayoutContext";
 import { db } from "@/app/firebase/firebase";
 
 export default function SearchHeader() {
@@ -15,6 +17,8 @@ export default function SearchHeader() {
   const [userFiles, setUserFiles] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [matchedMembers, setMatchedMembers] = useState([]);
+  const { setActivePage } = useLayout();
+  const router = useRouter();
 
   // Fetch user's files for non-admins
   useEffect(() => {
@@ -228,6 +232,10 @@ export default function SearchHeader() {
                     {matchedMembers.map((member) => (
                       <li
                         key={member.id}
+                        onClick={() => {
+                          setActivePage("team");
+                          router.push(`/user-documents/${member.id}`);
+                        }}
                         className="p-3 hover:bg-gray-100 cursor-pointer flex justify-between"
                       >
                         <div>
@@ -238,12 +246,6 @@ export default function SearchHeader() {
                             {member.email}
                           </p>
                         </div>
-                        <Link
-                          href={`/profile/${member.id}`}
-                          className="text-blue-500 hover:underline text-sm"
-                        >
-                          View
-                        </Link>
                       </li>
                     ))}
                   </ul>

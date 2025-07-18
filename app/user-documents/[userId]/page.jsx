@@ -22,7 +22,7 @@ export default function UserDocuments({ params }) {
     setCustomNavButtons([
       {
         label: "Back to Team",
-        onClick: () => router.back(),
+        onClick: () => router.push(`/team`),
         icon: (
           <svg
             xmlns="http://www.w3.org/2000/svg"
