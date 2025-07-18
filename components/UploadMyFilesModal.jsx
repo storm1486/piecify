@@ -73,6 +73,7 @@ export default function UploadMyFilesModal({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [length, setLength] = useState("10 min");
   const fileInputRef = useRef();
   const [isDragging, setIsDragging] = useState(false);
 
@@ -160,6 +161,7 @@ export default function UploadMyFilesModal({
         fileUrl,
         uploadedBy: user.uid,
         uploadedByEmail: user.email,
+        length: length,
         uploadedByName: `${user.firstName} ${user.lastName}`,
         uploadedAt: new Date().toISOString(),
         pieceDescription: pieceDescription || "No description provided.",
@@ -368,6 +370,23 @@ export default function UploadMyFilesModal({
                 classNamePrefix="select"
                 isDisabled={uploading}
               />
+            </div>
+            <div className="mb-6 flex items-center">
+              <input
+                type="checkbox"
+                id="fiveMinVersion"
+                checked={length === "5 min"}
+                onChange={(e) =>
+                  setLength(e.target.checked ? "5 min" : "10 min")
+                }
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label
+                htmlFor="fiveMinVersion"
+                className="ml-2 text-sm text-gray-700"
+              >
+                5 min version of the piece (optional)
+              </label>
             </div>
           </>
         )}

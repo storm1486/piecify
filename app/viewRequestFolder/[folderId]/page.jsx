@@ -15,6 +15,7 @@ import { db } from "../../firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
 import SearchHeader from "@/components/SearchHeader";
+import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
 
 export default function ViewPieces() {
   const { folderId } = useParams();
@@ -25,6 +26,10 @@ export default function ViewPieces() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredPieces, setFilteredPieces] = useState([]);
   const [requestStatuses, setRequestStatuses] = useState(new Map());
+  const [lengthFilter, setLengthFilter] = useState("all");
+  const [tagFilter, setTagFilter] = useState("all");
+  const [availableLengths, setAvailableLengths] = useState([]);
+  const tagOptions = sortedAttributeOptions.map((opt) => opt.value);
 
   useEffect(() => {
     if (folderId && !loading && user) {
@@ -34,15 +39,25 @@ export default function ViewPieces() {
   }, [folderId, loading, user]);
 
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredPieces(pieces);
-    } else {
-      const filtered = pieces.filter((piece) =>
-        piece.fileName.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredPieces(filtered);
-    }
-  }, [searchQuery, pieces]);
+    const lengths = Array.from(new Set(pieces.map((p) => p.length)))
+      .filter((l) => !!l) // drop falsy
+      .sort();
+    setAvailableLengths(lengths);
+  }, [pieces]);
+
+  useEffect(() => {
+    const filtered = pieces.filter((piece) => {
+      const matchesSearch = piece.fileName
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchesLength =
+        lengthFilter === "all" || piece.length === lengthFilter;
+      const matchesTag =
+        tagFilter === "all" || piece.attributes.includes(tagFilter);
+      return matchesSearch && matchesLength && matchesTag;
+    });
+    setFilteredPieces(filtered);
+  }, [searchQuery, pieces, lengthFilter, tagFilter]);
 
   const fetchFolderDetails = async () => {
     try {
@@ -221,6 +236,94 @@ export default function ViewPieces() {
               approved, they&apos;ll appear in your &quot;Requested Pieces&quot;
               section.
             </p>
+          </div>
+
+          <div className="mb-6 p-4 bg-white rounded-lg shadow-sm">
+            <div className="flex flex-wrap items-center gap-6">
+              {/* Length filter */}
+              <div className="relative">
+                <label
+                  htmlFor="length-filter"
+                  className="mr-2 font-medium text-gray-700"
+                >
+                  Length:
+                </label>
+                <div className="relative inline-block">
+                  <select
+                    id="length-filter"
+                    value={lengthFilter}
+                    onChange={(e) => setLengthFilter(e.target.value)}
+                    className="bg-gray-50 text-gray-700 py-2 pl-3 pr-10 rounded border border-gray-300 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Lengths</option>
+                    {availableLengths.map((len) => (
+                      <option key={len} value={len}>
+                        {len}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tag filter */}
+              <div className="relative">
+                <label
+                  htmlFor="tag-filter"
+                  className="mr-2 font-medium text-gray-700"
+                >
+                  Tag:
+                </label>
+                <div className="relative inline-block">
+                  <select
+                    id="tag-filter"
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className="bg-gray-50 text-gray-700 py-2 pl-3 pr-10 rounded border border-gray-300 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Tags</option>
+                    {tagOptions.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Clear filters */}
+              <button
+                onClick={() => {
+                  setLengthFilter("all");
+                  setTagFilter("all");
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+              >
+                Clear Filters
+              </button>
+
+              {/* Count */}
+              <span className="ml-auto text-sm text-gray-500">
+                Showing {filteredPieces.length} of {pieces.length} pieces
+              </span>
+            </div>
           </div>
 
           {filteredPieces.length > 0 ? (
