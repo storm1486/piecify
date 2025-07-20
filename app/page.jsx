@@ -41,6 +41,8 @@ export default function Home() {
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
   const [userLastSeen, setUserLastSeen] = useState(null);
   const [lastSeenLoaded, setLastSeenLoaded] = useState(false);
+  const [pendingAssignments, setPendingAssignments] = useState({}); // { [fileId]: folderId | 'addressed' }
+  const [confirming, setConfirming] = useState({}); // { [fileId]: boolean }
   // track previous tab so we can clear ONLY when leaving “team”
   const prevTab = useRef(null);
 
@@ -192,6 +194,7 @@ export default function Home() {
 
             allFiles.push({
               ...fileData,
+              addressed: fileData.addressed || false,
               fileId: fileSnap.id,
               folderId,
               folderName,
@@ -199,6 +202,10 @@ export default function Home() {
             });
           }
         }
+
+        const unassigned = allFilesWithUploader.filter(
+          (f) => !f.folderId && !f.originalFileId && !f.addressed
+        );
 
         // 📄 Step 2: Fetch ungrouped files (not in folders)
         const globalFilesSnapshot = await getDocs(collection(db, "files"));
@@ -253,6 +260,37 @@ export default function Home() {
   if (loading) {
     return <LoadingSpinner />; // Show a loading state while fetching user data
   }
+
+  // ── NEW: two-step confirm logic ──
+  const confirmAssignment = async (file) => {
+    const action = pendingAssignments[file.fileId];
+    if (!action) return;
+
+    setConfirming((prev) => ({ ...prev, [file.fileId]: true }));
+    try {
+      if (action === "addressed") {
+        // flag as addressed (won’t show on All Files)
+        await updateDoc(doc(db, "files", file.fileId), {
+          addressed: true,
+        });
+      } else {
+        // normal folder assignment
+        await handleAssignToFolder(file.fileId, action);
+      }
+      // drop it locally so UI updates immediately
+      setAllFilesWithUploader((prev) =>
+        prev.filter((f) => f.fileId !== file.fileId)
+      );
+    } catch (err) {
+      console.error("Error confirming assignment:", err);
+    } finally {
+      setConfirming((prev) => ({ ...prev, [file.fileId]: false }));
+      setPendingAssignments((prev) => {
+        const { [file.fileId]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
 
   const handleSortByName = () => {
     const sortedFolders = [...folders].sort((a, b) => {
@@ -363,7 +401,7 @@ export default function Home() {
                         : "text-gray-500 hover:text-gray-700"
                     }`}
                   >
-                    All Files
+                    Uploaded Files
                   </button>
                 )}
 
@@ -564,74 +602,185 @@ export default function Home() {
               <div>
                 <div className="mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
-                    All Files
+                    Uploaded Files
                   </h2>
                   <p className="text-gray-500">
-                    See every file uploaded by users
+                    Review and organize files uploaded by users
                   </p>
                 </div>
 
                 {loadingAllFiles ? (
-                  <p>Loading files...</p>
+                  <div className="flex justify-center items-center py-12">
+                    <LoadingSpinner />
+                  </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full table-auto border-collapse border border-gray-200">
-                      <thead>
-                        <tr className="bg-gray-100">
-                          <th className="px-4 py-2 text-left border border-gray-300">
-                            File Name
-                          </th>
-                          <th className="px-4 py-2 text-left border border-gray-300">
-                            Uploaded By
-                          </th>
-                          <th className="px-4 py-2 text-left border border-gray-300">
-                            Folder
-                          </th>
-                          <th className="px-4 py-2 text-left border border-gray-300">
-                            View
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {allFilesWithUploader.filter(
-                          (f) => !f.folderId && !f.originalFileId
-                        ).length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={4}
-                              className="text-center text-sm text-gray-500 italic py-6"
-                            >
-                              No files have been uploaded outside of a folder.
-                            </td>
-                          </tr>
-                        ) : (
-                          allFilesWithUploader
-                            .filter(
-                              (file) => !file.folderId && !file.originalFileId
-                            )
-                            .map((file, index) => (
-                              <tr key={index} className="hover:bg-gray-50">
-                                <td className="px-4 py-2 border border-gray-200">
-                                  {file.fileName}
-                                </td>
-                                <td className="px-4 py-2 border border-gray-200">
-                                  {file.uploader?.firstName ||
-                                    file.uploader?.email ||
-                                    "Unknown"}
-                                </td>
-                                <td className="px-4 py-2 border border-gray-200">
+                  <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-200">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        Files Awaiting Assignment
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {(() => {
+                          const unassigned = allFilesWithUploader.filter(
+                            (f) =>
+                              !f.folderId && !f.originalFileId && !f.addressed
+                          );
+                          return unassigned.length === 0
+                            ? "All files have been organized"
+                            : `${unassigned.length} file${
+                                unassigned.length !== 1 ? "s" : ""
+                              } need${
+                                unassigned.length === 1 ? "s" : ""
+                              } to be assigned`;
+                        })()}
+                      </p>
+                    </div>
+
+                    <div className="divide-y divide-gray-200">
+                      {(() => {
+                        const unassigned = allFilesWithUploader.filter(
+                          (f) =>
+                            !f.folderId && !f.originalFileId && !f.addressed
+                        );
+
+                        if (unassigned.length === 0) {
+                          return (
+                            <div className="p-12 text-center">
+                              <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-4">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-8 w-8"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                </svg>
+                              </div>
+                              <h3 className="text-lg font-medium text-gray-900 mb-1">
+                                All caught up!
+                              </h3>
+                              <p className="text-gray-500">
+                                No unassigned files to address at this time.
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return unassigned.map((file) => (
+                          <div
+                            key={file.fileId}
+                            className="p-6 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-start space-x-4 flex-1">
+                                {/* File Icon */}
+                                <div className="flex-shrink-0">
+                                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-5 w-5 text-blue-600"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                      />
+                                    </svg>
+                                  </div>
+                                </div>
+
+                                {/* File Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <h4 className="text-sm font-medium text-gray-900 truncate">
+                                      {file.fileName}
+                                    </h4>
+                                    {file.fileType && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                        {file.fileType.toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center text-sm text-gray-500 space-x-4">
+                                    <span className="flex items-center">
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-4 w-4 mr-1"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                        />
+                                      </svg>
+                                      {file.uploader?.firstName
+                                        ? `${file.uploader.firstName} ${
+                                            file.uploader.lastName || ""
+                                          }`.trim()
+                                        : file.uploader?.email ||
+                                          "Unknown User"}
+                                    </span>
+                                    {file.uploadedAt && (
+                                      <span className="flex items-center">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-4 w-4 mr-1"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          />
+                                        </svg>
+                                        {new Date(
+                                          file.uploadedAt.seconds
+                                            ? file.uploadedAt.seconds * 1000
+                                            : file.uploadedAt
+                                        ).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Action Controls */}
+                              <div className="flex items-center space-x-3 ml-4">
+                                <div className="flex items-center space-x-2">
                                   <select
-                                    className="border border-gray-300 rounded px-2 py-1 text-sm"
-                                    onChange={(e) =>
-                                      handleAssignToFolder(
-                                        file.fileId,
-                                        e.target.value
-                                      )
+                                    value={
+                                      pendingAssignments[file.fileId] || ""
                                     }
-                                    defaultValue=""
+                                    onChange={(e) =>
+                                      setPendingAssignments((prev) => ({
+                                        ...prev,
+                                        [file.fileId]: e.target.value,
+                                      }))
+                                    }
+                                    className="text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 min-w-0 w-40"
                                   >
                                     <option value="" disabled>
-                                      Assign to folder...
+                                      Choose action...
+                                    </option>
+                                    <option value="addressed">
+                                      No assignment (Mark as addressed)
                                     </option>
                                     {user.allFolders.map((folder) => (
                                       <option key={folder.id} value={folder.id}>
@@ -639,20 +788,66 @@ export default function Home() {
                                       </option>
                                     ))}
                                   </select>
-                                </td>
-                                <td className="px-4 py-2 border border-gray-200">
-                                  <Link
-                                    href={`/viewDocuments/null/${file.fileId}`}
-                                    className="text-blue-600 hover:underline"
+
+                                  <button
+                                    onClick={() => confirmAssignment(file)}
+                                    disabled={
+                                      !pendingAssignments[file.fileId] ||
+                                      confirming[file.fileId]
+                                    }
+                                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
-                                    View
-                                  </Link>
-                                </td>
-                              </tr>
-                            ))
-                        )}
-                      </tbody>
-                    </table>
+                                    {confirming[file.fileId] ? (
+                                      <>
+                                        <svg
+                                          className="animate-spin -ml-1 mr-1 h-3 w-3 text-white"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <circle
+                                            className="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            strokeWidth="4"
+                                          ></circle>
+                                          <path
+                                            className="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                          ></path>
+                                        </svg>
+                                        Processing...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-3 w-3 mr-1"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M5 13l4 4L19 7"
+                                          />
+                                        </svg>
+                                        Confirm
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>
