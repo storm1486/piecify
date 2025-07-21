@@ -41,18 +41,125 @@ export default function Home() {
   const [selectedColor, setSelectedColor] = useState("bg-blue-500");
   const [userLastSeen, setUserLastSeen] = useState(null);
   const [lastSeenLoaded, setLastSeenLoaded] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const hasInitRun = useRef(false);
+
   // track previous tab so we can clear ONLY when leaving “team”
   const prevTab = useRef(null);
+
+  // ── INITIAL DASHBOARD LOAD ──
+  useEffect(() => {
+    // only run once, right after `user` becomes available
+    if (!user || hasInitRun.current) return;
+    hasInitRun.current = true;
+    setInitialLoading(true);
+
+    const init = async () => {
+      try {
+        // 1️⃣ Load “My Pieces”
+        await fetchMyFiles();
+
+        // 2️⃣ Load “Team Files” (no badge count on init)
+        await fetchTeamFiles({ withCount: false });
+
+        // 3️⃣ Load “All Files” for admins
+        if (user.role === "admin" && !hasFetchedAllFiles.current) {
+          hasFetchedAllFiles.current = true;
+          const allFiles = [];
+          const userCache = {};
+
+          // ► Files inside folders
+          const foldersSnap = await getDocs(collection(db, "folders"));
+          for (const folderDoc of foldersSnap.docs) {
+            const folderId = folderDoc.id;
+            const folderName = folderDoc.data().name;
+            const filesSnap = await getDocs(
+              collection(db, "folders", folderId, "files")
+            );
+
+            for (const entry of filesSnap.docs) {
+              const path = entry.data().fileRef?.path;
+              if (!path) continue;
+              const fileSnap = await getDoc(doc(db, path));
+              if (!fileSnap.exists()) continue;
+              const data = fileSnap.data();
+              if (data.originalFileId) continue;
+
+              // uploader lookup
+              let uploader = { email: "Unknown" };
+              if (data.uploadedBy) {
+                if (userCache[data.uploadedBy]) {
+                  uploader = userCache[data.uploadedBy];
+                } else {
+                  const uSnap = await getDoc(doc(db, "users", data.uploadedBy));
+                  if (uSnap.exists()) {
+                    uploader = {
+                      email: uSnap.data().email || "Unknown",
+                      firstName: uSnap.data().firstName || "",
+                      lastName: uSnap.data().lastName || "",
+                    };
+                    userCache[data.uploadedBy] = uploader;
+                  }
+                }
+              }
+
+              allFiles.push({
+                ...data,
+                fileId: fileSnap.id,
+                folderId,
+                folderName,
+                uploader,
+              });
+            }
+          }
+
+          // ► Ungrouped files
+          const globalSnap = await getDocs(collection(db, "files"));
+          for (const fileDoc of globalSnap.docs) {
+            const data = fileDoc.data();
+            if (data.folderId || data.originalFileId) continue;
+
+            let uploader = { email: "Unknown" };
+            if (data.uploadedBy) {
+              if (userCache[data.uploadedBy]) {
+                uploader = userCache[data.uploadedBy];
+              } else {
+                const uSnap = await getDoc(doc(db, "users", data.uploadedBy));
+                if (uSnap.exists()) {
+                  uploader = {
+                    email: uSnap.data().email || "Unknown",
+                    firstName: uSnap.data().firstName || "",
+                    lastName: uSnap.data().lastName || "",
+                  };
+                  userCache[data.uploadedBy] = uploader;
+                }
+              }
+            }
+
+            allFiles.push({
+              ...data,
+              fileId: fileDoc.id,
+              folderId: null,
+              folderName: "Unassigned",
+              uploader,
+            });
+          }
+
+          setAllFilesWithUploader(allFiles);
+        }
+      } catch (error) {
+        console.error("Dashboard init failed:", error);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    init();
+  }, [user]);
 
   useEffect(() => {
     setActivePage("dashboard"); // ✅ update current page
   }, []);
-
-  useEffect(() => {
-    if (user) {
-      fetchMyFiles();
-    }
-  }, [user]);
 
   useEffect(() => {
     if (!activeTab && user) {
@@ -75,13 +182,6 @@ export default function Home() {
     }
   };
 
-  // and only once we’ve loaded last-seen do we fetch+count:
-  useEffect(() => {
-    if (lastSeenLoaded) {
-      fetchTeamFiles({ withCount: true });
-    }
-  }, [lastSeenLoaded]);
-
   // fetchTeamFiles now takes a flag: do we want to update the badge?
   const fetchTeamFiles = async ({ withCount = true } = {}) => {
     setLoadingTeamFiles(true);
@@ -96,14 +196,6 @@ export default function Home() {
       setLoadingTeamFiles(false);
     }
   };
-
-  // ── When the tab becomes active ──
-  // when entering the Team tab, just re-fetch the list, don’t clear yet
-  useEffect(() => {
-    if (activeTab === "team") {
-      fetchTeamFiles({ withCount: false });
-    }
-  }, [activeTab]);
 
   // when we leave the Team tab, then clear highlights & persist lastSeen
   useEffect(() => {
@@ -137,121 +229,8 @@ export default function Home() {
     return () => unsub();
   }, [user]);
 
-  useEffect(() => {
-    const fetchAllFilesWithUploader = async () => {
-      if (!user?.role || user.role !== "admin" || hasFetchedAllFiles.current)
-        return;
-      hasFetchedAllFiles.current = true;
-
-      setLoadingAllFiles(true);
-      const allFiles = [];
-      const userCache = {}; // prevent repeated user lookups
-
-      try {
-        // 📁 Step 1: Fetch files from folders
-        const foldersSnapshot = await getDocs(collection(db, "folders"));
-
-        for (const folderDoc of foldersSnapshot.docs) {
-          const folderId = folderDoc.id;
-          const folderName = folderDoc.data().name;
-
-          const filesSnapshot = await getDocs(
-            collection(db, "folders", folderId, "files")
-          );
-
-          for (const fileDoc of filesSnapshot.docs) {
-            const filePath = fileDoc.data().fileRef?.path;
-            if (!filePath) continue;
-
-            const fileRef = doc(db, filePath);
-            const fileSnap = await getDoc(fileRef);
-            if (!fileSnap.exists()) continue;
-
-            const fileData = fileSnap.data();
-            const uploaderUid = fileData.uploadedBy;
-            let uploaderInfo = { email: "Unknown" };
-
-            if (uploaderUid) {
-              if (userCache[uploaderUid]) {
-                uploaderInfo = userCache[uploaderUid];
-              } else {
-                const uploaderDoc = await getDoc(doc(db, "users", uploaderUid));
-                if (uploaderDoc.exists()) {
-                  const data = uploaderDoc.data();
-                  uploaderInfo = {
-                    email: data.email || "Unknown",
-                    firstName: data.firstName || "",
-                    lastName: data.lastName || "",
-                  };
-                  userCache[uploaderUid] = uploaderInfo;
-                }
-              }
-            }
-
-            if (fileData.originalFileId) continue; // 🚫 Skip edited versions
-
-            allFiles.push({
-              ...fileData,
-              fileId: fileSnap.id,
-              folderId,
-              folderName,
-              uploader: uploaderInfo,
-            });
-          }
-        }
-
-        // 📄 Step 2: Fetch ungrouped files (not in folders)
-        const globalFilesSnapshot = await getDocs(collection(db, "files"));
-        for (const fileDoc of globalFilesSnapshot.docs) {
-          const fileData = fileDoc.data();
-
-          // Only include files that don't have a folderId (ungrouped)
-          if (!fileData.folderId) {
-            const uploaderUid = fileData.uploadedBy;
-            let uploaderInfo = { email: "Unknown" };
-
-            if (uploaderUid) {
-              if (userCache[uploaderUid]) {
-                uploaderInfo = userCache[uploaderUid];
-              } else {
-                const uploaderDoc = await getDoc(doc(db, "users", uploaderUid));
-                if (uploaderDoc.exists()) {
-                  const data = uploaderDoc.data();
-                  uploaderInfo = {
-                    email: data.email || "Unknown",
-                    firstName: data.firstName || "",
-                    lastName: data.lastName || "",
-                  };
-                  userCache[uploaderUid] = uploaderInfo;
-                }
-              }
-            }
-
-            if (fileData.originalFileId) continue; // 🚫 Skip edited versions
-
-            allFiles.push({
-              ...fileData,
-              fileId: fileDoc.id,
-              folderId: null,
-              folderName: "Unassigned",
-              uploader: uploaderInfo,
-            });
-          }
-        }
-
-        setAllFilesWithUploader(allFiles);
-      } catch (error) {
-        console.error("Error fetching all files:", error);
-      } finally {
-        setLoadingAllFiles(false);
-      }
-    };
-
-    fetchAllFilesWithUploader();
-  }, [user]);
-
-  if (loading) {
-    return <LoadingSpinner />; // Show a loading state while fetching user data
+  if (loading || initialLoading) {
+    return <LoadingSpinner />;
   }
 
   const handleSortByName = () => {
