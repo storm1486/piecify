@@ -79,7 +79,7 @@ const customStyles = {
   }),
 };
 
-export default function DocumentTags({ attributes, fileId, isAdmin }) {
+export default function DocumentTags({ attributes, fileId, isPrivilegedUser }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const [latestAttributes, setLatestAttributes] = useState(attributes);
@@ -144,7 +144,7 @@ export default function DocumentTags({ attributes, fileId, isAdmin }) {
               </span>
             );
           })}
-          {isAdmin && (
+          {isPrivilegedUser && (
             <button
               onClick={() => {
                 setSelectedTags(getTagOptionsFromLatest());

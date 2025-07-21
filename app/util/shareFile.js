@@ -3,9 +3,12 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
 
 export const generateShareLink = async (fileId, currentUser) => {
-  if (!currentUser || currentUser.role !== "admin") {
+  if (
+    !currentUser ||
+    !(currentUser.role === "admin" || currentUser.role === "coach")
+  ) {
     console.error(
-      "Permission denied: Only admins can generate temporary links."
+      "Permission denied: Only admins or coaches can generate temporary links."
     );
     return null;
   }

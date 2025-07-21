@@ -248,7 +248,7 @@ export default function ViewRequestedFile() {
             <DocumentTags
               attributes={fileData.attributes}
               fileId={fileId}
-              isAdmin={false} // Shared files are read-only
+              isPrivilegedUser={false} // Shared files are read-only
             />
           </div>
         </motion.header>

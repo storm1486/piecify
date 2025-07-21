@@ -15,7 +15,8 @@ import { useLayout } from "@/src/context/LayoutContext";
 
 export default function ViewDocument() {
   const { folderId, fileId } = useParams();
-  const { user, handleLogout } = useUser();
+  const { user, isPrivileged } = useUser();
+  const isPrivilegedUser = isPrivileged();
   const router = useRouter();
   const [docData, setDocData] = useState(null);
   const [shareLink, setShareLink] = useState(null);
@@ -68,7 +69,7 @@ export default function ViewDocument() {
   }, []);
 
   const handleShare = async () => {
-    if (!user || user.role !== "admin") {
+    if (!user || !isPrivilegedUser) {
       alert("Only admins can share files.");
       return;
     }
@@ -246,7 +247,7 @@ export default function ViewDocument() {
                 Edit/Print
               </button>
 
-              {user?.role === "admin" && (
+              {isPrivilegedUser && (
                 <button
                   onClick={handleShare}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
@@ -387,7 +388,7 @@ export default function ViewDocument() {
             <DocumentTags
               attributes={docData.attributes}
               fileId={fileId}
-              isAdmin={user?.role === "admin"}
+              isPrivilegedUser={isPrivilegedUser}
             />
           </div>
         </motion.header>

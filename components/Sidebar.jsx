@@ -21,7 +21,8 @@ import { useLayout } from "@/src/context/LayoutContext";
 import { LuFileQuestion } from "react-icons/lu";
 
 export default function Sidebar({ className = "", closeSidebar }) {
-  const { user, handleLogout } = useUser();
+  const { user, handleLogout, isPrivileged } = useUser();
+  const isPrivilegedUser = isPrivileged();
   const { activePage, customNavButtons, customAdminButtons } = useLayout();
 
   // State for admin modals
@@ -33,7 +34,7 @@ export default function Sidebar({ className = "", closeSidebar }) {
 
   // Fetch pending items when component mounts if user is admin
   useEffect(() => {
-    if (user?.role === "admin") {
+    if (isPrivilegedUser) {
       fetchPendingIntroChanges();
       fetchPendingRequests();
     }
@@ -189,7 +190,11 @@ export default function Sidebar({ className = "", closeSidebar }) {
                     : user.email}
                 </p>
                 <p className="text-xs text-blue-300 mt-1">
-                  {user.role === "admin" ? "Administrator" : "User"}
+                  {user.role === "coach"
+                    ? "Coach"
+                    : user.role === "admin"
+                    ? "Admin"
+                    : "Member"}
                 </p>
               </div>
               <button
@@ -214,7 +219,11 @@ export default function Sidebar({ className = "", closeSidebar }) {
                       : user.email}
                   </p>
                   <p className="text-xs text-blue-300">
-                    {user.role === "admin" ? "Administrator" : "User"}
+                    {user.role === "coach"
+                      ? "Coach"
+                      : user.role === "admin"
+                      ? "Admin"
+                      : "Member"}
                   </p>
                 </div>
               </div>
@@ -316,7 +325,7 @@ export default function Sidebar({ className = "", closeSidebar }) {
                 </Link>
               </li>
             )}
-            {user?.role === "admin" && (
+            {isPrivilegedUser && (
               <>
                 <li>
                   <Link
@@ -451,7 +460,7 @@ export default function Sidebar({ className = "", closeSidebar }) {
         </nav>
 
         {/* Admin Panel - Updated to show text on mobile too */}
-        {user?.role === "admin" && (
+        {isPrivilegedUser && (
           <div className="mt-4 md:mt-6">
             <div className="mb-3 md:mb-4 text-center md:text-left">
               <h3 className="text-blue-300 uppercase text-xs font-semibold tracking-wider">

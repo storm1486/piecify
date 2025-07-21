@@ -23,7 +23,8 @@ import { useLayout } from "@/src/context/LayoutContext";
 export default function FolderPage() {
   const { folderId } = useParams();
   const router = useRouter();
-  const { user, loading } = useUser();
+  const { user, loading, isPrivileged } = useUser();
+  const isPrivilegedUser = isPrivileged();
   const [folderName, setFolderName] = useState("");
   const [files, setFiles] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,6 +48,9 @@ export default function FolderPage() {
   const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
   const [reassignFile, setReassignFile] = useState(null);
   const [reassignFromUser, setReassignFromUser] = useState(null);
+  // For "undo assignment" window
+  const [undoData, setUndoData] = useState(null);
+  const [undoTimeLeft, setUndoTimeLeft] = useState(0);
 
   const tagOptions = sortedAttributeOptions.map((opt) => opt.value);
 
@@ -109,7 +113,7 @@ export default function FolderPage() {
     }
 
     // Fetch users when the modal is open and user is an admin
-    if (user?.role === "admin") {
+    if (isPrivilegedUser) {
       fetchUsers();
     }
   }, [loading, user, folderId]);
@@ -120,12 +124,19 @@ export default function FolderPage() {
 
       await Promise.all(
         files.map(async (file) => {
-          if (
-            Array.isArray(file.currentOwner) &&
-            file.currentOwner.length > 0
-          ) {
-            const names = await fetchOwnerNames(file.currentOwner);
-            newOwnersMap[file.id] = names; // ← store as array
+          // 1) Build a uniform array of { userId, dateGiven? } entries
+          let ownerEntries = [];
+          if (Array.isArray(file.currentOwner)) {
+            ownerEntries = file.currentOwner;
+          } else if (file.currentOwner) {
+            // legacy single ref
+            ownerEntries = [{ userId: file.currentOwner.id }];
+          }
+
+          // 2) If we have any, look up their names
+          if (ownerEntries.length > 0) {
+            const names = await fetchOwnerNames(ownerEntries);
+            newOwnersMap[file.id] = names;
           }
         })
       );
@@ -359,8 +370,8 @@ export default function FolderPage() {
       });
 
       // Update the file document
+      // Only bump currentOwner for now; history comes later
       await updateDoc(topLevelFileRef, {
-        previouslyOwned: arrayUnion(assignmentEntry),
         currentOwner: arrayUnion(currentOwnerEntry),
       });
 
@@ -388,6 +399,51 @@ export default function FolderPage() {
       // Reset the user and file selection
       setSelectedUser(null);
       setSelectedFile(null);
+
+      // Show "Undo" option for 10 seconds with countdown
+      const UNDO_DURATION = 10000; // 10 seconds
+      setUndoTimeLeft(UNDO_DURATION);
+
+      // Update countdown every 100ms for smooth progress bar
+      const countdownInterval = setInterval(() => {
+        setUndoTimeLeft((prev) => {
+          const newTime = prev - 100;
+          if (newTime <= 0) {
+            clearInterval(countdownInterval);
+            setUndoData(null);
+            return 0;
+          }
+          return newTime;
+        });
+      }, 100);
+
+      // Main timeout to clear undo data
+      const timeoutId = setTimeout(() => {
+        clearInterval(countdownInterval);
+        setUndoData(null);
+        setUndoTimeLeft(0);
+      }, UNDO_DURATION);
+
+      // schedule writing assignment history once undo expires
+      const historyTimeoutId = setTimeout(async () => {
+        try {
+          await updateDoc(topLevelFileRef, {
+            previouslyOwned: arrayUnion(assignmentEntry),
+          });
+        } catch (e) {
+          console.error("Failed to record assignment history:", e);
+        }
+      }, UNDO_DURATION);
+
+      // Save enough info to reverse the assignment
+      setUndoData({
+        timeoutId,
+        countdownInterval, // Store interval ID so we can clear it on manual undo
+        historyTimeoutId, // ← new
+        userId, // the person you just assigned to
+        fileRef: topLevelFileRef, // reference to the file doc
+        fileName: file.fileName, // for displaying in the undo button
+      });
     } catch (err) {
       console.error("Error assigning file to user:", err);
       setAssignMessage({
@@ -457,7 +513,6 @@ export default function FolderPage() {
       console.error("Error unassigning file:", error);
     }
   };
-
   const reassignFileToUser = async (fromUserId, toUserId, file) => {
     try {
       const fileRef = doc(db, "files", file.id);
@@ -486,7 +541,7 @@ export default function FolderPage() {
       // Add reassignment history
       const reassignmentEntry = {
         dateGiven: new Date().toISOString(),
-        userId: user.uid, // assigning admin
+        assignedBy: user.uid, // assigning admin
         fromUser: fromUserId,
         assignedUser: toUserId,
       };
@@ -544,13 +599,23 @@ export default function FolderPage() {
   // Get filtered files based on current filter
   const filteredFiles = getFilteredFiles();
 
+  console.log(filteredFiles);
   // Filter assigned and unassigned pieces based on length filter
-  const assignedPieces = filteredFiles.filter(
-    (file) => file.currentOwner && file.currentOwner.length > 0
-  );
-  const unassignedPieces = filteredFiles.filter(
-    (file) => !file.currentOwner || file.currentOwner.length === 0
-  );
+  const assignedPieces = filteredFiles.filter((file) => {
+    if (Array.isArray(file.currentOwner)) {
+      return file.currentOwner.length > 0;
+    }
+    // any single DocumentReference counts as one owner
+    return !!file.currentOwner;
+  });
+
+  const unassignedPieces = filteredFiles.filter((file) => {
+    if (Array.isArray(file.currentOwner)) {
+      return file.currentOwner.length === 0;
+    }
+    // null/undefined → truly unassigned
+    return !file.currentOwner;
+  });
 
   const handleClearFilters = () => {
     setLengthFilter("all");
@@ -797,62 +862,69 @@ export default function FolderPage() {
                       className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden cursor-pointer"
                     >
                       <div className="p-5">
-                        <div className="flex justify-between">
-                          <div className="flex items-center">
-                            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg mr-3">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-6 w-6"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                />
-                              </svg>
-                            </div>
-                            <div>
-                              <h3 className="font-medium text-gray-900">
-                                {file.fileName}
-                              </h3>
-                              {file.length && (
-                                <span className="inline-block mt-1 px-2 py-1 bg-indigo-100 text-xs font-medium rounded text-indigo-800">
-                                  {file.length}
-                                </span>
-                              )}
-                            </div>
+                        {/* Header with file info and length badge */}
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3
+                              className="font-medium text-gray-900 truncate"
+                              title={file.fileName} // Shows full name on hover
+                            >
+                              {file.fileName}
+                            </h3>
                           </div>
+                          {/* Length badge positioned on the right */}
+                          {file.length && (
+                            <div className="flex-shrink-0">
+                              <span className="inline-block px-2 py-1 bg-indigo-100 text-xs font-medium rounded text-indigo-800">
+                                {file.length}
+                              </span>
+                            </div>
+                          )}
+                        </div>
 
-                          {file.currentOwner &&
-                            file.currentOwner.length > 0 && (
-                              <div className="text-sm text-gray-600 flex items-center">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 mr-1"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                  />
-                                </svg>
-                                <div className="flex flex-col">
+                        {/* Owner information */}
+                        <div className="border-t border-gray-100 pt-3">
+                          <div className="flex items-center text-sm text-gray-600">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 mr-2 flex-shrink-0"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                              />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                              {(
+                                Array.isArray(file.currentOwner)
+                                  ? file.currentOwner.length > 0
+                                  : !!file.currentOwner
+                              ) ? (
+                                <div className="space-y-1">
                                   {(ownersMap[file.id] || ["Loading..."]).map(
                                     (name, idx) => (
-                                      <span key={idx}>{name}</span>
+                                      <div
+                                        key={idx}
+                                        className="truncate text-sm"
+                                        title={name}
+                                      >
+                                        {name}
+                                      </div>
                                     )
                                   )}
                                 </div>
-                              </div>
-                            )}
+                              ) : (
+                                <div className="text-sm italic text-gray-400">
+                                  Not currently assigned to anyone
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -932,7 +1004,7 @@ export default function FolderPage() {
 
                           {/* Only show length as badge */}
                           {file.length && (
-                            <div className="ml-2 px-2 py-1 bg-indigo-100 text-xs font-semibold rounded-full whitespace-nowrap text-indigo-800">
+                            <div className="ml-2 px-2 py-1 bg-indigo-100 text-xs rounded font-semibold whitespace-nowrap text-indigo-800">
                               {file.length}
                             </div>
                           )}
@@ -976,7 +1048,7 @@ export default function FolderPage() {
                                 {file.fileName}
                               </span>
                               {file.length && (
-                                <div className="px-2 py-1 bg-indigo-100 text-xs font-semibold rounded-full whitespace-nowrap text-indigo-800">
+                                <div className="px-2 py-1 bg-indigo-100 text-xs font-semibold rounded whitespace-nowrap text-indigo-800">
                                   {file.length}
                                 </div>
                               )}
@@ -1011,7 +1083,7 @@ export default function FolderPage() {
                           </div>
 
                           {/* Divider Line and Reassign Button */}
-                          {user.role === "admin" &&
+                          {isPrivilegedUser &&
                             file.currentOwner.length === 1 && (
                               <>
                                 <hr className="border-gray-200 my-3" />
@@ -1060,7 +1132,7 @@ export default function FolderPage() {
           )}
 
           {/* Admin Modals */}
-          {user.role === "admin" && (
+          {isPrivilegedUser && (
             <>
               {isModalOpen && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
@@ -1242,15 +1314,133 @@ export default function FolderPage() {
 
                     {/* Success/Error Message (Only Show in Active Mode) */}
                     {assignMessage && (
-                      <p
-                        className={`mt-4 text-center ${
-                          assignMessage.type === "success"
-                            ? "text-green-500"
-                            : "text-red-500"
-                        }`}
-                      >
-                        {assignMessage.text}
-                      </p>
+                      <div className="mt-6 space-y-3">
+                        {/* Main Message */}
+                        <div
+                          className={`relative p-4 rounded-lg border ${
+                            assignMessage.type === "success"
+                              ? "bg-green-50 border-green-200 text-green-800"
+                              : "bg-red-50 border-red-200 text-red-800"
+                          }`}
+                        >
+                          <div className="flex items-start">
+                            {/* Icon */}
+                            <div className="flex-shrink-0">
+                              {assignMessage.type === "success" ? (
+                                <svg
+                                  className="h-5 w-5 text-green-400"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.236 4.53L7.53 10.23a.75.75 0 00-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              ) : (
+                                <svg
+                                  className="h-5 w-5 text-red-400"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+
+                            {/* Message Text */}
+                            <div className="ml-3 flex-1">
+                              <p className="text-sm font-medium">
+                                {assignMessage.text}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Undo Button with Countdown */}
+                        {undoData && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                  <svg
+                                    className="h-5 w-5 text-blue-400"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth="1.5"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                  </svg>
+                                </div>
+                                <div className="ml-3">
+                                  <p className="text-sm text-blue-800 font-medium">
+                                    Changed your mind?
+                                  </p>
+                                  <p className="text-xs text-blue-600 mt-1">
+                                    Undo expires in{" "}
+                                    {Math.ceil(undoTimeLeft / 1000)} seconds
+                                  </p>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  clearTimeout(undoData.timeoutId);
+                                  clearInterval(undoData.countdownInterval);
+                                  clearTimeout(undoData.historyTimeoutId);
+                                  // reverse what we just did
+                                  handleUnassignFile(undoData.userId, {
+                                    fileRef: undoData.fileRef,
+                                    fileName: undoData.fileName,
+                                  });
+                                  setUndoData(null);
+                                  setUndoTimeLeft(0);
+                                }}
+                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                              >
+                                <svg
+                                  className="h-3 w-3 mr-1"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
+                                  />
+                                </svg>
+                                Undo
+                              </button>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="w-full bg-blue-100 rounded-full h-1.5">
+                              <div
+                                className="bg-blue-500 h-1.5 rounded-full transition-all duration-100 ease-linear"
+                                style={{
+                                  width: `${(undoTimeLeft / 10000) * 100}%`,
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Close Button */}

@@ -9,7 +9,8 @@ import { useLayout } from "@/src/context/LayoutContext";
 import SearchHeader from "@/components/SearchHeader";
 
 export default function AllFolders() {
-  const { user, loading, toggleFavorite } = useUser();
+  const { user, loading, toggleFavorite, isPrivileged } = useUser();
+  const isPrivilegedUser = isPrivileged();
   const [folders, setFolders] = useState([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -24,7 +25,7 @@ export default function AllFolders() {
   }, []);
 
   useEffect(() => {
-    if (user?.role === "admin") {
+    if (isPrivilegedUser) {
       fetchAllFolders();
     }
   }, [user]);
@@ -106,7 +107,7 @@ export default function AllFolders() {
   }
 
   // Redirect non-admin users
-  if (user && user.role !== "admin") {
+  if (user && !isPrivilegedUser) {
     return (
       <main className="flex min-h-screen bg-mainBg text-gray-900">
         <div className="flex-1 flex items-center justify-center">

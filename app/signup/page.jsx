@@ -21,6 +21,7 @@ export default function SignUpPage() {
   const [role, setRole] = useState("user");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isStudent, setIsStudent] = useState(false);
 
   if (user) {
     router.push("/");
@@ -31,6 +32,12 @@ export default function SignUpPage() {
     e.preventDefault();
     setError("");
     setIsLoading(true);
+
+    if (isStudent && !graduationYear) {
+      setError("Please enter your graduation year.");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       await handleSignUp({
@@ -43,8 +50,17 @@ export default function SignUpPage() {
       });
       router.push("/");
     } catch (err) {
-      setError("Failed to sign up. Please try again.");
-      console.error(err);
+      console.error("Error signing up user:", err);
+
+      if (err.code === "auth/weak-password") {
+        setError("Password must be at least 6 characters long.");
+      } else if (err.code === "auth/email-already-in-use") {
+        setError("This email is already in use. Please try logging in.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else {
+        setError("Failed to sign up. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -125,19 +141,20 @@ export default function SignUpPage() {
                 required
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Graduation Year
-              </label>
-              <input
-                type="number"
-                value={graduationYear}
-                onChange={(e) => setGraduationYear(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="e.g. 2026"
-              />
-            </div>
+            {isStudent && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Graduation Year
+                </label>
+                <input
+                  type="number"
+                  value={graduationYear}
+                  onChange={(e) => setGraduationYear(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="e.g. 2026"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
@@ -150,7 +167,20 @@ export default function SignUpPage() {
               >
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
+                <option value="coach">Coach</option>
               </select>
+            </div>
+
+            <div>
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={isStudent}
+                  onChange={(e) => setIsStudent(e.target.checked)}
+                  className="form-checkbox h-4 w-4 text-blue-600"
+                />
+                <span>Are you a student?</span>
+              </label>
             </div>
 
             <button

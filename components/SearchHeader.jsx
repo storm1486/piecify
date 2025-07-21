@@ -10,7 +10,8 @@ import { useLayout } from "@/src/context/LayoutContext";
 import { db } from "@/app/firebase/firebase";
 
 export default function SearchHeader() {
-  const { user } = useUser();
+  const { user, isPrivileged } = useUser();
+  const isPrivilegedUser = isPrivileged();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -23,7 +24,7 @@ export default function SearchHeader() {
   // Fetch user's files for non-admins
   useEffect(() => {
     const fetchUserFiles = async () => {
-      if (!user || user.role === "admin") return;
+      if (!user || isPrivilegedUser) return;
       const userFileObjs = user.myFiles || [];
       const files = [];
 
@@ -81,7 +82,7 @@ export default function SearchHeader() {
     try {
       let filesToShow = [];
 
-      if (user?.role === "admin") {
+      if (isPrivilegedUser) {
         // Admin: search across all folders & files
         const foldersSnapshot = await getDocs(collection(db, "folders"));
         const allFiles = [];
@@ -186,7 +187,7 @@ export default function SearchHeader() {
                       key={index}
                       className="p-3 hover:bg-gray-100 cursor-pointer"
                     >
-                      {user.role === "admin" ? (
+                      {isPrivilegedUser ? (
                         <Link
                           href={`/viewDocuments/${file.folderId}/${file.id}`}
                           className="block"

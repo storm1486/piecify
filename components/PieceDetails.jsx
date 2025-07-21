@@ -6,7 +6,8 @@ import { db } from "../app/firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 
 export default function PieceDetails({ fileId, onClose }) {
-  const { user } = useUser();
+  const { user, isPrivileged } = useUser();
+  const isPrivilegedUser = isPrivileged();
   const [docData, setDocData] = useState(null);
   const [previousOwners, setPreviousOwners] = useState([]);
   const [currentOwner, setCurrentOwner] = useState(null);
@@ -154,7 +155,7 @@ export default function PieceDetails({ fileId, onClose }) {
       if (!fileId) throw new Error("File ID is missing!");
       const fileRef = doc(db, "files", fileId);
 
-      if (user?.role === "admin") {
+      if (isPrivilegedUser) {
         await updateDoc(fileRef, { intro: newIntro });
         setDocData((prevData) => ({ ...prevData, intro: newIntro }));
         alert("Intro updated successfully!");
@@ -182,7 +183,7 @@ export default function PieceDetails({ fileId, onClose }) {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-semibold">Piece Details</h1>
 
-          {(user?.role === "admin" || isUserCurrentOwner) && (
+          {(isPrivilegedUser || isUserCurrentOwner) && (
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -207,7 +208,7 @@ export default function PieceDetails({ fileId, onClose }) {
               {isMenuOpen && (
                 <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-700 shadow-lg rounded-lg z-30">
                   <ul className="py-2 text-gray-800 dark:text-white">
-                    {user?.role === "admin" && (
+                    {isPrivilegedUser && (
                       <li
                         className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
                         onClick={() => {
@@ -218,7 +219,7 @@ export default function PieceDetails({ fileId, onClose }) {
                         Edit Description
                       </li>
                     )}
-                    {(user?.role === "admin" || isUserCurrentOwner) && (
+                    {(isPrivilegedUser || isUserCurrentOwner) && (
                       <li
                         className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
                         onClick={() => {
