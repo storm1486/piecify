@@ -23,7 +23,9 @@ import SearchHeader from "@/components/SearchHeader";
 import TeamFileUpload from "@/components/TeamFileUpload";
 
 export default function Home() {
-  const { user, loading, toggleFavorite, fetchMyFiles } = useUser();
+  const { user, loading, toggleFavorite, fetchMyFiles, isPrivileged } =
+    useUser();
+  const isPrivilegedUser = isPrivileged();
   const { setActivePage } = useLayout();
   const [folders, setFolders] = useState([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
@@ -58,7 +60,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!activeTab && user) {
-      setActiveTab(user.role === "admin" ? "all" : "my");
+      setActiveTab(isPrivilegedUser ? "all" : "my");
     }
   }, [user, activeTab]);
 
@@ -141,7 +143,7 @@ export default function Home() {
 
   useEffect(() => {
     const fetchAllFilesWithUploader = async () => {
-      if (!user?.role || user.role !== "admin" || hasFetchedAllFiles.current)
+      if (!user?.role || !isPrivilegedUser || hasFetchedAllFiles.current)
         return;
       hasFetchedAllFiles.current = true;
 
@@ -379,7 +381,7 @@ export default function Home() {
             {/* Tab Navigation */}
             <div className="mb-6 border-b border-gray-200">
               <div className="flex space-x-8">
-                {user?.role === "admin" && (
+                {isPrivilegedUser && (
                   <button
                     onClick={() => setActiveTab("all")}
                     className={`pb-4 px-1 font-medium text-sm ${
@@ -392,7 +394,7 @@ export default function Home() {
                   </button>
                 )}
 
-                {user?.role === "admin" && (
+                {isPrivilegedUser && (
                   <button
                     onClick={() => setActiveTab("allFiles")}
                     className={`pb-4 px-1 font-medium text-sm ${
@@ -448,7 +450,7 @@ export default function Home() {
               </div>
             </div>
             {/* All Folders Tab Content */}
-            {activeTab === "all" && user?.role === "admin" && (
+            {activeTab === "all" && isPrivilegedUser && (
               <div>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -598,7 +600,7 @@ export default function Home() {
                 </div>
               </div>
             )}
-            {activeTab === "allFiles" && user?.role === "admin" && (
+            {activeTab === "allFiles" && isPrivilegedUser && (
               <div>
                 <div className="mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
@@ -937,7 +939,7 @@ export default function Home() {
                 </div>
 
                 {/* upload component */}
-                {user?.role === "admin" && (
+                {isPrivilegedUser && (
                   <TeamFileUpload
                     onUploadSuccess={() => fetchTeamFiles({ withCount: false })}
                   />

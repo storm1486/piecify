@@ -23,7 +23,8 @@ import { useLayout } from "@/src/context/LayoutContext";
 export default function FolderPage() {
   const { folderId } = useParams();
   const router = useRouter();
-  const { user, loading } = useUser();
+  const { user, loading, isPrivileged } = useUser();
+  const isPrivilegedUser = isPrivileged();
   const [folderName, setFolderName] = useState("");
   const [files, setFiles] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -112,7 +113,7 @@ export default function FolderPage() {
     }
 
     // Fetch users when the modal is open and user is an admin
-    if (user?.role === "admin") {
+    if (isPrivilegedUser) {
       fetchUsers();
     }
   }, [loading, user, folderId]);
@@ -1082,7 +1083,7 @@ export default function FolderPage() {
                           </div>
 
                           {/* Divider Line and Reassign Button */}
-                          {user.role === "admin" &&
+                          {isPrivilegedUser &&
                             file.currentOwner.length === 1 && (
                               <>
                                 <hr className="border-gray-200 my-3" />
@@ -1131,7 +1132,7 @@ export default function FolderPage() {
           )}
 
           {/* Admin Modals */}
-          {user.role === "admin" && (
+          {isPrivilegedUser && (
             <>
               {isModalOpen && (
                 <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">

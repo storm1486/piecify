@@ -51,6 +51,7 @@ interface UserContextProps {
     graduationYear: string;
     role: string;
   }) => Promise<void>;
+  isPrivileged: () => boolean;
 }
 
 const UserContext = createContext<UserContextProps | undefined>(undefined);
@@ -102,7 +103,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           }
 
           // Fetch all folders for admin
-          if (userData.role === "admin") {
+          if (["admin", "coach"].includes(userData.role)) {
             const folderSnapshot = await getDocs(collection(db, "folders"));
             userData.allFolders = folderSnapshot.docs.map((doc) => ({
               id: doc.id,
@@ -124,6 +125,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
     return () => unsubscribe();
   }, []);
+
+  const isPrivileged = () => {
+    return user?.role === "admin" || user?.role === "coach";
+  };
 
   const fetchMyFiles = async () => {
     if (!user) return;
@@ -308,7 +313,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         };
 
         // Fetch all folders for admin users
-        if (userData.role === "admin") {
+        if (["admin", "coach"].includes(userData.role)) {
           const folderSnapshot = await getDocs(collection(db, "folders"));
           userData.allFolders = folderSnapshot.docs.map((doc) => ({
             id: doc.id,
@@ -393,6 +398,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         handleLogout,
         handleLogin,
         handleSignUp,
+        isPrivileged,
       }}
     >
       {children}

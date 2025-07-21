@@ -14,7 +14,8 @@ export default function ViewFile() {
   const [docData, setDocData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
-  const { user, handleLogout, loading: userLoading } = useUser();
+  const { user, isPrivileged, loading: userLoading } = useUser();
+  const isPrivilegedUser = isPrivileged();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
@@ -332,7 +333,7 @@ export default function ViewFile() {
             <DocumentTags
               attributes={docData.attributes}
               fileId={fileId}
-              isAdmin={user?.role === "admin"}
+              isPrivilegedUser={isPrivilegedUser}
             />
           </div>
         </motion.header>

@@ -95,25 +95,43 @@ export default function CurrentTeam() {
     };
   }, []);
 
-  const toggleAdminRole = async (userId, currentRole) => {
-    try {
-      const userRef = doc(db, "users", userId);
-      const newRole = currentRole === "admin" ? "user" : "admin";
+  const toggleUserRole = async (targetUserId, targetRole) => {
+    if (!user || user.role !== "coach" || targetUserId === user.uid) return;
 
+    const userRef = doc(db, "users", targetUserId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return;
+
+    const currentRole = userSnap.data().role || "user";
+
+    let newRole = "user";
+    if (currentRole === targetRole) {
+      // If same role is clicked again, demote to user
+      newRole = "user";
+    } else {
+      // Assign selected role (either coach or admin)
+      newRole = targetRole;
+    }
+
+    try {
       await updateDoc(userRef, { role: newRole });
 
       setUsers((prevUsers) =>
-        prevUsers.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+        prevUsers.map((u) =>
+          u.id === targetUserId ? { ...u, role: newRole } : u
+        )
       );
 
-      console.log(`User ${userId} role updated to ${newRole}.`);
       setMenuOpen(null);
+      console.log(`User ${targetUserId} role updated to ${newRole}.`);
     } catch (error) {
       console.error("Error updating user role:", error);
     }
   };
 
   function getClassYearInfo(graduationYear) {
+    if (!graduationYear || isNaN(graduationYear)) return null;
+
     const currentYear = new Date().getFullYear();
     const diff = graduationYear - currentYear;
 
@@ -142,11 +160,14 @@ export default function CurrentTeam() {
         label: "Middle School",
         color: "bg-pink-100 text-pink-700 border-pink-200",
       };
+
+    return null;
   }
 
   const filteredUsers = users
     .filter((u) => {
-      const { label } = getClassYearInfo(Number(u.graduationYear));
+      const classInfo = getClassYearInfo(Number(u.graduationYear));
+      const label = classInfo?.label;
 
       if (yearFilter !== "all" && label !== yearFilter) return false;
       if (
@@ -338,12 +359,18 @@ export default function CurrentTeam() {
                           {/* Enhanced role badge */}
                           <span
                             className={`text-xs px-3 py-1 rounded-full font-medium border ${
-                              u.role === "admin"
+                              u.role === "coach"
+                                ? "bg-green-100 text-green-700 border-green-200"
+                                : u.role === "admin"
                                 ? "bg-blue-100 text-blue-700 border-blue-200"
                                 : "bg-gray-100 text-gray-700 border-gray-200"
                             }`}
                           >
-                            {u.role === "admin" ? "Admin" : "Member"}
+                            {u.role === "coach"
+                              ? "Coach"
+                              : u.role === "admin"
+                              ? "Admin"
+                              : "Member"}
                           </span>
 
                           {/* Enhanced class year badge */}
@@ -365,7 +392,7 @@ export default function CurrentTeam() {
                     </div>
 
                     {/* Enhanced admin controls */}
-                    {user?.role === "admin" && u.id !== user?.uid && (
+                    {user?.role === "coach" && u.id !== user?.uid && (
                       <div className="relative dropdown-menu">
                         <button
                           onClick={(e) => {
@@ -385,8 +412,9 @@ export default function CurrentTeam() {
 
                         {menuOpen === u.id && (
                           <div className="absolute right-0 mt-2 w-48 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg py-2 z-50 dropdown-menu border border-gray-200/50">
+                            {/* Toggle Admin */}
                             <button
-                              onClick={() => toggleAdminRole(u.id, u.role)}
+                              onClick={() => toggleUserRole(u.id, "admin")}
                               className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100/50 flex items-center transition-colors duration-200"
                             >
                               {u.role === "admin" ? (
@@ -409,7 +437,7 @@ export default function CurrentTeam() {
                               ) : (
                                 <>
                                   <svg
-                                    className="h-4 w-4 mr-3 text-green-500"
+                                    className="h-4 w-4 mr-3 text-blue-500"
                                     fill="none"
                                     viewBox="0 0 24 24"
                                     stroke="currentColor"
@@ -422,6 +450,48 @@ export default function CurrentTeam() {
                                     />
                                   </svg>
                                   Make Admin
+                                </>
+                              )}
+                            </button>
+
+                            {/* Toggle Coach */}
+                            <button
+                              onClick={() => toggleUserRole(u.id, "coach")}
+                              className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100/50 flex items-center transition-colors duration-200"
+                            >
+                              {u.role === "coach" ? (
+                                <>
+                                  <svg
+                                    className="h-4 w-4 mr-3 text-red-500"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                  </svg>
+                                  Remove Coach
+                                </>
+                              ) : (
+                                <>
+                                  <svg
+                                    className="h-4 w-4 mr-3 text-green-500"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                                    />
+                                  </svg>
+                                  Make Coach
                                 </>
                               )}
                             </button>
