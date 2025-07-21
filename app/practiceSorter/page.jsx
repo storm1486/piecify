@@ -283,12 +283,6 @@ export default function PracticeSorterPage() {
       setError("Please add at least one non-coach room for automatic sorting.");
       return;
     }
-    if (numReps > nonCoachRoomsCount) {
-      setError(
-        `Number of reps (${numReps}) cannot exceed available non-coach rooms (${nonCoachRoomsCount}).`
-      );
-      return;
-    }
 
     // build a Set of everyone in a coach room
     const coachNamesSet = new Set(
@@ -640,21 +634,11 @@ export default function PracticeSorterPage() {
                   <input
                     type="number"
                     min={1}
-                    max={
-                      allRooms.filter((room) => !coachRoomFlags[room]).length ||
-                      1
-                    }
                     className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     value={numReps}
                     onChange={(e) => setNumReps(e.target.value)}
                     placeholder="e.g. 2"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Max:{" "}
-                    {allRooms.filter((room) => !coachRoomFlags[room]).length ||
-                      0}{" "}
-                    (non-coach rooms)
-                  </p>
                 </div>
               </div>
             </div>
