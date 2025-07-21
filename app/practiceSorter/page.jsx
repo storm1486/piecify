@@ -356,17 +356,23 @@ export default function PracticeSorterPage() {
 
       // d) Merge manual coach rooms + auto rooms into one assignments object
       const result = {};
+      // ——— merge manual coach assignments first ———
       fixedRooms
-        .filter((r) => coachRoomFlags[r])
+        .filter((room) => coachRoomFlags[room])
         .forEach((room) => {
+          // pull the raw textarea value, split into lines
+          const manualPeople = (presetPeople[room] || "")
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean);
+
           result[room] = {
-            volunteer: volunteers[room],
-            people: (presetPeople[room] || "")
-              .split("\n")
-              .map((n) => n.trim())
-              .filter(Boolean),
+            volunteer: volunteers[room] || "",
+            people: manualPeople, // <-- preserves user order
           };
         });
+
+      // ——— then merge auto rooms as you already do ———
       Object.entries(autoResult).forEach(([room, data]) => {
         result[room] = data;
       });
