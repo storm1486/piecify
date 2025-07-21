@@ -154,26 +154,30 @@ export default function UploadMyFilesModal({
 
       // ✅ Create a Firestore document in `files`
       const fileRef = doc(db, "files", fileId);
-      const userRef = doc(db, "users", user.uid);
+      const now = new Date().toISOString();
+      const currentOwnerEntry = { userId: user.uid, dateGiven: now };
+
       await setDoc(fileRef, {
         fileId,
         fileName: fileName || file.name,
         fileUrl,
         uploadedBy: user.uid,
         uploadedByEmail: user.email,
-        length: length,
+        length,
         uploadedByName: `${user.firstName} ${user.lastName}`,
-        uploadedAt: new Date().toISOString(),
+        uploadedAt: now,
         pieceDescription: pieceDescription || "No description provided.",
         attributes: attributes || [],
-        currentOwner: userRef,
+        // initialize as an array, matching your reassign/upload logic:
+        currentOwner: [currentOwnerEntry],
+        previouslyOwned: [], // optional, but good to initialize
       });
 
       // ✅ Add file reference inside user's `myFiles`
       await updateDoc(doc(db, "users", user.uid), {
         myFiles: arrayUnion({
           fileRef: fileRef,
-          dateGiven: new Date().toISOString(),
+          dateGiven: now,
         }),
       });
 
