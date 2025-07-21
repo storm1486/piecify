@@ -25,11 +25,10 @@ export default function PracticeSorterPage() {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
   const coachRooms = useMemo(() => {
     return fixedRooms.filter((room) => coachRoomFlags[room]);
   }, [fixedRooms, coachRoomFlags]);
-
+  const [coachReps, setCoachReps] = useState({});
   const [numReps, setNumReps] = useState(2);
   const [practiceTemplates, setPracticeTemplates] = useState([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -242,13 +241,12 @@ export default function PracticeSorterPage() {
   };
 
   const handleSort = async () => {
-    // Validation
-    const { names, duplicates } = validateNames(nameInput);
+    // 1) Validate input names
+    const { names: inputNames, duplicates } = validateNames(nameInput);
     if (duplicates.length > 0) {
       setError(`Duplicate names found: ${duplicates.join(", ")}`);
       return;
     }
-
     if (duplicatePresetNames.length > 0) {
       setError(
         `Names appear in multiple coach rooms: ${duplicatePresetNames.join(
@@ -258,11 +256,26 @@ export default function PracticeSorterPage() {
       return;
     }
 
+    // 2) Pull in manual coach‐room names too
+    const manualCoachNames = Object.entries(presetPeople)
+      .filter(([room]) => coachRoomFlags[room])
+      .flatMap(([, text]) =>
+        text
+          .split("\n")
+          .map((n) => n.trim())
+          .filter(Boolean)
+      );
+    const names = Array.from(new Set([...inputNames, ...manualCoachNames]));
+    if (names.length === 0) {
+      setError("Please add at least one participant.");
+      return;
+    }
+
+    // 3) Ensure you have rooms to sort into
     if (allRooms.length === 0) {
       setError("Please add at least one room before sorting.");
       return;
     }
-
     const nonCoachRoomsCount = allRooms.filter(
       (room) => !coachRoomFlags[room]
     ).length;
@@ -270,7 +283,6 @@ export default function PracticeSorterPage() {
       setError("Please add at least one non-coach room for automatic sorting.");
       return;
     }
-
     if (numReps > nonCoachRoomsCount) {
       setError(
         `Number of reps (${numReps}) cannot exceed available non-coach rooms (${nonCoachRoomsCount}).`
@@ -278,129 +290,98 @@ export default function PracticeSorterPage() {
       return;
     }
 
+    // build a Set of everyone in a coach room
+    const coachNamesSet = new Set(
+      fixedRooms
+        .filter((r) => coachRoomFlags[r])
+        .flatMap((r) =>
+          (presetPeople[r] || "")
+            .split("\n")
+            .map((n) => n.trim())
+            .filter(Boolean)
+        )
+    );
+
+    // 4) Perform the assignment
     setIsLoading(true);
     setError("");
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // a) How many reps remain for each person?
+      // a) Build repsLeft map by counting coach-room assignments as 1 rep each
+      const repsLeft = {};
+      names.forEach((name) => {
+        // count how many coach rooms this person is in
+        const used = fixedRooms.reduce((count, room) => {
+          if (!coachRoomFlags[room]) return count;
+          const assigned = (presetPeople[room] || "")
+            .split("\n")
+            .map((n) => n.trim());
+          return assigned.includes(name) ? count + 1 : count;
+        }, 0);
 
-      const allNames = names;
-      const coachRoomsList = fixedRooms.filter((room) => coachRoomFlags[room]);
-      const nonCoachRoomsList = fixedRooms.filter(
-        (room) => !coachRoomFlags[room]
-      );
-
-      const coachRooms = coachRoomsList.map((room) => [room, volunteers[room]]);
-      const nonCoachRooms = nonCoachRoomsList.map((room) => [
-        room,
-        volunteers[room],
-      ]);
-
-      const coachRoomNames = coachRooms
-        .map(([room]) => presetPeople[room] || "")
-        .flatMap((names) => names.split("\n").map((n) => n.trim()))
-        .filter(Boolean);
-
-      const unassignedNames = allNames.filter(
-        (name) => !coachRoomNames.includes(name)
-      );
-
-      const personUsedPositions = {};
-      const result = {};
-
-      // Add coach rooms with manual entries
-      coachRooms.forEach(([room, coach]) => {
-        const manualPeople =
-          presetPeople[room]
-            ?.split("\n")
-            .map((n) => n.trim())
-            .filter(Boolean) || [];
-
-        result[room] = {
-          volunteer: volunteers[room],
-          people: manualPeople,
-        };
+        // subtract from total reps
+        repsLeft[name] = Math.max(0, numReps - used);
       });
 
-      // Prepare non-coach rooms
-      const extraRooms = dynamicRooms.filter((r) => r.name.trim());
-      const nonCoachRoomObjects = [
-        ...nonCoachRooms.map(([room]) => ({
-          name: room,
-          volunteer: volunteers[room] || "",
-        })),
-        ...extraRooms,
-      ];
-
-      nonCoachRoomObjects.forEach((r) => {
-        result[r.name] = {
-          volunteer: r.volunteer,
-          people: [],
-        };
-      });
-
-      const NUM_REPS = Math.max(
-        1,
-        Math.min(parseInt(numReps || "2", 10), nonCoachRoomObjects.length)
+      // b) Build your list of auto-rooms and trackers
+      const nonCoachRooms = fixedRooms
+        .filter((r) => !coachRoomFlags[r])
+        .concat(dynamicRooms.map((r) => r.name).filter(Boolean));
+      const roomLoad = Object.fromEntries(nonCoachRooms.map((r) => [r, 0]));
+      const autoResult = Object.fromEntries(
+        nonCoachRooms.map((r) => [
+          r,
+          { volunteer: volunteers[r] || "", people: [] },
+        ])
       );
 
-      // Initialize load tracker
-      const roomLoad = {};
-      nonCoachRoomObjects.forEach((r) => {
-        roomLoad[r.name] = 0;
-      });
+      // c) Run numReps passes, assigning only those with repsLeft>0
+      for (let pass = 0; pass < numReps; pass++) {
+        const pool = names.filter((n) => repsLeft[n] > 0);
+        if (pool.length === 0) break;
+        pool.sort(() => Math.random() - 0.5);
+        pool.forEach((name) => {
+          const isCoach = coachNamesSet.has(name);
 
-      // Shuffle unassigned names
-      const shuffledNames = [...unassignedNames].sort(
-        () => Math.random() - 0.5
-      );
+          // if this person is in a coach room, only pick from rooms with at least 1 person
+          let candidates = nonCoachRooms.filter(
+            (r) => !isCoach || autoResult[r].people.length > 0
+          );
+          // fallback to all rooms if none have anyone yet
+          if (candidates.length === 0) candidates = [...nonCoachRooms];
 
-      for (const name of shuffledNames) {
-        const availableRooms = [...nonCoachRoomObjects]
-          .map((r) => r.name)
-          .filter((room) => !result[room].people.includes(name));
-
-        const sortedRooms = availableRooms
-          .map((room) => ({
-            room,
-            load: roomLoad[room],
-            rand: Math.random(),
-          }))
-          .sort((a, b) => {
-            if (a.load === b.load) return a.rand - b.rand;
-            return a.load - b.load;
-          })
-          .map((entry) => entry.room);
-
-        const selectedRooms = sortedRooms.slice(0, NUM_REPS);
-
-        if (selectedRooms.length < NUM_REPS) continue;
-        if (!personUsedPositions[name]) personUsedPositions[name] = new Set();
-
-        selectedRooms.forEach((room) => {
-          const roomPeople = result[room].people;
-
-          let insertIndex = 0;
-          while (personUsedPositions[name].has(insertIndex)) {
-            insertIndex++;
-          }
-
-          if (insertIndex >= roomPeople.length) {
-            roomPeople.push(name);
-          } else {
-            roomPeople.splice(insertIndex, 0, name);
-          }
-
-          personUsedPositions[name].add(insertIndex);
-          roomLoad[room]++;
+          // now pick the least-loaded among candidates
+          const selectedRoom = candidates
+            .map((r) => ({ r, load: roomLoad[r] }))
+            .sort((a, b) => a.load - b.load)[0].r;
+          autoResult[selectedRoom].people.push(name);
+          roomLoad[selectedRoom]++;
+          repsLeft[name]--;
         });
       }
+
+      // d) Merge manual coach rooms + auto rooms into one assignments object
+      const result = {};
+      fixedRooms
+        .filter((r) => coachRoomFlags[r])
+        .forEach((room) => {
+          result[room] = {
+            volunteer: volunteers[room],
+            people: (presetPeople[room] || "")
+              .split("\n")
+              .map((n) => n.trim())
+              .filter(Boolean),
+          };
+        });
+      Object.entries(autoResult).forEach(([room, data]) => {
+        result[room] = data;
+      });
 
       setAssignments(result);
       setSuccessMessage("Participants sorted successfully!");
     } catch (err) {
-      setError("An error occurred while sorting. Please try again.");
       console.error("Sorting error:", err);
+      setError("An error occurred while sorting. Please try again.");
     } finally {
       setIsLoading(false);
     }
