@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useMemo } from "react";
+import { NonceProvider } from "react-select";
 
 export default function PracticeSorterPage() {
   const [nameInput, setNameInput] = useState("");
@@ -39,6 +40,9 @@ export default function PracticeSorterPage() {
   const { setActivePage } = useLayout();
   const roomListRef = useRef();
   const [duoInput, setDuoInput] = useState("");
+  // with these two:
+  const [speechInput, setSpeechInput] = useState("");
+  const [debateInput, setDebateInput] = useState("");
 
   // Auto-clear messages
   useEffect(() => {
@@ -249,36 +253,77 @@ export default function PracticeSorterPage() {
     setDynamicRooms(updatedRooms);
   };
 
+  function autoAssign(namesList, roomsList) {
+    // build roomLoad & initial result object
+    const roomLoad = Object.fromEntries(roomsList.map((r) => [r, 0]));
+    const result = Object.fromEntries(
+      roomsList.map((r) => [r, { volunteer: volunteers[r] || "", people: [] }])
+    );
+
+    // initialize reps-left for each individual
+    const individualRepsLeft = {};
+    namesList.forEach((entry) => {
+      const people = entry.includes(" and ")
+        ? entry.split(" and ").map((n) => n.trim().toLowerCase())
+        : [entry.trim().toLowerCase()];
+      people.forEach((p) => {
+        if (!(p in individualRepsLeft)) {
+          individualRepsLeft[p] = numReps;
+        }
+      });
+    });
+
+    // loop until nobody left who can be assigned
+    let still;
+    do {
+      still = false;
+      const pool = namesList.filter((entry) => {
+        const people = entry.includes(" and ")
+          ? entry.split(" and ").map((n) => n.trim().toLowerCase())
+          : [entry.trim().toLowerCase()];
+        return people.every((p) => individualRepsLeft[p] > 0);
+      });
+      if (!pool.length) break;
+
+      pool
+        .sort(() => Math.random() - 0.5)
+        .forEach((entry) => {
+          const people = entry.includes(" and ")
+            ? entry.split(" and ").map((n) => n.trim().toLowerCase())
+            : [entry.trim().toLowerCase()];
+          if (people.every((p) => individualRepsLeft[p] > 0)) {
+            // pick the least-loaded room
+            const selectedRoom = roomsList
+              .map((r) => ({ r, load: roomLoad[r] }))
+              .sort((a, b) => a.load - b.load)[0].r;
+
+            // assign into the correct room key
+            result[selectedRoom].people.push(entry);
+            roomLoad[selectedRoom] += 1;
+            people.forEach((p) => individualRepsLeft[p]--);
+            still = true;
+          }
+        });
+    } while (still);
+
+    return result;
+  }
+
   const handleSort = async () => {
-    // 1) Validate input names
-    const { names: inputNames, duplicates } = validateNames(nameInput);
-    if (duplicates.length > 0) {
-      setError(`Duplicate names found: ${duplicates.join(", ")}`);
-      return;
-    }
-    if (duplicatePresetNames.length > 0) {
-      setError(
-        `Names appear in multiple coach rooms: ${duplicatePresetNames.join(
-          ", "
-        )}`
-      );
-      return;
-    }
+    // 1) build each pool
+    const speechNames = speechInput
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    const debateNames = debateInput
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
 
     const duoNames = duoInput
       .split("\n")
       .map((n) => n.trim())
       .filter(Boolean);
-
-    // Helper to extract people from an entry (solo or duo)
-    const extractIndividuals = (entry) => {
-      return entry.toLowerCase().includes(" and ")
-        ? entry
-            .toLowerCase()
-            .split(" and ")
-            .map((n) => n.trim())
-        : [entry.toLowerCase().trim()];
-    };
 
     // 2) Pull in manual coach‐room names too
     const manualCoachNames = Object.entries(presetPeople)
@@ -289,13 +334,30 @@ export default function PracticeSorterPage() {
           .map((n) => n.trim())
           .filter(Boolean)
       );
+
+    // 3) combine & validate
     const names = Array.from(
-      new Set([...inputNames, ...duoNames, ...manualCoachNames])
+      new Set([
+        ...speechNames,
+        ...debateNames,
+        ...duoNames,
+        ...manualCoachNames,
+      ])
     );
     if (names.length === 0) {
-      setError("Please add at least one participant.");
+      setError("Please add at least one participant in speech or debate.");
       return;
     }
+
+    // Helper to extract people from an entry (solo or duo)
+    const extractIndividuals = (entry) => {
+      return entry.toLowerCase().includes(" and ")
+        ? entry
+            .toLowerCase()
+            .split(" and ")
+            .map((n) => n.trim())
+        : [entry.toLowerCase().trim()];
+    };
 
     // 3) Ensure you have rooms to sort into
     if (allRooms.length === 0) {
@@ -394,31 +456,61 @@ export default function PracticeSorterPage() {
         });
       }
 
-      // d) Merge manual coach rooms + auto rooms into one assignments object
-      const result = {};
-      // ——— merge manual coach assignments first ———
-      fixedRooms
-        .filter((room) => coachRoomFlags[room])
-        .forEach((room) => {
-          // pull the raw textarea value, split into lines
-          const manualPeople = (presetPeople[room] || "")
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean);
+      // 1) Build two name pools at the top of handleSort
+      const speechNames = speechInput
+        .split("\n")
+        .map((n) => n.trim())
+        .filter(Boolean);
+      const debateNames = debateInput
+        .split("\n")
+        .map((n) => n.trim())
+        .filter(Boolean);
 
+      // 2) Gather all non-coach rooms
+      const nonCoach = fixedRooms
+        .filter((r) => !coachRoomFlags[r])
+        .concat(dynamicRooms.map((r) => r.name).filter(Boolean));
+
+      console.log("nonCoach", nonCoach);
+
+      // 3) Split them by type
+      const speechRooms = nonCoach.filter((r) => roomTypeFlags[r] === "speech");
+      console.log("speechRooms", speechRooms);
+      const debateRooms = nonCoach.filter((r) => roomTypeFlags[r] === "debate");
+      console.log("debateRooms", debateRooms);
+
+      // 4) Early exits if no rooms for a pool
+      if (speechNames.length && speechRooms.length === 0) {
+        setError("No speech rooms available for sorting.");
+        return;
+      }
+      if (debateNames.length && debateRooms.length === 0) {
+        setError("No debate rooms available for sorting.");
+        return;
+      }
+
+      // 5) Run your autoAssign helper on each pool
+      const speechAssignment = autoAssign(speechNames, speechRooms);
+      const debateAssignment = autoAssign(debateNames, debateRooms);
+
+      // 6) Merge manual (coach) + both auto pools
+      const result = {};
+      fixedRooms
+        .filter((r) => coachRoomFlags[r])
+        .forEach((room) => {
           result[room] = {
             volunteer: volunteers[room] || "",
-            people: manualPeople, // <-- preserves user order
+            people: (presetPeople[room] || "")
+              .split("\n")
+              .map((l) => l.trim())
+              .filter(Boolean),
           };
         });
+      Object.assign(result, speechAssignment, debateAssignment);
 
-      // ——— then merge auto rooms as you already do ———
-      Object.entries(autoResult).forEach(([room, data]) => {
-        result[room] = data;
-      });
-
+      // 7) Set the final assignments
       setAssignments(result);
-      setSuccessMessage("Participants sorted successfully!");
+      setSuccessMessage("Sorted speech & debate participants!");
     } catch (err) {
       console.error("Sorting error:", err);
       setError("An error occurred while sorting. Please try again.");
@@ -441,10 +533,10 @@ export default function PracticeSorterPage() {
   };
 
   const canSort =
-    nameInput.trim() &&
+    (speechInput.trim() || debateInput.trim()) &&
     allRooms.length > 0 &&
     numReps &&
-    allRooms.filter((room) => !coachRoomFlags[room]).length > 0;
+    allRooms.filter((r) => !coachRoomFlags[r]).length > 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 print:bg-white print:min-h-0">
@@ -681,15 +773,29 @@ export default function PracticeSorterPage() {
                   {totalPeople} {totalPeople === 1 ? "person" : "people"}
                 </span>
               </h2>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Paste names (one per line):
-              </label>
-              <textarea
-                className="w-full border border-gray-300 rounded-lg p-3 h-32 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                placeholder={`John Doe\nJane Smith\nMike Johnson`}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Speech pool */}
+                <div>
+                  <h3 className="font-medium">Speech Participants</h3>
+                  <textarea
+                    className="w-full border p-2 rounded h-32"
+                    value={speechInput}
+                    onChange={(e) => setSpeechInput(e.target.value)}
+                    placeholder={`Alice\nBob\nCharlie`}
+                  />
+                </div>
+
+                {/* Debate pool */}
+                <div>
+                  <h3 className="font-medium">Debate Participants</h3>
+                  <textarea
+                    className="w-full border p-2 rounded h-32"
+                    value={debateInput}
+                    onChange={(e) => setDebateInput(e.target.value)}
+                    placeholder={`Xavier\nYolanda\nZoe`}
+                  />
+                </div>
+              </div>
 
               {/* Validation warnings */}
               {(() => {
@@ -1301,7 +1407,7 @@ export default function PracticeSorterPage() {
                 <div className="mb-6">
                   <div className="flex items-center justify-between ">
                     <label className="text-sm font-semibold text-gray-700">
-                      Practice Rooms
+                      Practice Rooms *
                     </label>
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                       {newTemplateRooms.length} room
@@ -1347,7 +1453,7 @@ export default function PracticeSorterPage() {
                             {/* Room Number */}
                             <div className="flex-1">
                               <label className="block text-xs font-medium text-gray-600 mb-1">
-                                Room Number
+                                Room Number *
                               </label>
                               <input
                                 type="text"
