@@ -37,6 +37,7 @@ export default function PracticeSorterPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const { setActivePage } = useLayout();
   const roomListRef = useRef();
+  const [duoInput, setDuoInput] = useState("");
 
   // Auto-clear messages
   useEffect(() => {
@@ -256,6 +257,21 @@ export default function PracticeSorterPage() {
       return;
     }
 
+    const duoNames = duoInput
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
+
+    // Helper to extract people from an entry (solo or duo)
+    const extractIndividuals = (entry) => {
+      return entry.toLowerCase().includes(" and ")
+        ? entry
+            .toLowerCase()
+            .split(" and ")
+            .map((n) => n.trim())
+        : [entry.toLowerCase().trim()];
+    };
+
     // 2) Pull in manual coach‐room names too
     const manualCoachNames = Object.entries(presetPeople)
       .filter(([room]) => coachRoomFlags[room])
@@ -265,7 +281,9 @@ export default function PracticeSorterPage() {
           .map((n) => n.trim())
           .filter(Boolean)
       );
-    const names = Array.from(new Set([...inputNames, ...manualCoachNames]));
+    const names = Array.from(
+      new Set([...inputNames, ...duoNames, ...manualCoachNames])
+    );
     if (names.length === 0) {
       setError("Please add at least one participant.");
       return;
@@ -302,19 +320,23 @@ export default function PracticeSorterPage() {
     try {
       // a) How many reps remain for each person?
       // a) Build repsLeft map by counting coach-room assignments as 1 rep each
-      const repsLeft = {};
-      names.forEach((name) => {
-        // count how many coach rooms this person is in
-        const used = fixedRooms.reduce((count, room) => {
-          if (!coachRoomFlags[room]) return count;
-          const assigned = (presetPeople[room] || "")
-            .split("\n")
-            .map((n) => n.trim());
-          return assigned.includes(name) ? count + 1 : count;
-        }, 0);
+      const individualRepsLeft = {};
+      names.forEach((entry) => {
+        const individuals = extractIndividuals(entry);
+        individuals.forEach((person) => {
+          if (!individualRepsLeft[person]) {
+            // Count how many coach rooms this person is in
+            const used = fixedRooms.reduce((count, room) => {
+              if (!coachRoomFlags[room]) return count;
+              const assigned = (presetPeople[room] || "")
+                .split("\n")
+                .map((n) => n.trim().toLowerCase());
+              return assigned.includes(person) ? count + 1 : count;
+            }, 0);
 
-        // subtract from total reps
-        repsLeft[name] = Math.max(0, numReps - used);
+            individualRepsLeft[person] = Math.max(0, numReps - used);
+          }
+        });
       });
 
       // b) Build your list of auto-rooms and trackers
@@ -330,27 +352,37 @@ export default function PracticeSorterPage() {
       );
 
       // c) Run numReps passes, assigning only those with repsLeft>0
-      for (let pass = 0; pass < numReps; pass++) {
-        const pool = names.filter((n) => repsLeft[n] > 0);
+      let stillSorting = true;
+      while (stillSorting) {
+        stillSorting = false;
+
+        const pool = names.filter((entry) => {
+          const people = extractIndividuals(entry);
+          return people.every((p) => individualRepsLeft[p] > 0);
+        });
+
         if (pool.length === 0) break;
-        pool.sort(() => Math.random() - 0.5);
-        pool.forEach((name) => {
-          const isCoach = coachNamesSet.has(name);
 
-          // if this person is in a coach room, only pick from rooms with at least 1 person
-          let candidates = nonCoachRooms.filter(
-            (r) => !isCoach || autoResult[r].people.length > 0
-          );
-          // fallback to all rooms if none have anyone yet
-          if (candidates.length === 0) candidates = [...nonCoachRooms];
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
 
-          // now pick the least-loaded among candidates
-          const selectedRoom = candidates
-            .map((r) => ({ r, load: roomLoad[r] }))
-            .sort((a, b) => a.load - b.load)[0].r;
-          autoResult[selectedRoom].people.push(name);
-          roomLoad[selectedRoom]++;
-          repsLeft[name]--;
+        shuffled.forEach((entry) => {
+          const people = extractIndividuals(entry);
+          if (people.every((p) => individualRepsLeft[p] > 0)) {
+            const isCoach = people.some((p) => coachNamesSet.has(p));
+            let candidates = nonCoachRooms.filter(
+              (r) => !isCoach || autoResult[r].people.length > 0
+            );
+            if (candidates.length === 0) candidates = [...nonCoachRooms];
+
+            const selectedRoom = candidates
+              .map((r) => ({ r, load: roomLoad[r] }))
+              .sort((a, b) => a.load - b.load)[0].r;
+
+            autoResult[selectedRoom].people.push(entry);
+            roomLoad[selectedRoom]++;
+            people.forEach((p) => individualRepsLeft[p]--);
+            stillSorting = true;
+          }
         });
       }
 
@@ -511,6 +543,44 @@ export default function PracticeSorterPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {/* Configuration Panel */}
           <div className="space-y-8 print:hidden">
+            {/* Quick Tips */}
+            {!Object.keys(assignments).length && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <h3 className="font-medium text-blue-900 mb-2 flex items-center">
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  Quick Tips
+                </h3>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>
+                    • Coach rooms are for manual assignments (won&apos;t be
+                    auto-sorted)
+                  </li>
+                  <li>
+                    • Regular rooms will be automatically filled based on your
+                    rep count
+                  </li>
+                  <li>
+                    • Each person will be assigned to exactly the number of reps
+                    you specify
+                  </li>
+                  <li>
+                    • Load balancing ensures even distribution across rooms
+                  </li>
+                </ul>
+              </div>
+            )}
             {/* Templates */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-semibold mb-4">Room Templates</h2>
@@ -626,6 +696,19 @@ export default function PracticeSorterPage() {
               })()}
             </div>
 
+            {/* Duo Sort */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold mb-4">Duos</h2>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Add duo names (e.g. Jack and Jill), one per line:
+              </label>
+              <textarea
+                className="w-full border border-gray-300 rounded-lg p-3 h-24"
+                value={duoInput}
+                onChange={(e) => setDuoInput(e.target.value)}
+                placeholder={`Jack and Jill\nJohn and Doe`}
+              />
+            </div>
             {/* Assignment Settings */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
@@ -946,45 +1029,6 @@ export default function PracticeSorterPage() {
                 </button>
               )}
             </div>
-
-            {/* Quick Tips */}
-            {!Object.keys(assignments).length && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <h3 className="font-medium text-blue-900 mb-2 flex items-center">
-                  <svg
-                    className="w-4 h-4 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  Quick Tips
-                </h3>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>
-                    • Coach rooms are for manual assignments (won&apos;t be
-                    auto-sorted)
-                  </li>
-                  <li>
-                    • Regular rooms will be automatically filled based on your
-                    rep count
-                  </li>
-                  <li>
-                    • Each person will be assigned to exactly the number of reps
-                    you specify
-                  </li>
-                  <li>
-                    • Load balancing ensures even distribution across rooms
-                  </li>
-                </ul>
-              </div>
-            )}
           </div>
 
           {/* Results Panel */}
