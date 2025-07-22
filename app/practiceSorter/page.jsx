@@ -29,6 +29,7 @@ export default function PracticeSorterPage() {
     return fixedRooms.filter((room) => coachRoomFlags[room]);
   }, [fixedRooms, coachRoomFlags]);
   const [coachReps, setCoachReps] = useState({});
+  const [roomTypeFlags, setRoomTypeFlags] = useState({});
   const [numReps, setNumReps] = useState(2);
   const [practiceTemplates, setPracticeTemplates] = useState([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -131,12 +132,14 @@ export default function PracticeSorterPage() {
 
   const handleSaveTemplate = async () => {
     try {
-      const rooms = newTemplateRooms.map(({ name, volunteer, coachLed }) => ({
-        name: name.trim(),
-        volunteer: volunteer?.trim() || "",
-        coachLed: !!coachLed,
-      }));
-
+      const rooms = newTemplateRooms.map(
+        ({ name, volunteer, coachLed, roomType }) => ({
+          name: name.trim(),
+          volunteer: volunteer?.trim() || "",
+          coachLed: !!coachLed,
+          roomType: roomType || "speech", // or null/"" if you want no default
+        })
+      );
       await addDoc(collection(db, "practiceTemplates"), {
         name: newTemplateName.trim(),
         rooms,
@@ -186,6 +189,10 @@ export default function PracticeSorterPage() {
   const loadTemplate = (template) => {
     const templateRooms = template.rooms || [];
 
+    const typeMap = Object.fromEntries(
+      templateRooms.map((r) => [r.name, r.roomType || ""])
+    );
+
     const roomNames = templateRooms.map((r) => r.name);
     const volunteerMap = Object.fromEntries(
       templateRooms.map((r) => [r.name, r.volunteer])
@@ -195,6 +202,7 @@ export default function PracticeSorterPage() {
       templateRooms.map((r) => [r.name, !!r.coachLed])
     );
 
+    setRoomTypeFlags(typeMap);
     setFixedRooms(roomNames);
     setVolunteers(volunteerMap);
     setPresetPeople(presetMap);
@@ -614,7 +622,8 @@ export default function PracticeSorterPage() {
                       <option value="">Select a template</option>
                       {practiceTemplates.map((t) => (
                         <option key={t.id} value={t.id}>
-                          {t.name} ({t.rooms?.length || 0} rooms)
+                          {t.name} ({t.rooms?.length || 0}{" "}
+                          {t.rooms?.length > 1 ? "rooms" : "room"})
                         </option>
                       ))}
                     </select>
@@ -1290,7 +1299,7 @@ export default function PracticeSorterPage() {
 
                 {/* Rooms Section */}
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between ">
                     <label className="text-sm font-semibold text-gray-700">
                       Practice Rooms
                     </label>
@@ -1299,6 +1308,9 @@ export default function PracticeSorterPage() {
                       {newTemplateRooms.length !== 1 ? "s" : ""}
                     </span>
                   </div>
+                  <p className="block text-sm font-semibold text-red-700 mb-4">
+                    Include rooms that have no volunteers as well!
+                  </p>
 
                   {/* Rooms List */}
                   <div
@@ -1363,7 +1375,7 @@ export default function PracticeSorterPage() {
                                   updated[index].volunteer = e.target.value;
                                   setNewTemplateRooms(updated);
                                 }}
-                                placeholder="Volunteer name"
+                                placeholder="Volunteer name (can be left blank)"
                                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                               />
                             </div>
@@ -1417,6 +1429,21 @@ export default function PracticeSorterPage() {
                                 (for manual assignments)
                               </span>
                             </label>
+                            <label className="flex items-center gap-2">
+                              <span className="text-sm">Room category:</span>
+                              <select
+                                value={room.roomType}
+                                onChange={(e) => {
+                                  const updated = [...newTemplateRooms];
+                                  updated[index].roomType = e.target.value;
+                                  setNewTemplateRooms(updated);
+                                }}
+                              >
+                                <option value="">— select —</option>
+                                <option value="speech">Speech</option>
+                                <option value="debate">Debate</option>
+                              </select>
+                            </label>
                           </div>
                         </div>
                       ))
@@ -1428,7 +1455,12 @@ export default function PracticeSorterPage() {
                     onClick={() =>
                       setNewTemplateRooms([
                         ...newTemplateRooms,
-                        { name: "", volunteer: "", coachLed: false },
+                        {
+                          name: "",
+                          volunteer: "",
+                          coachLed: false,
+                          roomType: "",
+                        },
                       ])
                     }
                     className="w-full mt-4 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg py-3 px-4 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-2 font-medium"
