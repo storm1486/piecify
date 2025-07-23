@@ -71,7 +71,11 @@ export default function PracticeSorterPage() {
     return [...fixedRooms, ...dynamicRooms.map((r) => r.name).filter(Boolean)];
   }, [fixedRooms, dynamicRooms]);
 
-  const totalPeople = nameInput.split("\n").filter((n) => n.trim()).length;
+  // Get total people from all inputs
+  const speechPeople = speechInput.split("\n").filter((n) => n.trim()).length;
+  const debatePeople = debateInput.split("\n").filter((n) => n.trim()).length;
+  const duoPeople = duoInput.split("\n").filter((n) => n.trim()).length;
+  const totalPeople = speechPeople + debatePeople + duoPeople;
   const assignedPeople = Object.values(assignments).reduce(
     (sum, room) => sum + room.people.length,
     0
@@ -219,7 +223,10 @@ export default function PracticeSorterPage() {
   };
 
   const handleAddRoom = () => {
-    setDynamicRooms([...dynamicRooms, { name: "", volunteer: "" }]);
+    setDynamicRooms([
+      ...dynamicRooms,
+      { name: "", volunteer: "", roomType: "" },
+    ]);
   };
 
   const handleRemoveFixedRoom = (room) => {
@@ -253,210 +260,77 @@ export default function PracticeSorterPage() {
     setDynamicRooms(updatedRooms);
   };
 
-  function autoAssign(namesList, roomsList) {
-    // build roomLoad & initial result object
-    const roomLoad = Object.fromEntries(roomsList.map((r) => [r, 0]));
+  // Improved assignment function that respects rep limits
+  const assignToRooms = (participantList, availableRooms, globalRepsLeft) => {
+    const roomLoad = Object.fromEntries(availableRooms.map((r) => [r, 0]));
     const result = Object.fromEntries(
-      roomsList.map((r) => [r, { volunteer: volunteers[r] || "", people: [] }])
-    );
-
-    // initialize reps-left for each individual
-    const individualRepsLeft = {};
-    namesList.forEach((entry) => {
-      const people = entry.includes(" and ")
-        ? entry.split(" and ").map((n) => n.trim().toLowerCase())
-        : [entry.trim().toLowerCase()];
-      people.forEach((p) => {
-        if (!(p in individualRepsLeft)) {
-          individualRepsLeft[p] = numReps;
-        }
-      });
-    });
-
-    // loop until nobody left who can be assigned
-    let still;
-    do {
-      still = false;
-      const pool = namesList.filter((entry) => {
-        const people = entry.includes(" and ")
-          ? entry.split(" and ").map((n) => n.trim().toLowerCase())
-          : [entry.trim().toLowerCase()];
-        return people.every((p) => individualRepsLeft[p] > 0);
-      });
-      if (!pool.length) break;
-
-      pool
-        .sort(() => Math.random() - 0.5)
-        .forEach((entry) => {
-          const people = entry.includes(" and ")
-            ? entry.split(" and ").map((n) => n.trim().toLowerCase())
-            : [entry.trim().toLowerCase()];
-          if (people.every((p) => individualRepsLeft[p] > 0)) {
-            // pick the least-loaded room
-            const selectedRoom = roomsList
-              .map((r) => ({ r, load: roomLoad[r] }))
-              .sort((a, b) => a.load - b.load)[0].r;
-
-            // assign into the correct room key
-            result[selectedRoom].people.push(entry);
-            roomLoad[selectedRoom] += 1;
-            people.forEach((p) => individualRepsLeft[p]--);
-            still = true;
-          }
-        });
-    } while (still);
-
-    return result;
-  }
-
-  const handleSort = async () => {
-    // 1) build each pool
-    const speechNames = speechInput
-      .split("\n")
-      .map((n) => n.trim())
-      .filter(Boolean);
-    const debateNames = debateInput
-      .split("\n")
-      .map((n) => n.trim())
-      .filter(Boolean);
-
-    const duoNames = duoInput
-      .split("\n")
-      .map((n) => n.trim())
-      .filter(Boolean);
-
-    // 2) Pull in manual coach‐room names too
-    const manualCoachNames = Object.entries(presetPeople)
-      .filter(([room]) => coachRoomFlags[room])
-      .flatMap(([, text]) =>
-        text
-          .split("\n")
-          .map((n) => n.trim())
-          .filter(Boolean)
-      );
-
-    // 3) combine & validate
-    const names = Array.from(
-      new Set([
-        ...speechNames,
-        ...debateNames,
-        ...duoNames,
-        ...manualCoachNames,
+      availableRooms.map((r) => [
+        r,
+        { volunteer: volunteers[r] || "", people: [] },
       ])
     );
-    if (names.length === 0) {
-      setError("Please add at least one participant in speech or debate.");
-      return;
-    }
 
-    // Helper to extract people from an entry (solo or duo)
-    const extractIndividuals = (entry) => {
-      return entry.toLowerCase().includes(" and ")
-        ? entry
-            .toLowerCase()
-            .split(" and ")
-            .map((n) => n.trim())
-        : [entry.toLowerCase().trim()];
-    };
+    if (availableRooms.length === 0) return result;
 
-    // 3) Ensure you have rooms to sort into
-    if (allRooms.length === 0) {
-      setError("Please add at least one room before sorting.");
-      return;
-    }
-    const nonCoachRoomsCount = allRooms.filter(
-      (room) => !coachRoomFlags[room]
-    ).length;
-    if (nonCoachRoomsCount === 0) {
-      setError("Please add at least one non-coach room for automatic sorting.");
-      return;
-    }
+    let stillAssigning = true;
+    while (stillAssigning) {
+      stillAssigning = false;
 
-    // build a Set of everyone in a coach room
-    const coachNamesSet = new Set(
-      fixedRooms
-        .filter((r) => coachRoomFlags[r])
-        .flatMap((r) =>
-          (presetPeople[r] || "")
-            .split("\n")
-            .map((n) => n.trim())
-            .filter(Boolean)
-        )
-    );
-
-    // 4) Perform the assignment
-    setIsLoading(true);
-    setError("");
-    try {
-      // a) How many reps remain for each person?
-      // a) Build repsLeft map by counting coach-room assignments as 1 rep each
-      const individualRepsLeft = {};
-      names.forEach((entry) => {
+      // Filter participants who can still be assigned
+      const eligibleParticipants = participantList.filter((entry) => {
         const individuals = extractIndividuals(entry);
-        individuals.forEach((person) => {
-          if (!individualRepsLeft[person]) {
-            // Count how many coach rooms this person is in
-            const used = fixedRooms.reduce((count, room) => {
-              if (!coachRoomFlags[room]) return count;
-              const assigned = (presetPeople[room] || "")
-                .split("\n")
-                .map((n) => n.trim().toLowerCase());
-              return assigned.includes(person) ? count + 1 : count;
-            }, 0);
-
-            individualRepsLeft[person] = Math.max(0, numReps - used);
-          }
-        });
+        return individuals.every((person) => globalRepsLeft[person] > 0);
       });
 
-      // b) Build your list of auto-rooms and trackers
-      const nonCoachRooms = fixedRooms
-        .filter((r) => !coachRoomFlags[r])
-        .concat(dynamicRooms.map((r) => r.name).filter(Boolean));
-      const roomLoad = Object.fromEntries(nonCoachRooms.map((r) => [r, 0]));
-      const autoResult = Object.fromEntries(
-        nonCoachRooms.map((r) => [
-          r,
-          { volunteer: volunteers[r] || "", people: [] },
-        ])
+      if (eligibleParticipants.length === 0) break;
+
+      // Shuffle for randomness
+      const shuffled = [...eligibleParticipants].sort(
+        () => Math.random() - 0.5
       );
 
-      // c) Run numReps passes, assigning only those with repsLeft>0
-      let stillSorting = true;
-      while (stillSorting) {
-        stillSorting = false;
+      for (const entry of shuffled) {
+        const individuals = extractIndividuals(entry);
 
-        const pool = names.filter((entry) => {
-          const people = extractIndividuals(entry);
-          return people.every((p) => individualRepsLeft[p] > 0);
-        });
+        // Check if this entry can still be assigned
+        if (individuals.every((person) => globalRepsLeft[person] > 0)) {
+          // Find the least loaded room
+          const selectedRoom = availableRooms
+            .map((r) => ({ r, load: roomLoad[r] }))
+            .sort((a, b) => a.load - b.load)[0].r;
 
-        if (pool.length === 0) break;
+          // Assign the entry
+          result[selectedRoom].people.push(entry);
+          roomLoad[selectedRoom]++;
 
-        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+          // Decrement rep counts for all individuals in the entry
+          individuals.forEach((person) => {
+            globalRepsLeft[person]--;
+          });
 
-        shuffled.forEach((entry) => {
-          const people = extractIndividuals(entry);
-          if (people.every((p) => individualRepsLeft[p] > 0)) {
-            const isCoach = people.some((p) => coachNamesSet.has(p));
-            let candidates = nonCoachRooms.filter(
-              (r) => !isCoach || autoResult[r].people.length > 0
-            );
-            if (candidates.length === 0) candidates = [...nonCoachRooms];
-
-            const selectedRoom = candidates
-              .map((r) => ({ r, load: roomLoad[r] }))
-              .sort((a, b) => a.load - b.load)[0].r;
-
-            autoResult[selectedRoom].people.push(entry);
-            roomLoad[selectedRoom]++;
-            people.forEach((p) => individualRepsLeft[p]--);
-            stillSorting = true;
-          }
-        });
+          stillAssigning = true;
+        }
       }
+    }
 
-      // 1) Build two name pools at the top of handleSort
+    return result;
+  };
+  // Helper function to extract individuals from entries (handles duos)
+  const extractIndividuals = (entry) => {
+    return entry.toLowerCase().includes(" and ")
+      ? entry
+          .toLowerCase()
+          .split(" and ")
+          .map((n) => n.trim())
+      : [entry.toLowerCase().trim()];
+  };
+
+  const handleSort = async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // 1. Parse all participant lists ONCE
       const speechNames = speechInput
         .split("\n")
         .map((n) => n.trim())
@@ -465,36 +339,161 @@ export default function PracticeSorterPage() {
         .split("\n")
         .map((n) => n.trim())
         .filter(Boolean);
+      const duoNames = duoInput
+        .split("\n")
+        .map((n) => n.trim())
+        .filter(Boolean);
 
-      // 2) Gather all non-coach rooms
-      const nonCoach = fixedRooms
-        .filter((r) => !coachRoomFlags[r])
-        .concat(dynamicRooms.map((r) => r.name).filter(Boolean));
+      console.log("speechNames", speechNames);
+      console.log("debateNames", debateNames);
+      console.log("duoNames", duoNames);
 
-      console.log("nonCoach", nonCoach);
+      // 2. Get manual coach room names
+      const manualCoachNames = Object.entries(presetPeople)
+        .filter(([room]) => coachRoomFlags[room])
+        .flatMap(([, text]) =>
+          text
+            .split("\n")
+            .map((n) => n.trim())
+            .filter(Boolean)
+        );
 
-      // 3) Split them by type
-      const speechRooms = nonCoach.filter((r) => roomTypeFlags[r] === "speech");
-      console.log("speechRooms", speechRooms);
-      const debateRooms = nonCoach.filter((r) => roomTypeFlags[r] === "debate");
-      console.log("debateRooms", debateRooms);
+      // 3. Combine all unique participants
+      const allParticipants = Array.from(
+        new Set([
+          ...speechNames,
+          ...debateNames,
+          ...duoNames,
+          ...manualCoachNames,
+        ])
+      );
 
-      // 4) Early exits if no rooms for a pool
-      if (speechNames.length && speechRooms.length === 0) {
-        setError("No speech rooms available for sorting.");
+      console.log("allParticipants", allParticipants);
+
+      if (allParticipants.length === 0) {
+        setError("Please add at least one participant.");
         return;
       }
-      if (debateNames.length && debateRooms.length === 0) {
-        setError("No debate rooms available for sorting.");
+
+      if (allRooms.length === 0) {
+        setError("Please add at least one room before sorting.");
         return;
       }
 
-      // 5) Run your autoAssign helper on each pool
-      const speechAssignment = autoAssign(speechNames, speechRooms);
-      const debateAssignment = autoAssign(debateNames, debateRooms);
+      // 4. Initialize global rep counter for all individuals
+      const globalRepsLeft = {};
+      allParticipants.forEach((entry) => {
+        extractIndividuals(entry).forEach((person) => {
+          if (!globalRepsLeft[person]) {
+            const existingCoachAssignments = fixedRooms.reduce(
+              (count, room) => {
+                if (!coachRoomFlags[room]) return count;
+                const assigned = (presetPeople[room] || "")
+                  .split("\n")
+                  .map((n) => n.trim().toLowerCase());
+                return assigned.includes(person) ? count + 1 : count;
+              },
+              0
+            );
+            globalRepsLeft[person] = Math.max(
+              0,
+              numReps - existingCoachAssignments
+            );
+          }
+        });
+      });
 
-      // 6) Merge manual (coach) + both auto pools
+      // 5. Get non-coach rooms by type
+      const nonCoachFixedRooms = fixedRooms.filter((r) => !coachRoomFlags[r]);
+      const nonCoachDynamicRooms = dynamicRooms
+        .filter((r) => r.name.trim())
+        .map((r) => r.name);
+
+      // Helper function to get room type for any room
+      const getRoomType = (roomName) => {
+        // Check if it's a fixed room
+        if (fixedRooms.includes(roomName)) {
+          return roomTypeFlags[roomName] || "";
+        }
+        // Check if it's a dynamic room
+        const dynamicRoom = dynamicRooms.find((r) => r.name === roomName);
+        return dynamicRoom?.roomType || "";
+      };
+
+      const allNonCoachRooms = [...nonCoachFixedRooms, ...nonCoachDynamicRooms];
+
+      const speechRooms = allNonCoachRooms.filter(
+        (r) => getRoomType(r) === "speech"
+      );
+      const debateRooms = allNonCoachRooms.filter(
+        (r) => getRoomType(r) === "debate"
+      );
+      const unspecifiedRooms = allNonCoachRooms.filter((r) => {
+        const type = getRoomType(r);
+        return !type || type === "";
+      });
+
+      // Add debugging
+      console.log("Debug room info:");
+      console.log("speechRooms:", speechRooms);
+      console.log("debateRooms:", debateRooms);
+      console.log("unspecifiedRooms:", unspecifiedRooms);
+
+      // 6. Validate room availability
+      if (
+        speechNames.length > 0 &&
+        speechRooms.length === 0 &&
+        unspecifiedRooms.length === 0
+      ) {
+        setError("No speech rooms available for speech participants.");
+        return;
+      }
+      if (
+        debateNames.length > 0 &&
+        debateRooms.length === 0 &&
+        unspecifiedRooms.length === 0
+      ) {
+        setError("No debate rooms available for debate participants.");
+        return;
+      }
+
+      // ——— A) ONE-TIME Duo assignment ———
+      // Build a temp rep-map so each duo only goes once:
+      const duoRepLeft = {};
+      duoNames.forEach((entry) =>
+        extractIndividuals(entry).forEach((p) => {
+          duoRepLeft[p] = 1;
+        })
+      );
+
+      // Only assign duos into speech rooms
+      const duoAssignments = assignToRooms(duoNames, speechRooms, duoRepLeft);
+
+      // And *consume* one rep from each duo-member in your main counts:
+      Object.values(duoAssignments).forEach(({ people }) => {
+        people.forEach((duoEntry) => {
+          extractIndividuals(duoEntry).forEach((p) => {
+            globalRepsLeft[p]--;
+          });
+        });
+      });
+      // 7. Assign participants to rooms using the improved algorithm
+      const speechAssignments = assignToRooms(
+        speechNames,
+        speechRooms.length > 0 ? speechRooms : unspecifiedRooms,
+        globalRepsLeft
+      );
+
+      const debateAssignments = assignToRooms(
+        debateNames,
+        debateRooms.length > 0 ? debateRooms : unspecifiedRooms,
+        globalRepsLeft
+      );
+
+      // 8. Build final result including coach rooms
       const result = {};
+
+      // 1) coach rooms…
       fixedRooms
         .filter((r) => coachRoomFlags[r])
         .forEach((room) => {
@@ -506,11 +505,19 @@ export default function PracticeSorterPage() {
               .filter(Boolean),
           };
         });
-      Object.assign(result, speechAssignment, debateAssignment);
 
-      // 7) Set the final assignments
+      // 2) merge speech & debate
+      Object.assign(result, speechAssignments, debateAssignments);
+
+      // 3) then append each duo into its speech room
+      Object.entries(duoAssignments).forEach(([room, { people }]) => {
+        if (people.length && result[room]) {
+          result[room].people.push(...people);
+        }
+      });
+
       setAssignments(result);
-      setSuccessMessage("Sorted speech & debate participants!");
+      setSuccessMessage("Participants sorted successfully!");
     } catch (err) {
       console.error("Sorting error:", err);
       setError("An error occurred while sorting. Please try again.");
@@ -527,13 +534,15 @@ export default function PracticeSorterPage() {
 
   const handleClear = () => {
     setAssignments({});
-    setNameInput("");
+    setSpeechInput("");
+    setDebateInput("");
+    setDuoInput("");
     setPresetPeople(Object.fromEntries(fixedRooms.map((room) => [room, ""])));
     setSuccessMessage("All assignments cleared.");
   };
 
   const canSort =
-    (speechInput.trim() || debateInput.trim()) &&
+    (speechInput.trim() || debateInput.trim() || duoInput.trim()) &&
     allRooms.length > 0 &&
     numReps &&
     allRooms.filter((r) => !coachRoomFlags[r]).length > 0;
