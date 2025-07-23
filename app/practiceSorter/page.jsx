@@ -264,10 +264,14 @@ export default function PracticeSorterPage() {
   const assignToRooms = (participantList, availableRooms, globalRepsLeft) => {
     const roomLoad = Object.fromEntries(availableRooms.map((r) => [r, 0]));
     const result = Object.fromEntries(
-      availableRooms.map((r) => [
-        r,
-        { volunteer: volunteers[r] || "", people: [] },
-      ])
+      availableRooms.map((roomName) => {
+        // try fixed-room map first, then dynamicRooms array
+        const volunteer =
+          volunteers[roomName] ??
+          dynamicRooms.find((r) => r.name === roomName)?.volunteer ??
+          "";
+        return [roomName, { volunteer, people: [] }];
+      })
     );
 
     if (availableRooms.length === 0) return result;
@@ -503,19 +507,35 @@ export default function PracticeSorterPage() {
               .split("\n")
               .map((l) => l.trim())
               .filter(Boolean),
+            type: "coach", // Coach rooms always get "coach" type
           };
         });
 
-      // 2) merge speech & debate
-      Object.assign(result, speechAssignments, debateAssignments);
+      // 2) merge speech & debate assignments and add type information
+      Object.entries(speechAssignments).forEach(([room, data]) => {
+        result[room] = {
+          ...data,
+          type: getRoomType(room) || "speech", // Default to "speech" if no type specified
+        };
+      });
 
-      // 3) then append each duo into its speech room
+      Object.entries(debateAssignments).forEach(([room, data]) => {
+        result[room] = {
+          ...data,
+          type: getRoomType(room) || "debate", // Default to "debate" if no type specified
+        };
+      });
+
+      // 3) then append each duo into its speech room (duos only go to speech rooms)
       Object.entries(duoAssignments).forEach(([room, { people }]) => {
         if (people.length && result[room]) {
           result[room].people.push(...people);
+          // Ensure the room type is set to speech since duos only go to speech rooms
+          if (!result[room].type || result[room].type === "") {
+            result[room].type = "speech";
+          }
         }
       });
-
       setAssignments(result);
       setSuccessMessage("Participants sorted successfully!");
     } catch (err) {
@@ -1023,56 +1043,117 @@ export default function PracticeSorterPage() {
                   {dynamicRooms.length === 1 ? "room" : "rooms"}
                 </span>
               </h2>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {dynamicRooms.map((room, index) => (
                   <div
                     key={index}
-                    className="flex gap-3 items-center p-3 bg-gray-50 rounded-lg"
+                    className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-all duration-200"
                   >
-                    <input
-                      type="text"
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Room name"
-                      value={room.name}
-                      onChange={(e) =>
-                        handleRoomChange(index, "name", e.target.value)
-                      }
-                    />
-                    <input
-                      type="text"
-                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Volunteer name"
-                      value={room.volunteer}
-                      onChange={(e) =>
-                        handleRoomChange(index, "volunteer", e.target.value)
-                      }
-                    />
-                    <button
-                      onClick={() => handleRemoveRoom(index)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-all duration-200"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                    {/* Room Header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-gray-700">
+                        Room #{index + 1}
+                      </h4>
+                      <button
+                        onClick={() => handleRemoveRoom(index)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1.5 rounded-md transition-all duration-200 group"
+                        title="Remove room"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        <svg
+                          className="w-4 h-4 group-hover:scale-110 transition-transform"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Form Fields */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Room Name */}
+                      <div className="lg:col-span-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Room Name *
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                          placeholder="e.g. G108"
+                          value={room.name}
+                          onChange={(e) =>
+                            handleRoomChange(index, "name", e.target.value)
+                          }
                         />
-                      </svg>
-                    </button>
+                      </div>
+
+                      {/* Volunteer Name */}
+                      <div className="lg:col-span-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Volunteer
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                          placeholder="Volunteer name"
+                          value={room.volunteer}
+                          onChange={(e) =>
+                            handleRoomChange(index, "volunteer", e.target.value)
+                          }
+                        />
+                      </div>
+
+                      {/* Room Type */}
+                      <div className="lg:col-span-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Room Type
+                        </label>
+                        <select
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                          value={room.roomType}
+                          onChange={(e) =>
+                            handleRoomChange(index, "roomType", e.target.value)
+                          }
+                        >
+                          <option value="">— Select Type —</option>
+                          <option value="speech">Speech</option>
+                          <option value="debate">Debate</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Room Type Indicator */}
+                    {room.roomType && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            room.roomType === "speech"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-green-100 text-green-800"
+                          }`}
+                        >
+                          {room.roomType.charAt(0).toUpperCase() +
+                            room.roomType.slice(1)}{" "}
+                          Room
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))}
+
+                {/* Add Room Button */}
                 <button
                   onClick={handleAddRoom}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-3 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-all duration-200 flex items-center justify-center gap-2"
+                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-2 font-medium group"
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-5 h-5 group-hover:scale-110 transition-transform"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1232,14 +1313,31 @@ export default function PracticeSorterPage() {
                           }`}
                         >
                           <div className="flex items-center justify-between mb-3">
-                            <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                            <h3 className="flex items-center gap-2 font-semibold text-lg text-gray-900">
                               {room}
-                              {coachRoomFlags[room] && (
+
+                              {/* Coach badge */}
+                              {data.type === "coach" && (
                                 <span className="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full">
                                   Coach Room
                                 </span>
                               )}
+
+                              {/* Speech badge */}
+                              {data.type === "speech" && (
+                                <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
+                                  Speech Room
+                                </span>
+                              )}
+
+                              {/* Debate badge */}
+                              {data.type === "debate" && (
+                                <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
+                                  Debate Room
+                                </span>
+                              )}
                             </h3>
+
                             <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                               {data.people.length}{" "}
                               {data.people.length === 1 ? "person" : "people"}
@@ -1286,32 +1384,50 @@ export default function PracticeSorterPage() {
                       ))}
                   </div>
                 </div>
-
                 {/* Simple Print Layout */}
                 <div className="hidden print:block">
                   <h1 className="text-xl font-bold mb-4">Room Assignments</h1>
                   <div className="print:grid print:grid-cols-2 print:gap-4 print:text-xs print:leading-snug">
                     {Object.entries(assignments)
                       .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([room, data]) => (
-                        <div key={room} className="mb-4">
-                          <h2 className="font-semibold text-base mb-1">
-                            {room} {data.volunteer && `- ${data.volunteer}`}
-                            {coachRoomFlags[room] && " (Coach Room)"}
-                          </h2>
-                          {data.people.length > 0 ? (
-                            <ul className="list-disc list-inside text-sm">
-                              {data.people.map((person, index) => (
-                                <li key={index}>{person}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-sm italic text-gray-600">
-                              No participants assigned
-                            </p>
-                          )}
-                        </div>
-                      ))}
+                      .map(([room, data]) => {
+                        // Helper function to format room type for print
+                        const getRoomTypeText = (type) => {
+                          switch (type) {
+                            case "coach":
+                              return "Coach Room";
+                            case "speech":
+                              return "Speech Room";
+                            case "debate":
+                              return "Debate Room";
+                            default:
+                              return "";
+                          }
+                        };
+
+                        const roomTypeText = getRoomTypeText(data.type);
+
+                        return (
+                          <div key={room} className="mb-4">
+                            <h2 className="font-semibold text-base mb-1">
+                              {room}
+                              {data.volunteer && ` - ${data.volunteer}`}
+                              {roomTypeText && ` (${roomTypeText})`}
+                            </h2>
+                            {data.people.length > 0 ? (
+                              <ul className="list-disc list-inside text-sm">
+                                {data.people.map((person, index) => (
+                                  <li key={index}>{person}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm italic text-gray-600">
+                                No participants assigned
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               </>
