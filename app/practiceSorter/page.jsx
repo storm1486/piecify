@@ -11,7 +11,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/firebase";
 import { useMemo } from "react";
-import { NonceProvider } from "react-select";
+import EnhancedRoomCard from "@/src/componenets/EnhancedRoomCard"; // Adjust path as needed
+import { X } from "lucide-react";
 
 export default function PracticeSorterPage() {
   const [nameInput, setNameInput] = useState("");
@@ -29,7 +30,6 @@ export default function PracticeSorterPage() {
   const coachRooms = useMemo(() => {
     return fixedRooms.filter((room) => coachRoomFlags[room]);
   }, [fixedRooms, coachRoomFlags]);
-  const [coachReps, setCoachReps] = useState({});
   const [roomTypeFlags, setRoomTypeFlags] = useState({});
   const [numReps, setNumReps] = useState(2);
   const [practiceTemplates, setPracticeTemplates] = useState([]);
@@ -40,10 +40,60 @@ export default function PracticeSorterPage() {
   const { setActivePage } = useLayout();
   const roomListRef = useRef();
   const [duoInput, setDuoInput] = useState("");
-  // with these two:
   const [speechInput, setSpeechInput] = useState("");
   const [debateInput, setDebateInput] = useState("");
 
+  // Add this function after your existing handlePersonMove function
+  const handlePersonRemove = (person, fromRoom, personIndex) => {
+    setAssignments((prev) => {
+      const updated = { ...prev };
+
+      // Remove person from the specified room at specific index
+      if (updated[fromRoom] && personIndex !== undefined) {
+        const newPeople = [...updated[fromRoom].people];
+        newPeople.splice(personIndex, 1); // Remove only the specific instance
+        updated[fromRoom] = {
+          ...updated[fromRoom],
+          people: newPeople,
+        };
+      }
+
+      return updated;
+    });
+
+    setSuccessMessage(`Removed ${person} from ${fromRoom}`);
+  };
+
+  // Replace your existing handlePersonMove function with this updated version
+  const handlePersonMove = (person, fromRoom, toRoom, personIndex) => {
+    if (fromRoom === toRoom) return;
+
+    setAssignments((prev) => {
+      const updated = { ...prev };
+
+      // Remove person from source room at specific index
+      if (updated[fromRoom] && personIndex !== undefined) {
+        const newPeople = [...updated[fromRoom].people];
+        newPeople.splice(personIndex, 1); // Remove only the specific instance
+        updated[fromRoom] = {
+          ...updated[fromRoom],
+          people: newPeople,
+        };
+      }
+
+      // Add person to destination room
+      if (updated[toRoom]) {
+        updated[toRoom] = {
+          ...updated[toRoom],
+          people: [...updated[toRoom].people, person],
+        };
+      }
+
+      return updated;
+    });
+
+    setSuccessMessage(`Moved ${person} from ${fromRoom} to ${toRoom}`);
+  };
   // Auto-clear messages
   useEffect(() => {
     if (error || successMessage) {
@@ -635,7 +685,7 @@ export default function PracticeSorterPage() {
           </div>
         )}
 
-        {/* Header */}
+        {/* Header Section */}
         <div className="mb-8 print:hidden">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Practice Room Sorter
@@ -644,7 +694,7 @@ export default function PracticeSorterPage() {
             Organize participants into practice rooms efficiently
           </p>
 
-          {/* Stats */}
+          {/* Stats Cards */}
           <div className="mt-4 flex flex-wrap gap-4 text-sm">
             <div className="bg-white rounded-lg px-3 py-2 border border-gray-200">
               <span className="text-gray-600">Total People:</span>
@@ -807,7 +857,7 @@ export default function PracticeSorterPage() {
                 <div>
                   <h3 className="font-medium">Speech Participants</h3>
                   <textarea
-                    className="w-full border p-2 rounded h-32"
+                    className="w-full border p-2 rounded min-h-32 resize-y max-h-64 overflow-y-auto"
                     value={speechInput}
                     onChange={(e) => setSpeechInput(e.target.value)}
                     placeholder={`Alice\nBob\nCharlie`}
@@ -818,7 +868,7 @@ export default function PracticeSorterPage() {
                 <div>
                   <h3 className="font-medium">Debate Participants</h3>
                   <textarea
-                    className="w-full border p-2 rounded h-32"
+                    className="w-full border p-2 rounded min-h-32 resize-y max-h-64 overflow-y-auto"
                     value={debateInput}
                     onChange={(e) => setDebateInput(e.target.value)}
                     placeholder={`Xavier\nYolanda\nZoe`}
@@ -847,7 +897,7 @@ export default function PracticeSorterPage() {
                 Add duo names (e.g. Jack and Jill), one per line:
               </label>
               <textarea
-                className="w-full border border-gray-300 rounded-lg p-3 h-24"
+                className="w-full border border-gray-300 rounded-lg p-3 min-h-24 max-h-48 resize-y overflow-y-auto"
                 value={duoInput}
                 onChange={(e) => setDuoInput(e.target.value)}
                 placeholder={`Jack and Jill\nJohn and Doe`}
@@ -1250,8 +1300,8 @@ export default function PracticeSorterPage() {
                       <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
                       Room Assignments
                     </h2>
-                    <div className="text-sm text-gray-500">
-                      {assignedPeople} of {totalPeople} people assigned
+                    <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                      Drag to reassign
                     </div>
                   </div>
 
@@ -1293,6 +1343,7 @@ export default function PracticeSorterPage() {
                     </div>
                   </div>
 
+                  {/* Enhanced Room Cards - NEW FEATURE */}
                   <div className="grid gap-4">
                     {Object.entries(assignments)
                       .sort(([a], [b]) => {
@@ -1304,86 +1355,18 @@ export default function PracticeSorterPage() {
                         return a.localeCompare(b);
                       })
                       .map(([room, data]) => (
-                        <div
+                        <EnhancedRoomCard
                           key={room}
-                          className={`border rounded-lg p-4 hover:shadow-md transition-shadow duration-200 ${
-                            coachRoomFlags[room]
-                              ? "border-purple-200 bg-purple-50"
-                              : "border-gray-200"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className="flex items-center gap-2 font-semibold text-lg text-gray-900">
-                              {room}
-
-                              {/* Coach badge */}
-                              {data.type === "coach" && (
-                                <span className="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full">
-                                  Coach Room
-                                </span>
-                              )}
-
-                              {/* Speech badge */}
-                              {data.type === "speech" && (
-                                <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
-                                  Speech Room
-                                </span>
-                              )}
-
-                              {/* Debate badge */}
-                              {data.type === "debate" && (
-                                <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
-                                  Debate Room
-                                </span>
-                              )}
-                            </h3>
-
-                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                              {data.people.length}{" "}
-                              {data.people.length === 1 ? "person" : "people"}
-                            </span>
-                          </div>
-                          {data.volunteer && (
-                            <p className="text-sm text-gray-600 mb-3 flex items-center">
-                              <svg
-                                className="w-4 h-4 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                />
-                              </svg>
-                              Volunteer: {data.volunteer}
-                            </p>
-                          )}
-                          {data.people.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {data.people.map((person, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-center text-sm text-gray-700 bg-gray-50 rounded px-3 py-2"
-                                >
-                                  <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-medium mr-2">
-                                    {i + 1}
-                                  </span>
-                                  {person}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-gray-500 italic text-sm">
-                              No participants assigned
-                            </p>
-                          )}
-                        </div>
+                          room={room}
+                          data={data}
+                          coachRoomFlags={coachRoomFlags}
+                          onPersonMove={handlePersonMove}
+                          onPersonRemove={handlePersonRemove} // Add this new prop
+                        />
                       ))}
                   </div>
                 </div>
+
                 {/* Simple Print Layout */}
                 <div className="hidden print:block">
                   <h1 className="text-xl font-bold mb-4">Room Assignments</h1>
