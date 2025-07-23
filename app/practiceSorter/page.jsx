@@ -439,25 +439,36 @@ export default function PracticeSorterPage() {
       allParticipants.forEach((entry) => {
         extractIndividuals(entry).forEach((person) => {
           if (!globalRepsLeft[person]) {
-            const existingCoachAssignments = fixedRooms.reduce(
-              (count, room) => {
-                if (!coachRoomFlags[room]) return count;
-                const assigned = (presetPeople[room] || "")
-                  .split("\n")
-                  .map((n) => n.trim().toLowerCase());
-                return assigned.includes(person) ? count + 1 : count;
-              },
-              0
-            );
-            globalRepsLeft[person] = Math.max(
-              0,
-              numReps - existingCoachAssignments
-            );
+            globalRepsLeft[person] = numReps; // Start with full rep count
           }
         });
       });
 
-      // 5. Get non-coach rooms by type
+      // 5. FIRST - Account for existing coach room assignments
+      // Subtract reps for people already assigned to coach rooms
+      Object.entries(presetPeople).forEach(([room, text]) => {
+        if (coachRoomFlags[room]) {
+          const assignedPeople = text
+            .split("\n")
+            .map((n) => n.trim())
+            .filter(Boolean);
+
+          assignedPeople.forEach((person) => {
+            const individuals = extractIndividuals(person);
+            individuals.forEach((individual) => {
+              const normalizedName = individual.toLowerCase().trim();
+              if (globalRepsLeft[normalizedName] !== undefined) {
+                globalRepsLeft[normalizedName] = Math.max(
+                  0,
+                  globalRepsLeft[normalizedName] - 1
+                );
+              }
+            });
+          });
+        }
+      });
+
+      // 6. Get non-coach rooms by type
       const nonCoachFixedRooms = fixedRooms.filter((r) => !coachRoomFlags[r]);
       const nonCoachDynamicRooms = dynamicRooms
         .filter((r) => r.name.trim())
@@ -493,7 +504,7 @@ export default function PracticeSorterPage() {
       console.log("debateRooms:", debateRooms);
       console.log("unspecifiedRooms:", unspecifiedRooms);
 
-      // 6. Validate room availability
+      // 7. Validate room availability
       if (
         speechNames.length > 0 &&
         speechRooms.length === 0 &&
@@ -511,7 +522,7 @@ export default function PracticeSorterPage() {
         return;
       }
 
-      // ——— A) ONE-TIME Duo assignment ———
+      // 8. ONE-TIME Duo assignment
       // Build a temp rep-map so each duo only goes once:
       const duoRepLeft = {};
       duoNames.forEach((entry) =>
@@ -527,11 +538,14 @@ export default function PracticeSorterPage() {
       Object.values(duoAssignments).forEach(({ people }) => {
         people.forEach((duoEntry) => {
           extractIndividuals(duoEntry).forEach((p) => {
-            globalRepsLeft[p]--;
+            if (globalRepsLeft[p] !== undefined) {
+              globalRepsLeft[p] = Math.max(0, globalRepsLeft[p] - 1);
+            }
           });
         });
       });
-      // 7. Assign participants to rooms using the improved algorithm
+
+      // 9. Assign participants to rooms using the improved algorithm
       const speechAssignments = assignToRooms(
         speechNames,
         speechRooms.length > 0 ? speechRooms : unspecifiedRooms,
@@ -544,7 +558,97 @@ export default function PracticeSorterPage() {
         globalRepsLeft
       );
 
-      // 8. Build final result including coach rooms
+      // 10. Now we need to add people who still need more reps to additional rooms
+      // Create a list of people who still need more assignments
+      const peopleNeedingMoreReps = [];
+      Object.entries(globalRepsLeft).forEach(([person, repsLeft]) => {
+        for (let i = 0; i < repsLeft; i++) {
+          // Determine if this person is primarily a speech or debate participant
+          const isInSpeech = speechNames.some((name) =>
+            extractIndividuals(name)
+              .map((p) => p.toLowerCase().trim())
+              .includes(person)
+          );
+          const isInDebate = debateNames.some((name) =>
+            extractIndividuals(name)
+              .map((p) => p.toLowerCase().trim())
+              .includes(person)
+          );
+
+          // Find the original name format (not just lowercase)
+          let originalName = person;
+          [
+            ...speechNames,
+            ...debateNames,
+            ...duoNames,
+            ...manualCoachNames,
+          ].forEach((name) => {
+            extractIndividuals(name).forEach((individual) => {
+              if (individual.toLowerCase().trim() === person) {
+                originalName = individual;
+              }
+            });
+          });
+
+          peopleNeedingMoreReps.push({
+            name: originalName,
+            type: isInSpeech ? "speech" : isInDebate ? "debate" : "speech", // default to speech
+          });
+        }
+      });
+
+      // Sort these people into appropriate rooms
+      if (peopleNeedingMoreReps.length > 0) {
+        console.log("People needing more reps:", peopleNeedingMoreReps);
+
+        // Separate by type
+        const speechPeopleNeedingReps = peopleNeedingMoreReps
+          .filter((p) => p.type === "speech")
+          .map((p) => p.name);
+        const debatePeopleNeedingReps = peopleNeedingMoreReps
+          .filter((p) => p.type === "debate")
+          .map((p) => p.name);
+
+        // Create temporary rep counters for additional assignments
+        const additionalRepsLeft = {};
+        peopleNeedingMoreReps.forEach(({ name }) => {
+          const normalizedName = name.toLowerCase().trim();
+          additionalRepsLeft[normalizedName] =
+            (additionalRepsLeft[normalizedName] || 0) + 1;
+        });
+
+        // Assign additional reps
+        const additionalSpeechAssignments = assignToRooms(
+          speechPeopleNeedingReps,
+          speechRooms.length > 0 ? speechRooms : unspecifiedRooms,
+          additionalRepsLeft
+        );
+
+        const additionalDebateAssignments = assignToRooms(
+          debatePeopleNeedingReps,
+          debateRooms.length > 0 ? debateRooms : unspecifiedRooms,
+          additionalRepsLeft
+        );
+
+        // Merge additional assignments with existing ones
+        Object.entries(additionalSpeechAssignments).forEach(([room, data]) => {
+          if (speechAssignments[room]) {
+            speechAssignments[room].people.push(...data.people);
+          } else {
+            speechAssignments[room] = data;
+          }
+        });
+
+        Object.entries(additionalDebateAssignments).forEach(([room, data]) => {
+          if (debateAssignments[room]) {
+            debateAssignments[room].people.push(...data.people);
+          } else {
+            debateAssignments[room] = data;
+          }
+        });
+      }
+
+      // 11. Build final result including coach rooms
       const result = {};
 
       // 1) coach rooms…
@@ -586,6 +690,7 @@ export default function PracticeSorterPage() {
           }
         }
       });
+
       setAssignments(result);
       setSuccessMessage("Participants sorted successfully!");
     } catch (err) {
