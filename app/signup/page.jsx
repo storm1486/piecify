@@ -69,7 +69,10 @@ export default function SignUpPage() {
   return (
     <main className="flex min-h-screen bg-mainBg text-gray-900 overflow-hidden">
       <div className="absolute top-0 left-0 right-0 p-6 bg-blue-900 text-white text-center z-10 shadow-md">
-        <div className="text-3xl font-bold">Piecify</div>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+          <span className="text-white">Piece</span>
+          <span className="text-blue-300">fy</span>
+        </h1>
         <div className="text-sm font-medium mt-1 text-gray-200">
           Your performances, organized.
         </div>
@@ -156,7 +159,7 @@ export default function SignUpPage() {
               </div>
             )}
 
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700">
                 Role
               </label>
@@ -169,7 +172,7 @@ export default function SignUpPage() {
                 <option value="admin">Admin</option>
                 <option value="coach">Coach</option>
               </select>
-            </div>
+            </div> */}
 
             <div>
               <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">

@@ -269,7 +269,7 @@ export default function ViewFile() {
                           </button>
                         </li>
                       )}
-                      <li>
+                      {/* <li>
                         {!isEditedVersion && (
                           <button
                             className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
@@ -295,7 +295,7 @@ export default function ViewFile() {
                             Track Record
                           </button>
                         )}
-                      </li>
+                      </li> */}
                       <li>
                         <button
                           className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"

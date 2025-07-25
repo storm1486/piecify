@@ -326,7 +326,7 @@ export default function ViewDocument() {
                           Edited Versions
                         </button>
                       </li>
-                      <li>
+                      {/* <li>
                         <button
                           className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
                           onClick={() => {
@@ -350,7 +350,7 @@ export default function ViewDocument() {
                           </svg>
                           Track Record
                         </button>
-                      </li>
+                      </li> */}
                       <li>
                         <button
                           className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"

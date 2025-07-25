@@ -382,7 +382,7 @@ export default function ViewPieces() {
                       </div>
 
                       <p className="text-gray-600 mb-6 text-sm">
-                        {piece.description || "No description provided."}
+                        {piece.pieceDescription || "No description provided."}
                       </p>
 
                       <button

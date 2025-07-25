@@ -1,9 +1,9 @@
-// app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { OrganizationProvider } from "../src/context/OrganizationContext"; // Add this
 import { UserProvider } from "../src/context/UserContext";
-import ClientLayout from "./clientlayout"; // 👈 We'll create this
+import ClientLayout from "./clientlayout";
 import { LayoutProvider } from "@/src/context/LayoutContext";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -21,11 +21,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <UserProvider>
-          <LayoutProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </LayoutProvider>
-        </UserProvider>
+        <OrganizationProvider>
+          <UserProvider>
+            <LayoutProvider>
+              <ClientLayout>{children}</ClientLayout>
+            </LayoutProvider>
+          </UserProvider>
+        </OrganizationProvider>
       </body>
     </html>
   );

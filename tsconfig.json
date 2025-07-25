@@ -27,6 +27,6 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "app/page.jsx"
-  ],
+, "src/utils/firebaseHelpers.js"  ],
   "exclude": ["node_modules"]
 }
