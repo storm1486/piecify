@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { db } from "../firebase/firebase";
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import { addDoc, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
 import { useLayout } from "@/src/context/LayoutContext";
 import SearchHeader from "@/components/SearchHeader";
+import { useOrganization } from "../../src/context/OrganizationContext";
+import { getOrgCollection } from "../../src/utils/firebaseHelpers";
 
 export default function AllFolders() {
   const { user, loading, toggleFavorite, isPrivileged } = useUser();
+  const { orgId } = useOrganization();
   const isPrivilegedUser = isPrivileged();
   const [folders, setFolders] = useState([]);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
@@ -32,7 +34,7 @@ export default function AllFolders() {
 
   const fetchAllFolders = async () => {
     try {
-      const foldersSnapshot = await getDocs(collection(db, "folders"));
+      const foldersSnapshot = await getDocs(getOrgCollection(orgId, "folders"));
       const foldersData = foldersSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -62,7 +64,7 @@ export default function AllFolders() {
     }
 
     try {
-      const docRef = await addDoc(collection(db, "folders"), {
+      const docRef = await addDoc(getOrgCollection(orgId, "folders"), {
         name: newFolderName,
         createdAt: new Date().toISOString(),
         color: selectedColor,

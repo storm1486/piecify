@@ -21,10 +21,13 @@ import { useLayout } from "@/src/context/LayoutContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import SearchHeader from "@/components/SearchHeader";
 import TeamFileUpload from "@/components/TeamFileUpload";
+import { useOrganization } from "../src/context/OrganizationContext";
+import { getOrgCollection, getOrgDoc } from "../src/utils/firebaseHelpers";
 
 export default function Home() {
   const { user, loading, toggleFavorite, fetchMyFiles, isPrivileged } =
     useUser();
+  const { orgId } = useOrganization();
   const isPrivilegedUser = isPrivileged();
   const { setActivePage } = useLayout();
   const [folders, setFolders] = useState([]);
@@ -72,18 +75,18 @@ export default function Home() {
           const userCache = {};
 
           // ► Files inside folders
-          const foldersSnap = await getDocs(collection(db, "folders"));
+          const foldersSnap = await getDocs(getOrgCollection(orgId, "folders"));
           for (const folderDoc of foldersSnap.docs) {
             const folderId = folderDoc.id;
             const folderName = folderDoc.data().name;
             const filesSnap = await getDocs(
-              collection(db, "folders", folderId, "files")
+              getOrgCollection(orgId, "folders", folderId, "files")
             );
 
             for (const entry of filesSnap.docs) {
               const path = entry.data().fileRef?.path;
               if (!path) continue;
-              const fileSnap = await getDoc(doc(db, path));
+              const fileSnap = await getDoc(getOrgDoc(orgId, path));
               if (!fileSnap.exists()) continue;
               const data = fileSnap.data();
               if (data.originalFileId) continue;
@@ -94,7 +97,9 @@ export default function Home() {
                 if (userCache[data.uploadedBy]) {
                   uploader = userCache[data.uploadedBy];
                 } else {
-                  const uSnap = await getDoc(doc(db, "users", data.uploadedBy));
+                  const uSnap = await getDoc(
+                    getOrgDoc(orgId, "users", data.uploadedBy)
+                  );
                   if (uSnap.exists()) {
                     uploader = {
                       email: uSnap.data().email || "Unknown",
@@ -117,7 +122,7 @@ export default function Home() {
           }
 
           // ► Ungrouped files
-          const globalSnap = await getDocs(collection(db, "files"));
+          const globalSnap = await getDocs(getOrgCollection(orgId, "files"));
           for (const fileDoc of globalSnap.docs) {
             const data = fileDoc.data();
             if (data.folderId || data.originalFileId) continue;
@@ -127,7 +132,9 @@ export default function Home() {
               if (userCache[data.uploadedBy]) {
                 uploader = userCache[data.uploadedBy];
               } else {
-                const uSnap = await getDoc(doc(db, "users", data.uploadedBy));
+                const uSnap = await getDoc(
+                  getOrgDoc(orgId, "users", data.uploadedBy)
+                );
                 if (uSnap.exists()) {
                   uploader = {
                     email: uSnap.data().email || "Unknown",
@@ -189,7 +196,7 @@ export default function Home() {
   const fetchTeamFiles = async ({ withCount = true } = {}) => {
     setLoadingTeamFiles(true);
     try {
-      const snap = await getDocs(collection(db, "teamFiles"));
+      const snap = await getDocs(getOrgCollection(orgId, "teamFiles"));
       const files = snap.docs.map((d) => ({ fileId: d.id, ...d.data() }));
       setTeamFiles(files);
       if (withCount) computeNewCount(files);
@@ -202,24 +209,24 @@ export default function Home() {
 
   // when we leave the Team tab, then clear highlights & persist lastSeen
   useEffect(() => {
-    if (prevTab.current === "team" && activeTab !== "team" && user) {
+    if (prevTab.current === "team" && activeTab !== "team" && user && orgId) {
       // clear the badge/highlight
       setNewTeamFilesCount(0);
 
-      // write “lastSeenTeamFiles = now” so future visits won’t highlight old files
-      updateDoc(docRef(db, "users", user.uid), {
+      // write "lastSeenTeamFiles = now" so future visits won't highlight old files
+      updateDoc(getOrgDoc(orgId, "users", user.uid), {
         lastSeenTeamFiles: serverTimestamp(),
       }).catch(console.error);
     }
     // update prevTab for next render
     prevTab.current = activeTab;
-  }, [activeTab, user]);
+  }, [activeTab, user, orgId]); // Add orgId to dependencies
 
-  // Subscribe to users/{uid} so we always have the current lastSeenTeamFiles
+  // Subscribe to organizations/{orgId}/users/{uid} so we always have the current lastSeenTeamFiles
   useEffect(() => {
-    if (!user) return;
+    if (!user || !orgId) return;
     const unsub = onSnapshot(
-      docRef(db, "users", user.uid),
+      getOrgDoc(orgId, "users", user.uid),
       (snap) => {
         const data = snap.data() || {};
         setUserLastSeen(
@@ -230,11 +237,7 @@ export default function Home() {
       (err) => console.error("user doc listen failed", err)
     );
     return () => unsub();
-  }, [user]);
-
-  if (loading || initialLoading) {
-    return <LoadingSpinner />;
-  }
+  }, [user, orgId]); // Add orgId to dependencies
 
   // ── NEW: two-step confirm logic ──
   const confirmAssignment = async (file) => {
@@ -245,7 +248,7 @@ export default function Home() {
     try {
       if (action === "addressed") {
         // flag as addressed (won’t show on All Files)
-        await updateDoc(doc(db, "files", file.fileId), {
+        await updateDoc(getOrgDoc(orgId, "files", file.fileId), {
           addressed: true,
         });
       } else {
@@ -286,7 +289,7 @@ export default function Home() {
     }
 
     try {
-      const docRef = await addDoc(collection(db, "folders"), {
+      const docRef = await addDoc(getOrgCollection(orgId, "folders"), {
         name: newFolderName,
         createdAt: new Date().toISOString(),
         color: selectedColor,
@@ -310,11 +313,11 @@ export default function Home() {
   const handleAssignToFolder = async (fileId, folderId) => {
     try {
       // 1. Update the file's `folderId` field in the main files collection
-      const fileRef = doc(db, "files", fileId);
+      const fileRef = getOrgDoc(orgId, "files", fileId);
       await updateDoc(fileRef, { folderId });
 
       // 2. Create reference in the folder's subcollection
-      await setDoc(doc(db, "folders", folderId, "files", fileId), {
+      await setDoc(getOrgDoc(orgId, "folders", folderId, "files", fileId), {
         fileRef: `/files/${fileId}`,
       });
 

@@ -15,6 +15,8 @@ import {
 import { doc, getDoc, collection, getDocs, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword } from "firebase/auth"; // At the top
+import { useOrganization } from "./OrganizationContext";
+import { getOrgCollection, getOrgDoc } from "../utils/firebaseHelpers";
 
 // Define the shape of the user data
 interface User {
@@ -57,6 +59,7 @@ interface UserContextProps {
 const UserContext = createContext<UserContextProps | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
+  const { orgId, switchOrganization } = useOrganization();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
@@ -66,12 +69,16 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!orgId) {
+        setLoading(false);
+        return;
+      }
       if (firebaseUser) {
         const { email, uid } = firebaseUser;
 
         try {
           // Fetch user document from Firestore
-          const userDocRef = doc(db, "users", uid);
+          const userDocRef = getOrgDoc(orgId, "users", uid);
           const userDoc = await getDoc(userDocRef);
 
           let userData: User = {
@@ -104,7 +111,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
           // Fetch all folders for admin
           if (["admin", "coach"].includes(userData.role)) {
-            const folderSnapshot = await getDocs(collection(db, "folders"));
+            const folderSnapshot = await getDocs(
+              getOrgCollection(orgId, "folders")
+            );
             userData.allFolders = folderSnapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
@@ -134,7 +143,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return;
 
     try {
-      const userDocRef = doc(db, "users", user.uid);
+      const userDocRef = getOrgDoc(orgId, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
@@ -158,7 +167,19 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
             if (!filePath) return null;
 
-            const fileDocRef = doc(db, filePath);
+            // UPDATED: Handle organization-scoped file paths
+            let fileDocRef;
+            if (filePath.startsWith("/organizations/")) {
+              // Already org-scoped path
+              fileDocRef = doc(db, filePath.substring(1)); // Remove leading slash
+            } else if (filePath.startsWith("files/")) {
+              // Legacy path - convert to org-scoped
+              const fileId = filePath.split("/")[1];
+              fileDocRef = getOrgDoc(orgId, "files", fileId);
+            } else {
+              return null;
+            }
+
             const fileDocSnapshot = await getDoc(fileDocRef);
 
             return fileDocSnapshot.exists()
@@ -198,7 +219,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
             // 🧠 If this is a cutting, fetch its original file name
             if (fileData.originalFileId) {
-              const originalRef = doc(db, "files", fileData.originalFileId);
+              const originalRef = getOrgDoc(
+                orgId,
+                "files",
+                fileData.originalFileId
+              );
               const originalSnap = await getDoc(originalRef);
               if (originalSnap.exists()) {
                 originalFileName = originalSnap.data().fileName || null;
@@ -226,9 +251,18 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
             if (!filePath) return null;
 
-            const fileDocRef = doc(db, filePath);
+            let fileDocRef;
+            if (filePath.startsWith("/organizations/")) {
+              // Already org-scoped path
+              fileDocRef = doc(db, filePath.substring(1)); // Remove leading slash
+            } else if (filePath.startsWith("files/")) {
+              // Legacy path - convert to org-scoped
+              const fileId = filePath.split("/")[1];
+              fileDocRef = getOrgDoc(orgId, "files", fileId);
+            } else {
+              return null;
+            }
             const fileDocSnapshot = await getDoc(fileDocRef);
-
             return fileDocSnapshot.exists()
               ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
               : null;
@@ -256,7 +290,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return;
 
     try {
-      const userDocRef = doc(db, "users", user.uid);
+      const userDocRef = getOrgDoc(orgId, "users", user.uid);
       const updatedFavorites = user.favoriteFolders.includes(folderId)
         ? user.favoriteFolders.filter((id) => id !== folderId) // Remove favorite
         : [...user.favoriteFolders, folderId]; // Add favorite
@@ -282,6 +316,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  console.log("orgId", orgId);
+
   const handleLogin = async (email: string, password: string) => {
     try {
       const userCredential = await signInWithEmailAndPassword(
@@ -290,10 +326,54 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         password
       );
       const firebaseUser = userCredential.user;
+      const findUserAndOrg = async (uid: string) => {
+        const orgsSnapshot = await getDocs(collection(db, "organizations"));
+
+        for (const orgDoc of orgsSnapshot.docs) {
+          const orgId = orgDoc.id;
+          const userDocRef = getOrgDoc(orgId, "users", uid);
+          const userSnap = await getDoc(userDocRef);
+
+          if (userSnap.exists()) {
+            return { orgId, userSnap };
+          }
+        }
+
+        throw new Error("User not found in any organization.");
+      };
+
+      const { orgId, userSnap } = await findUserAndOrg(firebaseUser.uid);
+
+      console.log("firebaseUser", firebaseUser);
 
       // Fetch user document from Firestore
-      const userDocRef = doc(db, "users", firebaseUser.uid);
+      const userDocRef = getOrgDoc(orgId, "users", firebaseUser.uid);
+
+      console.log("ref", userDocRef);
       const userDoc = await getDoc(userDocRef);
+
+      console.log("doc", userDoc.data());
+
+      // Load and set org context
+      await switchOrganization(orgId); // from OrganizationContext
+
+      // Use userSnap to set the user context
+      const data = userSnap.data();
+      const userData: User = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || "",
+        role: data.role || "user",
+        firstName: data.firstName || "",
+        lastName: data.lastName || "",
+        graduationYear: data.graduationYear || null,
+        myFiles: data.myFiles || [],
+        previousFiles: data.previousFiles || [],
+        requestedFiles: [],
+        favoriteFolders: data.favoriteFolders || [],
+        allFolders: [],
+      };
+
+      setUser(userData);
 
       if (userDoc.exists()) {
         const data = userDoc.data();
@@ -314,7 +394,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         // Fetch all folders for admin users
         if (["admin", "coach"].includes(userData.role)) {
-          const folderSnapshot = await getDocs(collection(db, "folders"));
+          const folderSnapshot = await getDocs(
+            getOrgCollection(orgId, "folders")
+          );
           userData.allFolders = folderSnapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
@@ -364,9 +446,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       );
       const user = userCredential.user;
 
-      await setDoc(doc(db, "users", user.uid), {
+      await setDoc(getOrgDoc(orgId, "users", user.uid), {
         uid: user.uid,
         email: user.email,
+        orgId,
         role,
         firstName,
         lastName,

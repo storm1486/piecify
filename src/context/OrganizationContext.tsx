@@ -16,7 +16,6 @@ interface Organization {
   settings?: {
     allowSelfRegistration?: boolean;
     defaultUserRole?: string;
-    // Add more settings as needed
   };
 }
 
@@ -45,17 +44,12 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
 
   const initializeOrganization = async () => {
     try {
-      // Check if there's a stored organization preference
       const storedOrgId = localStorage.getItem("currentOrgId");
 
       if (storedOrgId) {
         await loadOrganization(storedOrgId);
-      } else {
-        // Load default organization or create one
-        await loadDefaultOrganization();
       }
 
-      // Also fetch available organizations for switching
       await fetchAvailableOrganizations();
     } catch (error) {
       console.error("Error initializing organization:", error);
@@ -77,45 +71,6 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error("Error loading organization:", error);
-      // Fallback to default
-      await loadDefaultOrganization();
-    }
-  };
-
-  const loadDefaultOrganization = async () => {
-    const defaultOrgId =
-      process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || "default-org";
-
-    try {
-      const orgDoc = await getDoc(doc(db, "organizations", defaultOrgId));
-
-      if (orgDoc.exists()) {
-        const orgData = { id: orgDoc.id, ...orgDoc.data() } as Organization;
-        setCurrentOrg(orgData);
-        localStorage.setItem("currentOrgId", defaultOrgId);
-      } else {
-        // Create default organization if it doesn't exist
-        const defaultOrg: Organization = {
-          id: defaultOrgId,
-          name: "Default Organization",
-          createdAt: new Date().toISOString(),
-          settings: {
-            allowSelfRegistration: true,
-            defaultUserRole: "user",
-          },
-        };
-
-        await setDoc(doc(db, "organizations", defaultOrgId), {
-          name: defaultOrg.name,
-          createdAt: defaultOrg.createdAt,
-          settings: defaultOrg.settings,
-        });
-
-        setCurrentOrg(defaultOrg);
-        localStorage.setItem("currentOrgId", defaultOrgId);
-      }
-    } catch (error) {
-      console.error("Error creating/loading default organization:", error);
     }
   };
 
@@ -136,8 +91,6 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await loadOrganization(orgId);
-      // Note: You might want to trigger a refresh of user data here
-      // or emit an event that other contexts can listen to
     } finally {
       setLoading(false);
     }
@@ -145,7 +98,7 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
 
   const createOrganization = async (name: string): Promise<string> => {
     try {
-      const orgId = `org_${Date.now()}`; // Simple ID generation
+      const orgId = `org_${Date.now()}`;
       const newOrg: Organization = {
         id: orgId,
         name: name.trim(),
@@ -162,7 +115,6 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
         settings: newOrg.settings,
       });
 
-      // Update available orgs list
       setAvailableOrgs((prev) => [...prev, newOrg]);
 
       return orgId;
