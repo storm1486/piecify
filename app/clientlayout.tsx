@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useOrganization } from "@/src/context/OrganizationContext";
 import Sidebar from "@/components/Sidebar";
 
 export default function ClientLayout({
@@ -11,24 +12,28 @@ export default function ClientLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const { loading: orgLoading } = useOrganization(); // 👈 gate state from provider
 
   // Close sidebar when route changes
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [pathname]);
 
-  // Define routes that should NOT show the sidebar
+  // Routes without sidebar
   const hideSidebarRoutes = ["/login", "/signup"];
-  // Check if current path should hide sidebar
   const shouldHideSidebar =
-    hideSidebarRoutes.includes(pathname) || pathname.startsWith("/invite"); // Hide sidebar for all invite routes
-  // Allow modal sidebar to close
-  const closeSidebar = () => {
-    setIsSidebarOpen(false);
-  };
+    hideSidebarRoutes.includes(pathname) || pathname.startsWith("/invite");
+
+  // ⛔ Gate rendering while org is loading
+  if (!shouldHideSidebar && orgLoading) {
+    return (
+      <main className="min-h-screen grid place-items-center bg-mainBg text-gray-600">
+        <div className="text-sm">Loading your organization…</div>
+      </main>
+    );
+  }
 
   if (shouldHideSidebar) {
-    // Return children directly for login, signup, etc.
     return <>{children}</>;
   }
 
@@ -39,7 +44,7 @@ export default function ClientLayout({
         closeSidebar={undefined}
       />
 
-      {/* OPTION 1: Mobile Header Bar - Recommended */}
+      {/* Mobile Header Bar */}
       <div className="md:hidden print:hidden bg-blue-900 text-white px-4 py-3 flex items-center justify-between shadow-lg">
         <button
           onClick={() => setIsSidebarOpen(true)}
@@ -61,25 +66,22 @@ export default function ClientLayout({
             />
           </svg>
         </button>
-        {/* Mobile Logo */}
         <div className="flex items-center">
           <h1 className="text-lg font-bold">
             <span className="text-white">Piece</span>
             <span className="text-blue-300">ify</span>
           </h1>
         </div>
-        {/* Optional: User avatar or other actions */}
-        <div className="w-8 h-8"></div> {/* Spacer for balance */}
+        <div className="w-8 h-8"></div>
       </div>
 
-      {/* Mobile Sidebar Drawer - Hidden during print */}
+      {/* Mobile Sidebar Drawer */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex md:hidden print:hidden">
-          {/* Sidebar Container */}
           <div className="w-64 bg-blue-900 text-white overflow-y-auto relative">
-            <Sidebar closeSidebar={closeSidebar} />
+            <Sidebar closeSidebar={() => setIsSidebarOpen(false)} />
             <button
-              onClick={closeSidebar}
+              onClick={() => setIsSidebarOpen(false)}
               className="absolute top-4 right-4 text-white hover:text-blue-300 transition-colors z-10"
               aria-label="Close navigation menu"
             >
@@ -99,18 +101,12 @@ export default function ClientLayout({
               </svg>
             </button>
           </div>
-
           <div
             className="flex-1"
-            onClick={closeSidebar}
+            onClick={() => setIsSidebarOpen(false)}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                closeSidebar();
-              }
-            }}
-            aria-label="Close navigation menu"
+            onKeyDown={(e) => e.key === "Escape" && setIsSidebarOpen(false)}
           />
         </div>
       )}

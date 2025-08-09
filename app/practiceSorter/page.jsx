@@ -301,7 +301,7 @@ export default function PracticeSorterPage() {
     }
   };
 
-  const loadTemplate = (template) => {
+  function loadTemplate(template) {
     const templateRooms = template.rooms || [];
 
     const typeMap = Object.fromEntries(
@@ -323,7 +323,7 @@ export default function PracticeSorterPage() {
     setPresetPeople(presetMap);
     setCoachRoomFlags(coachMap);
     setDynamicRooms([]);
-  };
+  }
 
   const handleFixedVolunteerChange = (room, value) => {
     setVolunteers((prev) => ({ ...prev, [room]: value }));
@@ -984,10 +984,7 @@ export default function PracticeSorterPage() {
                   <option value="">Select a template</option>
                   {practiceTemplates.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name}
-                      {t.name === "Default Practice" &&
-                        " (Auto-loads on page visit)"}{" "}
-                      ({t.rooms?.length || 0}{" "}
+                      {t.name} ({t.rooms?.length || 0}{" "}
                       {t.rooms?.length > 1 ? "rooms" : "room"})
                     </option>
                   ))}
@@ -1663,7 +1660,7 @@ export default function PracticeSorterPage() {
         {/* Enhanced Modal */}
         {isCreateModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               {/* Header */}
               <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
                 <div className="flex items-center justify-between">
@@ -1697,7 +1694,7 @@ export default function PracticeSorterPage() {
               </div>
 
               {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <div className="p-6 overflow-y-auto flex-1">
                 {/* Template Name */}
                 <div className="mb-6">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1966,8 +1963,8 @@ export default function PracticeSorterPage() {
               </div>
 
               {/* Footer */}
-              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
-                <div className="text-xs text-gray-500">
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 sticky bottom-0">
+                <div className="flex justify-between items-center">
                   {newTemplateRooms.length > 0 && (
                     <span>
                       {newTemplateRooms.filter((r) => r.name.trim()).length} of{" "}

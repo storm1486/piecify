@@ -9,6 +9,8 @@ import {
   serverTimestamp,
   onSnapshot,
   doc as docRef,
+  deleteDoc,
+  writeBatch,
 } from "firebase/firestore";
 import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
@@ -20,6 +22,7 @@ import SearchHeader from "@/components/SearchHeader";
 import TeamFileUpload from "@/components/TeamFileUpload";
 import { useOrganization } from "../src/context/OrganizationContext";
 import { getOrgCollection, getOrgDoc } from "../src/utils/firebaseHelpers";
+import { db } from "./firebase/firebase";
 
 export default function Home() {
   const { user, fetchMyFiles, isPrivileged } = useUser();
@@ -295,6 +298,67 @@ export default function Home() {
     setIsAscending(!isAscending); // Toggle the sorting order
   };
 
+  const handleRemoveFolder = async (folder) => {
+    if (!orgId) return;
+    const ok = window.confirm(
+      `Delete the folder "${folder.name}"?\n\nAll files in it will be unassigned (moved back to “Unassigned”).`
+    );
+    if (!ok) return;
+
+    try {
+      // 1) Get refs inside organizations/{orgId}/folders/{folderId}/files
+      const filesSnap = await getDocs(
+        getOrgCollection(orgId, "folders", folder.id, "files")
+      );
+
+      const batch = writeBatch(db);
+
+      for (const entry of filesSnap.docs) {
+        const data = entry.data() || {};
+        // fileRef may be a string like "/files/{id}" or a DocumentReference.
+        const rawRef = data.fileRef;
+        const path =
+          typeof rawRef === "string"
+            ? rawRef.replace(/^\//, "") // "files/{id}"
+            : rawRef?.path; // "organizations/{orgId}/files/{id}" in older data
+
+        let fileId = null;
+
+        if (path?.includes("/")) {
+          // If it's "files/{id}"
+          const bits = path.split("/");
+          fileId = bits[bits.length - 1];
+        }
+
+        if (!fileId) {
+          // Try to be extra safe: if it was a full org path ".../files/{id}"
+          if (path?.includes("/files/")) {
+            fileId = path.split("/files/")[1]?.split("/")[0];
+          }
+        }
+
+        if (fileId) {
+          // Clear folder pointer on the main file
+          batch.update(getOrgDoc(orgId, "files", fileId), { folderId: null });
+        }
+
+        // Remove the folder subcollection reference doc
+        batch.delete(getOrgDoc(orgId, "folders", folder.id, "files", entry.id));
+      }
+
+      // 2) Delete the folder document itself
+      batch.delete(getOrgDoc(orgId, "folders", folder.id));
+
+      await batch.commit();
+
+      // 3) Update local UI
+      setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+    } catch (err) {
+      console.error("Error removing folder:", err);
+      alert("Failed to remove folder. Check console for details.");
+    }
+  };
+
   const handleCreateNewFolder = async () => {
     if (!newFolderName.trim()) {
       alert("Folder name cannot be empty.");
@@ -477,7 +541,7 @@ export default function Home() {
                             className={`h-2 ${folder.color || "bg-blue-500"}`}
                           ></div>
                           <div className="p-5">
-                            <div className="flex justify-between">
+                            <div className="flex justify-between items-start">
                               <div className="flex items-center">
                                 <div>
                                   <h3 className="font-medium text-gray-900">
@@ -495,6 +559,33 @@ export default function Home() {
                                   </p>
                                 </div>
                               </div>
+
+                              {isPrivilegedUser && (
+                                <button
+                                  title="Remove folder"
+                                  onClick={(e) => {
+                                    e.preventDefault(); // don't navigate
+                                    e.stopPropagation(); // don't trigger Link
+                                    handleRemoveFolder(folder);
+                                  }}
+                                  className="inline-flex items-center p-1.5 rounded hover:bg-red-50 text-red-600"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-1-3H10a1 1 0 00-1 1v1h8V5a1 1 0 00-1-1z"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
