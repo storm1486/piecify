@@ -27,7 +27,7 @@ interface OrganizationContextType {
   orgId: string | null;
   loading: boolean;
   availableOrgs: Organization[]; // only orgs the user belongs to
-  switchOrganization: (orgId: string) => Promise<void>;
+  switchOrganization: (orgId: string, uidOverride?: string) => Promise<void>;
   createOrganization: (name: string) => Promise<string>;
 }
 
@@ -36,7 +36,9 @@ const OrganizationContext = createContext<OrganizationContextType | undefined>(
 );
 
 export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
-  const [firebaseUid, setFirebaseUid] = useState<string | null>(null);
+  const [firebaseUid, setFirebaseUid] = useState<string | null | undefined>(
+    undefined
+  );
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
   const [availableOrgs, setAvailableOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,13 +127,14 @@ export const OrganizationProvider = ({ children }: { children: ReactNode }) => {
     return orgData;
   };
 
-  const switchOrganization = async (orgId: string) => {
+  const switchOrganization = async (orgId: string, uidOverride?: string) => {
     setLoading(true);
     try {
-      // Ensure user is actually a member of this org before switching
-      if (!firebaseUid) throw new Error("Not signed in.");
+      const uid = uidOverride ?? firebaseUid ?? auth.currentUser?.uid ?? null;
+      if (!uid) throw new Error("Not signed in.");
+
       const memberSnap = await getDoc(
-        doc(db, "organizations", orgId, "users", firebaseUid)
+        doc(db, "organizations", orgId, "users", uid)
       );
       if (!memberSnap.exists()) {
         throw new Error("You do not have access to this organization.");

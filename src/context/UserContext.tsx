@@ -124,6 +124,7 @@ interface UserContextProps {
     password: string;
     firstName: string;
     lastName: string;
+    isStudent: boolean;
     graduationYear: string;
     role: string;
   }) => Promise<void>;
@@ -480,46 +481,60 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // replace your existing handleSignUp with this version
   const handleSignUp = async ({
     email,
     password,
     firstName,
     lastName,
-    graduationYear,
+    // new:
+    isStudent, // boolean from "Are you a student?"
+    graduationYearRaw, // string | undefined
     role,
-    // optional controls:
-    orgIdOverride, // pass when you already know the target org (e.g., invite join)
-    skipOrgScopedWrite = !orgId, // default: skip org write if there is no current org
+    // existing:
+    orgIdOverride,
+    skipOrgScopedWrite = !orgId,
+    // optional redirect target
+    redirectTo = "/",
   }: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
-    graduationYear: string;
+    isStudent: boolean;
+    graduationYearRaw?: string;
     role: string;
     orgIdOverride?: string;
     skipOrgScopedWrite?: boolean;
+    redirectTo?: string;
   }) => {
     try {
       // 1) Create auth user
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = cred.user;
 
-      // Optional: set displayName
+      // 2) Display name
       try {
         await updateProfile(newUser, {
           displayName: `${firstName} ${lastName}`,
         });
       } catch (_) {}
 
-      // 2) Always write a global profile so the app has basic info
+      // 3) Normalize grad year
+      const graduationYear =
+        isStudent && graduationYearRaw
+          ? Number(String(graduationYearRaw).trim())
+          : null;
+
+      // 4) Global profile write (always)
       await writeGlobalProfile(db, newUser.uid, {
         email: newUser.email!,
         firstName,
         lastName,
-        graduationYear,
+        graduationYear: graduationYear !== null ? String(graduationYear) : "",
       });
 
+      // 5) Optimistic local state
       setUser((prev) => ({
         ...(prev || {}),
         uid: newUser.uid,
@@ -527,7 +542,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         role: prev?.role || "user",
         firstName,
         lastName,
-        graduationYear: graduationYear ? Number(graduationYear) : null,
+        graduationYear,
         myFiles: prev?.myFiles || [],
         previousFiles: prev?.previousFiles || [],
         requestedFiles: prev?.requestedFiles || [],
@@ -535,23 +550,24 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         allFolders: prev?.allFolders || [],
       }));
 
-      // 3) Decide whether to write org‑scoped user now
+      // 6) Org-scoped write (if applicable)
       const targetOrgId = orgIdOverride ?? orgId ?? null;
-
       if (!skipOrgScopedWrite && targetOrgId) {
         await writeOrgUser(db, targetOrgId, newUser.uid, {
           email: newUser.email!,
           firstName,
           lastName,
-          graduationYear,
+          graduationYear: graduationYear !== null ? String(graduationYear) : "",
           role,
         });
+        // keep your app's active org in sync
+        if (typeof switchOrganization === "function") {
+          await switchOrganization(targetOrgId);
+        }
       }
 
-      // Done. If you skipped org write, do it later:
-      // - after /create-organization (make creator admin), or
-      // - after /join (consume invite and add user to org)
-      console.log("User successfully signed up:", newUser.uid);
+      // 7) Redirect (always, both Yes/No paths)
+      router.replace(redirectTo);
     } catch (error) {
       console.error("Error signing up user:", error);
       throw error;

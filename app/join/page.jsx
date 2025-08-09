@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   collection,
   doc,
@@ -18,14 +18,10 @@ import { db } from "@/app/firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 import { useOrganization } from "@/src/context/OrganizationContext";
 
-export default function JoinOrgPage() {
+export default function JoinClient({ orgId, token }) {
   const router = useRouter();
-  const search = useSearchParams();
   const { user } = useUser();
   const { switchOrganization } = useOrganization();
-
-  const orgId = search.get("org");
-  const token = search.get("token");
 
   const [status, setStatus] = useState("Checking invite…");
   const [error, setError] = useState("");
@@ -56,7 +52,6 @@ export default function JoinOrgPage() {
       try {
         setStatus("Validating invite…");
 
-        // Find the invite doc by token under the org's invites subcollection
         const invitesQ = query(
           collection(db, "organizations", orgId, "invites"),
           where("token", "==", token),
@@ -69,9 +64,8 @@ export default function JoinOrgPage() {
         }
 
         const inviteDoc = snap.docs[0];
-        const invite = inviteDoc.data();
+        const invite = inviteDoc.data() || {};
 
-        // Basic validations
         if (invite.isDisabled)
           throw new Error("This invite has been disabled.");
         if (invite.maxUses && invite.uses >= invite.maxUses)
@@ -87,8 +81,8 @@ export default function JoinOrgPage() {
 
         setStatus("Adding you to the organization…");
 
-        // Add/merge org-scoped user doc (idempotent)
         const orgUserRef = doc(db, "organizations", orgId, "users", user.uid);
+        // ...
         await setDoc(
           orgUserRef,
           {
@@ -102,13 +96,10 @@ export default function JoinOrgPage() {
           { merge: true }
         );
 
-        // Increment uses
         await updateDoc(inviteDoc.ref, { uses: increment(1) });
 
-        // Switch active org and go home
-        if (typeof switchOrganization === "function") {
-          await switchOrganization(orgId);
-        }
+        // switch active org using uid override
+        await switchOrganization(orgId, user.uid);
 
         setStatus("Success! Redirecting…");
         router.replace("/");
@@ -120,7 +111,7 @@ export default function JoinOrgPage() {
     };
 
     run();
-  }, [canStart, db, orgId, token, user, router, switchOrganization]);
+  }, [canStart, orgId, token, user, router, switchOrganization]);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
