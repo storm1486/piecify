@@ -167,6 +167,24 @@ export default function Home() {
     init();
   }, [user]);
 
+  // Real-time folders subscription
+  useEffect(() => {
+    if (!orgId) return;
+    const q = getOrgCollection(orgId, "folders");
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setFolders(list);
+      },
+      (err) => console.error("folders listen failed:", err)
+    );
+    return () => unsub();
+  }, [orgId]);
+
   useEffect(() => {
     setActivePage("dashboard"); // ✅ update current page
   }, []);
@@ -458,7 +476,7 @@ export default function Home() {
 
                 {/* Folders Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[...allFolders]
+                  {[...folders]
                     .sort((a, b) =>
                       isAscending
                         ? a.name.localeCompare(b.name)
@@ -470,32 +488,13 @@ export default function Home() {
                         href={`/folders/${folder.id}`}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                       >
-                        <div
-                          key={folder.id}
-                          className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden hover:-translate-y-1 transition-transform duration-200"
-                        >
+                        <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden hover:-translate-y-1 transition-transform duration-200">
                           <div
                             className={`h-2 ${folder.color || "bg-blue-500"}`}
                           ></div>
                           <div className="p-5">
                             <div className="flex justify-between">
                               <div className="flex items-center">
-                                <div className="p-2 rounded-lg mr-3 bg-blue-100 text-blue-600">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-6 w-6"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                                    />
-                                  </svg>
-                                </div>
                                 <div>
                                   <h3 className="font-medium text-gray-900">
                                     {folder.name}
@@ -523,24 +522,7 @@ export default function Home() {
                                     : "text-gray-500"
                                 }`}
                               >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-5 w-5"
-                                  fill={
-                                    user.favoriteFolders.includes(folder.id)
-                                      ? "currentColor"
-                                      : "none"
-                                  }
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                                  />
-                                </svg>
+                                {/* heart icon svg ... */}
                               </button>
                             </div>
                           </div>

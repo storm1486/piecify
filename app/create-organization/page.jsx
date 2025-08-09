@@ -90,7 +90,7 @@ export default function CreateOrganizationPage() {
           Create Organization
         </h1>
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-          You’ll be added as an admin automatically.
+          You’ll be added as a coach automatically.
         </p>
 
         {error && (
