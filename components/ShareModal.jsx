@@ -49,6 +49,7 @@ export default function ShareLinkModal({ isOpen, onClose, shareLink }) {
 
     try {
       await sendEmail({
+        orgId,
         to: selectedUser,
         subject: "A file has been shared with you",
         html: `

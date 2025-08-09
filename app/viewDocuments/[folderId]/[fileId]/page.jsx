@@ -76,10 +76,13 @@ export default function ViewDocument() {
       return;
     }
 
-    const link = await generateShareLink(fileId, user);
-    if (link) {
+    try {
+      const link = await generateShareLink({ orgId, fileId, user });
       setShareLink(link);
       setIsShareModalOpen(true);
+    } catch (e) {
+      console.error("Failed to generate share link:", e);
+      alert("Failed to generate share link.");
     }
   };
 

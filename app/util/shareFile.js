@@ -1,38 +1,41 @@
-import { db } from "../firebase/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { v4 as uuidv4 } from "uuid";
-import { useOrganization } from "@/src/context/OrganizationContext";
-import { getOrgCollection } from "@/src/utils/firebaseHelpers";
+// util/shareFile.js
+import { addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { getOrgCollection, getOrgDoc } from "@/src/utils/firebaseHelpers";
 
-export const generateShareLink = async (fileId, currentUser) => {
-  if (
-    !currentUser ||
-    !(currentUser.role === "admin" || currentUser.role === "coach")
-  ) {
-    console.error(
-      "Permission denied: Only admins or coaches can generate temporary links."
-    );
-    return null;
-  }
+export async function generateShareLink({
+  orgId,
+  fileId,
+  user,
+  expiresInHours = 24,
+}) {
+  if (!orgId) throw new Error("orgId is required to generate a share link");
+  if (!fileId) throw new Error("fileId is required to generate a share link");
 
-  const { orgId } = useOrganization();
+  // Prefer crypto UUID when available
+  const token =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-  try {
-    const token = uuidv4();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 1); // Expire in 24 hours
+  // Use Firestore Timestamp for clean rule checks & comparisons
+  const expiresAt = Timestamp.fromDate(
+    new Date(Date.now() + expiresInHours * 60 * 60 * 1000)
+  );
 
-    await addDoc(getOrgCollection(orgId, "sharedLinks"), {
-      fileRef: `/files/${fileId}`,
-      adminId: currentUser.uid, // Store admin who created link
-      expiresAt,
-      token,
-      createdAt: serverTimestamp(),
-    });
+  // Always store a DocumentReference to the file (plus fileId as a handy fallback)
+  await addDoc(getOrgCollection(orgId, "sharedLinks"), {
+    token,
+    fileRef: getOrgDoc(orgId, "files", fileId), // ✅ key fix
+    fileId, // optional fallback
+    createdBy: user?.uid ?? null,
+    createdByName: user
+      ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
+      : null,
+    createdAt: serverTimestamp(),
+    expiresAt, // ✅ Timestamp (not Date)
+    used: false,
+  });
 
-    return `${window.location.origin}/viewSharedFile/${token}`; // 🔹 Updated URL structure
-  } catch (error) {
-    console.error("Error generating share link:", error);
-    return null;
-  }
-};
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+  return `${base}/viewSharedFile/${token}`;
+}

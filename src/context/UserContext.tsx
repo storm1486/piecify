@@ -69,71 +69,74 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!orgId) {
+      // Wait until orgId is resolved by OrganizationProvider
+      if (!firebaseUser) {
+        setUser(null);
         setLoading(false);
         return;
       }
-      if (firebaseUser) {
+
+      // If orgId not ready yet, hold off until it is
+      if (!orgId) {
+        setLoading(true);
+        return;
+      }
+
+      try {
         const { email, uid } = firebaseUser;
 
-        try {
-          // Fetch user document from Firestore
-          const userDocRef = getOrgDoc(orgId, "users", uid);
-          const userDoc = await getDoc(userDocRef);
+        const userDocRef = getOrgDoc(orgId, "users", uid);
+        const userDoc = await getDoc(userDocRef);
 
-          let userData: User = {
-            email: email || "",
-            role: "user",
-            uid,
-            firstName: "", // Default value
-            lastName: "", // Default value
-            graduationYear: null, // Default value
-            myFiles: [],
-            previousFiles: [],
-            requestedFiles: [],
-            favoriteFolders: [],
-            allFolders: [],
+        let userData: User = {
+          email: email || "",
+          role: "user",
+          uid,
+          firstName: "",
+          lastName: "",
+          graduationYear: null,
+          myFiles: [],
+          previousFiles: [],
+          requestedFiles: [],
+          favoriteFolders: [],
+          allFolders: [],
+        };
+
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          userData = {
+            ...userData,
+            role: data.role || "user",
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            graduationYear: data.graduationYear || null,
+            favoriteFolders: data.favoriteFolders || [],
+            myFiles: data.myFiles || [],
+            previousFiles: data.previousFiles || [],
           };
-
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            userData = {
-              ...userData,
-              role: data.role || "user",
-              firstName: data.firstName || "", // Fetch firstName
-              lastName: data.lastName || "", // Fetch lastName
-              graduationYear: data.graduationYear || null, // Fetch graduationYear
-              favoriteFolders: data.favoriteFolders || [],
-              myFiles: data.myFiles || [],
-              previousFiles: data.previousFiles || [],
-            };
-          }
-
-          // Fetch all folders for admin
-          if (["admin", "coach"].includes(userData.role)) {
-            const folderSnapshot = await getDocs(
-              getOrgCollection(orgId, "folders")
-            );
-            userData.allFolders = folderSnapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
-          }
-
-          setUser(userData);
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        } finally {
-          setLoading(false);
         }
-      } else {
-        setUser(null);
+
+        if (["admin", "coach"].includes(userData.role)) {
+          const folderSnapshot = await getDocs(
+            getOrgCollection(orgId, "folders")
+          );
+          userData.allFolders = folderSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+        }
+
+        setUser(userData);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
         setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+    // IMPORTANT: rerun when orgId changes (e.g., after switchOrganization or after org resolves)
+  }, [orgId]);
 
   const isPrivileged = () => {
     return user?.role === "admin" || user?.role === "coach";
