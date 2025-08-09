@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { getDocs, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDocs, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { db } from "@/app/firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
 import SearchHeader from "@/components/SearchHeader";
@@ -74,65 +75,94 @@ export default function ViewPieces() {
     return now < expirationTime;
   };
 
+  // assumes fileRef is either a DocumentReference already pointing under organizations/*
+  // or a full string path like "organizations/{orgId}/files/{fileId}"
+  // org-only resolver
+  const resolveOrgFileRef = (raw) => {
+    if (!raw) return null;
+
+    // already a DocumentReference?
+    if (typeof raw === "object" && typeof raw.path === "string") return raw;
+
+    // full string path like "organizations/{orgId}/files/{fileId}"
+    if (typeof raw === "string") {
+      const cleaned = raw.replace(/^\/+/, "");
+      return doc(db, cleaned);
+    }
+
+    return null;
+  };
+
   const fetchFiles = async () => {
+    if (!orgId) return; // guard
     try {
       setIsLoading(true);
-      const snapshot = await getDocs(
+
+      // 1) list the folder's file refs
+      const listSnap = await getDocs(
         getOrgCollection(orgId, "folders", folderId, "files")
       );
+
       const fileData = [];
       const requestStatusesMap = new Map();
 
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        if (data.fileRef) {
-          const fileDoc = await getDoc(
-            typeof data.fileRef === "string"
-              ? getOrgDoc(orgId, data.fileRef)
-              : data.fileRef
-          );
+      for (const item of listSnap.docs) {
+        const data = item.data();
+        const ref = resolveOrgFileRef(data.fileRef);
+        if (!ref) {
+          console.warn("Skipping item with bad fileRef:", data.fileRef);
+          continue;
+        }
 
-          if (fileDoc.exists()) {
-            const fileInfo = fileDoc.data();
+        // Debug: confirm path & auth state
+        console.log("Reading file doc:", ref.path, {
+          folderId,
+          orgId,
+          authed: !!user?.uid,
+        });
 
-            // Determine request status for current user
-            if (user && user.uid && Array.isArray(fileInfo.accessRequests)) {
-              const userRequests = fileInfo.accessRequests.filter(
-                (r) => r.userId === user.uid && r.requestedAt
-              );
+        const fileDoc = await getDoc(ref);
+        if (!fileDoc.exists()) {
+          console.warn("File doc missing:", ref.path);
+          continue;
+        }
 
-              if (userRequests.length > 0) {
-                const mostRecent = userRequests.sort(
-                  (a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)
-                )[0];
+        const fileInfo = fileDoc.data();
 
-                if (
-                  mostRecent &&
-                  ["pending", "approved", "rejected"].includes(
-                    mostRecent.status
-                  ) &&
-                  isRequestStillValid(mostRecent.requestedAt)
-                ) {
-                  requestStatusesMap.set(fileDoc.id, mostRecent.status); // "pending", "approved", "rejected"
-                }
-              }
-            }
+        // request status for current user
+        if (user?.uid && Array.isArray(fileInfo.accessRequests)) {
+          const mostRecent = fileInfo.accessRequests
+            .filter((r) => r.userId === user.uid && r.requestedAt)
+            .sort(
+              (a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)
+            )[0];
 
-            fileData.push({
-              id: fileDoc.id,
-              ...fileDoc.data(),
-              length: fileDoc.data().length || "Unknown",
-              attributes: fileDoc.data().attributes || [],
-            });
+          if (
+            mostRecent &&
+            ["pending", "approved", "rejected"].includes(mostRecent.status) &&
+            isRequestStillValid(mostRecent.requestedAt)
+          ) {
+            requestStatusesMap.set(fileDoc.id, mostRecent.status);
           }
         }
+
+        fileData.push({
+          id: fileDoc.id,
+          ...fileInfo,
+          length: fileInfo.length || "Unknown",
+          attributes: fileInfo.attributes || [],
+        });
       }
 
       setPieces(fileData);
       setFilteredPieces(fileData);
       setRequestStatuses(requestStatusesMap);
     } catch (error) {
-      console.error("Error fetching files:", error);
+      // Capture more detail
+      console.error("Error fetching files:", {
+        code: error.code,
+        message: error.message,
+      });
     } finally {
       setIsLoading(false);
     }

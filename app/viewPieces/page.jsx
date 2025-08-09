@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getDocs } from "firebase/firestore";
+import { getDocs, getCountFromServer } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext"; // Assuming you have this context
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
 import { useLayout } from "@/src/context/LayoutContext";
@@ -41,43 +41,47 @@ export default function ViewPiecesPage() {
   }, [searchQuery, folders]);
 
   const fetchFolders = async () => {
+    if (!orgId) return;
+
     try {
       setIsLoading(true);
-      const snapshot = await getDocs(getOrgCollection(orgId, "folders"));
 
-      // Get all folders first
-      const folderData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        fileCount: 0, // Initialize fileCount
+      // 1) Fetch all folders
+      const foldersSnap = await getDocs(getOrgCollection(orgId, "folders"));
+
+      const baseFolders = foldersSnap.docs.map((d) => ({
+        id: d.id, // use snapshot id
+        ...d.data(),
+        fileCount: 0,
       }));
 
-      // Now fetch file counts for each folder
-      const foldersWithCounts = await Promise.all(
-        folderData.map(async (folder) => {
+      // 2) Count files inside each folder’s "files" subcollection
+      const withCounts = await Promise.all(
+        baseFolders.map(async (folder) => {
           try {
-            const filesRef = getOrgCollection(
+            const filesCol = getOrgCollection(
               orgId,
               "folders",
               folder.id,
               "files"
             );
-            const countSnap = await getCountFromServer(filesRef);
-            return { ...folder, fileCount: countSnap.data().count || 0 };
-          } catch (error) {
+            const countSnap = await getCountFromServer(filesCol);
+            const fileCount = countSnap.data().count || 0;
+            return { ...folder, fileCount };
+          } catch (err) {
             console.error(
-              `Error counting files for folder ${folder.id}:`,
-              error
+              `Error fetching file count for folder ${folder.id}:`,
+              err
             );
-            return folder;
+            return { ...folder, fileCount: 0 };
           }
         })
       );
 
-      setFolders(foldersWithCounts);
-      setFilteredFolders(foldersWithCounts);
-    } catch (error) {
-      console.error("Error fetching folders:", error);
+      setFolders(withCounts);
+      setFilteredFolders(withCounts);
+    } catch (err) {
+      console.error("Error fetching folders:", err);
     } finally {
       setIsLoading(false);
     }

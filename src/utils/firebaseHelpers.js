@@ -1,13 +1,14 @@
 import { collection, doc, query } from "firebase/firestore";
 import { db } from "../../app/firebase/firebase";
 
-// Organization-scoped collection helpers
-export const getOrgCollection = (orgId, collectionName) => {
-  return collection(db, "organizations", orgId, collectionName);
+export const getOrgCollection = (orgId, ...segments) => {
+  if (!orgId) throw new Error("getOrgCollection: orgId is required");
+  return collection(db, "organizations", orgId, ...segments);
 };
 
-export const getOrgDoc = (orgId, collectionName, docId) => {
-  return doc(db, "organizations", orgId, collectionName, docId);
+export const getOrgDoc = (orgId, ...segments) => {
+  if (!orgId) throw new Error("getOrgDoc: orgId is required");
+  return doc(db, "organizations", orgId, ...segments);
 };
 
 // Organization-scoped subcollection helpers
