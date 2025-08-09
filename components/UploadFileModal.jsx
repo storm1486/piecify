@@ -119,10 +119,7 @@ export default function UploadFileModal({
       const fileId = doc(collection(db, "organizations", orgId, "files")).id;
 
       // Upload file to storage as usual
-      const storageRef = ref(
-        storage,
-        `organizations/${orgId}/files/${fileId}/${safeName}`
-      );
+      const storageRef = ref(storage, `organizations/${orgId}/files/${fileId}`);
       await uploadBytes(storageRef, file);
       const fileUrl = await getDownloadURL(storageRef);
 
