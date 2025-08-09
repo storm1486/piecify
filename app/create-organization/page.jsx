@@ -19,7 +19,7 @@ export default function CreateOrganizationPage() {
   const { switchOrganization } = useOrganization();
 
   const [orgName, setOrgName] = useState("");
-  const [orgDescription, setOrgDescription] = useState("");
+  const [orgLocation, setOrgLocation] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,7 +44,7 @@ export default function CreateOrganizationPage() {
       // 1) Create organization
       const orgRef = await addDoc(collection(db, "organizations"), {
         name: trimmedName,
-        description: orgDescription.trim() || "",
+        location: orgLocation.trim() || "",
         createdAt: serverTimestamp(),
         createdBy: user?.uid ?? null,
         settings: {
@@ -117,15 +117,15 @@ export default function CreateOrganizationPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
-              Description (optional)
+              Location (optional)
             </label>
             <textarea
-              value={orgDescription}
-              onChange={(e) => setOrgDescription(e.target.value)}
-              placeholder="Briefly describe your organization"
+              value={orgLocation}
+              onChange={(e) => setOrgLocation(e.target.value)}
+              placeholder="Location of your organization"
               className="w-full rounded border border-gray-300 dark:border-gray-700 px-3 py-2 bg-white text-black dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={4}
-              maxLength={500}
+              minLength={300}
             />
           </div>
 
