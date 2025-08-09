@@ -283,7 +283,7 @@ export default function OrganizationProfilePage() {
                 Organization not found
               </h3>
               <p className="text-gray-500">
-                Organization not found or you don't have access.
+                Organization not found or you don&apos;t have access.
               </p>
             </div>
           </div>

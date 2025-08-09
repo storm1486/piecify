@@ -949,15 +949,16 @@ export default function PracticeSorterPage() {
                     <ul className="text-amber-700 space-y-1">
                       <li>
                         • Include <strong>ALL</strong> rooms you want to use,
-                        even if they don't have volunteers yet
+                        even if they don&apos;t have volunteers yet
                       </li>
                       <li>
-                        • The template named <strong>"Default Practice"</strong>{" "}
-                        will automatically load when you visit this page
+                        • The template named{" "}
+                        <strong>&quot;Default Practice&quot;</strong> will
+                        automatically load when you visit this page
                       </li>
                       <li>
-                        • You can always add volunteers later in the "Room
-                        Volunteers" section
+                        • You can always add volunteers later in the &quot;Room
+                        Volunteers&quot; section
                       </li>
                     </ul>
                   </div>
@@ -1710,8 +1711,8 @@ export default function PracticeSorterPage() {
                     placeholder="e.g. Default Practice"
                   />
                   <p className="text-xs text-gray-600 mt-1">
-                    💡 Name it "Default Practice" to have it auto-load when
-                    users visit this page
+                    💡 Name it &quot;Default Practice&quot; to have it auto-load
+                    when users visit this page
                   </p>
                 </div>
 
@@ -1741,9 +1742,11 @@ export default function PracticeSorterPage() {
                       </strong>
                     </p>
                     <ul className="ml-4 space-y-1">
-                      <li>• The room doesn't have a volunteer assigned yet</li>
                       <li>
-                        • You're not sure who will volunteer for that room
+                        • The room doesn&apos;t have a volunteer assigned yet
+                      </li>
+                      <li>
+                        • You&apos;re not sure who will volunteer for that room
                       </li>
                       <li>• The room might not be used every time</li>
                     </ul>
@@ -1753,11 +1756,15 @@ export default function PracticeSorterPage() {
                     </p>
                     <ul className="ml-4 space-y-1">
                       <li>
-                        • Add volunteers later in the "Room Volunteers" section
+                        • Add volunteers later in the &quot;Room
+                        Volunteers&quot; section
                       </li>
-                      <li>• Leave volunteer fields blank - they're optional</li>
                       <li>
-                        • Add extra rooms using "Additional Rooms" if needed
+                        • Leave volunteer fields blank - they&apos;re optional
+                      </li>
+                      <li>
+                        • Add extra rooms using &quot;Additional Rooms&quot; if
+                        needed
                       </li>
                     </ul>
                   </div>
@@ -1803,7 +1810,8 @@ export default function PracticeSorterPage() {
                           No rooms added yet
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          Click "Add Room" and include ALL rooms you might use
+                          Click &quot;Add Room&quot; and include ALL rooms you
+                          might use
                         </p>
                       </div>
                     ) : (

@@ -330,7 +330,7 @@ export default function JoinViaInvitePage({ params }) {
                         htmlFor="student-yes"
                         className="ml-2 block text-sm text-gray-900"
                       >
-                        Yes, I'm a student
+                        Yes, I&apos;m a student
                       </label>
                     </div>
                     <div className="flex items-center">
@@ -346,7 +346,7 @@ export default function JoinViaInvitePage({ params }) {
                         htmlFor="student-no"
                         className="ml-2 block text-sm text-gray-900"
                       >
-                        No, I'm not a student
+                        No, I&apos;m not a student
                       </label>
                     </div>
                   </div>
