@@ -363,6 +363,40 @@ export default function Sidebar({ className = "", closeSidebar }) {
                 <span className="text-sm md:text-base">Current Team</span>
               </Link>
             </li>
+            <li>
+              <Link
+                href={`/organizationProfile/${orgId}`} // or "/organizationProfile" if static
+                onClick={handleNavigation}
+                className={`
+      flex items-center justify-start 
+      p-2 rounded-md text-sm md:text-base
+      ${
+        activePage === "organizationProfile"
+          ? "bg-blue-800/50 font-medium"
+          : "text-blue-200 hover:bg-blue-800/50 hover:text-white transition-colors"
+      }
+    `}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 md:h-6 md:w-6 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 7h18M3 12h18M3 17h18"
+                  />
+                </svg>
+                <span className="text-sm md:text-base">
+                  Organization Profile
+                </span>
+              </Link>
+            </li>
+
             <li className="mt-4 md:mt-6">
               {customNavButtons.length > 0 && (
                 <div>

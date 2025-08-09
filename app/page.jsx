@@ -1,11 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { db } from "./firebase/firebase"; // Adjust the path as necessary
 import {
-  collection,
   addDoc,
   getDocs,
-  doc,
   getDoc,
   updateDoc,
   setDoc,
@@ -25,8 +22,7 @@ import { useOrganization } from "../src/context/OrganizationContext";
 import { getOrgCollection, getOrgDoc } from "../src/utils/firebaseHelpers";
 
 export default function Home() {
-  const { user, loading, toggleFavorite, fetchMyFiles, isPrivileged } =
-    useUser();
+  const { user, fetchMyFiles, isPrivileged } = useUser();
   const { orgId } = useOrganization();
   const isPrivilegedUser = isPrivileged();
   const { setActivePage } = useLayout();
@@ -35,7 +31,6 @@ export default function Home() {
   const [newFolderName, setNewFolderName] = useState("");
   const [isAscending, setIsAscending] = useState(true); // State for sorting direction
   const [activeTab, setActiveTab] = useState(null); // Default tab is "All Files"
-  const allFolders = user?.allFolders || [];
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [allFilesWithUploader, setAllFilesWithUploader] = useState([]);
   const [loadingAllFiles, setLoadingAllFiles] = useState(false);
@@ -430,17 +425,6 @@ export default function Home() {
                     </span>
                   )}
                 </button>
-
-                <button
-                  onClick={() => setActiveTab("favorites")}
-                  className={`pb-4 px-1 font-medium text-sm ${
-                    activeTab === "favorites"
-                      ? "text-blue-600 border-b-2 border-blue-600"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  Favorites
-                </button>
               </div>
             </div>
             {/* All Folders Tab Content */}
@@ -511,19 +495,6 @@ export default function Home() {
                                   </p>
                                 </div>
                               </div>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  toggleFavorite(folder.id);
-                                }}
-                                className={`text-gray-400 hover:${
-                                  user.favoriteFolders.includes(folder.id)
-                                    ? "text-red-500"
-                                    : "text-gray-500"
-                                }`}
-                              >
-                                {/* heart icon svg ... */}
-                              </button>
                             </div>
                           </div>
                         </div>

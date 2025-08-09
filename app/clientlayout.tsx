@@ -19,8 +19,9 @@ export default function ClientLayout({
 
   // Define routes that should NOT show the sidebar
   const hideSidebarRoutes = ["/login", "/signup"];
-  const shouldHideSidebar = hideSidebarRoutes.includes(pathname);
-
+  // Check if current path should hide sidebar
+  const shouldHideSidebar =
+    hideSidebarRoutes.includes(pathname) || pathname.startsWith("/invite"); // Hide sidebar for all invite routes
   // Allow modal sidebar to close
   const closeSidebar = () => {
     setIsSidebarOpen(false);
