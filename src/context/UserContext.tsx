@@ -520,6 +520,21 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         graduationYear,
       });
 
+      setUser((prev) => ({
+        ...(prev || {}),
+        uid: newUser.uid,
+        email: newUser.email || "",
+        role: prev?.role || "user",
+        firstName,
+        lastName,
+        graduationYear: graduationYear ? Number(graduationYear) : null,
+        myFiles: prev?.myFiles || [],
+        previousFiles: prev?.previousFiles || [],
+        requestedFiles: prev?.requestedFiles || [],
+        favoriteFolders: prev?.favoriteFolders || [],
+        allFolders: prev?.allFolders || [],
+      }));
+
       // 3) Decide whether to write org‑scoped user now
       const targetOrgId = orgIdOverride ?? orgId ?? null;
 

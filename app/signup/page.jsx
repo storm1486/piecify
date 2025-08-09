@@ -62,8 +62,8 @@ export default function SignUpPage() {
       await handleSignUp({
         email,
         password,
-        firstName: capitalize(firstName),
-        lastName: capitalize(lastName),
+        firstName,
+        lastName,
         graduationYear,
         role,
         skipOrgScopedWrite: true, // important so it doesn’t require orgId yet
