@@ -1,21 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { addDoc, Timestamp } from "firebase/firestore";
 import {
   getStorage,
   ref as storageRef,
   uploadBytesResumable,
   getDownloadURL,
 } from "firebase/storage";
-import { db } from "@/app/firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
+import { getOrgCollection } from "@/src/utils/firebaseHelpers";
+import { useOrganization } from "@/src/context/OrganizationContext";
 
 export default function TeamFileUpload({ onUploadSuccess }) {
   const { user } = useUser();
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
+  const { orgId } = useOrganization();
 
   const storage = getStorage();
 
@@ -45,7 +47,7 @@ export default function TeamFileUpload({ onUploadSuccess }) {
       const downloadURL = await getDownloadURL(task.snapshot.ref);
 
       // 3. Write metadata to Firestore
-      await addDoc(collection(db, "teamFiles"), {
+      await addDoc(getOrgCollection(orgId, "teamFiles"), {
         fileName: file.name,
         storagePath: path,
         downloadURL,

@@ -1,24 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { db } from "../../firebase/firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  getDoc,
-} from "firebase/firestore";
+import { query, where, getDocs, getDoc } from "firebase/firestore";
 import DocumentTags from "@/src/componenets/DocumentTags";
+import { useOrganization } from "../../../src/context/OrganizationContext";
+import {
+  getOrgCollection,
+  getOrgDoc,
+} from "../../../src/utils/firebaseHelpers";
 
 export default function ViewSharedFile() {
   const { token } = useParams();
   const [fileData, setFileData] = useState(null);
   const [error, setError] = useState("");
+  const { orgId } = useOrganization();
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !orgId) {
       setError("Invalid or missing token.");
       return;
     }
@@ -26,7 +24,7 @@ export default function ViewSharedFile() {
     const fetchSharedFile = async () => {
       try {
         const q = query(
-          collection(db, "sharedLinks"),
+          getOrgCollection(orgId, "sharedLinks"),
           where("token", "==", token)
         );
         const snapshot = await getDocs(q);
@@ -39,18 +37,25 @@ export default function ViewSharedFile() {
         const sharedDoc = snapshot.docs[0];
         const { fileRef, expiresAt } = sharedDoc.data();
 
-        if (new Date() > new Date(expiresAt.toDate())) {
+        const exp =
+          typeof expiresAt?.toDate === "function"
+            ? expiresAt.toDate()
+            : new Date(expiresAt);
+        if (!exp || new Date() > exp) {
           setError("This link has expired.");
           return;
         }
 
-        const fileDoc = await getDoc(doc(db, fileRef));
-        if (!fileDoc.exists()) {
+        // fileRef may be a DocumentReference OR a string path
+        const fileSnap = await getDoc(
+          typeof fileRef === "string" ? getOrgDoc(orgId, fileRef) : fileRef
+        );
+        if (!fileSnap.exists()) {
           setError("File not found.");
           return;
         }
 
-        setFileData(fileDoc.data());
+        setFileData(fileSnap.data());
       } catch (err) {
         console.error("Error fetching shared file:", err);
         setError("An error occurred while fetching the file.");
@@ -58,7 +63,7 @@ export default function ViewSharedFile() {
     };
 
     fetchSharedFile();
-  }, [token]);
+  }, [token, orgId]);
 
   if (error) return <p className="text-red-500 text-center mt-10">{error}</p>;
 

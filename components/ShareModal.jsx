@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../app/firebase/firebase";
+import { getDocs } from "firebase/firestore";
 import { sendEmail } from "@/app/util/sendEmail";
 import { useUser } from "@/src/context/UserContext";
+import { getOrgCollection } from "@/src/utils/firebaseHelpers";
+import { useOrganization } from "@/src/context/OrganizationContext";
 
 export default function ShareLinkModal({ isOpen, onClose, shareLink }) {
   const { user } = useUser();
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     if (isOpen) {
@@ -21,7 +23,7 @@ export default function ShareLinkModal({ isOpen, onClose, shareLink }) {
   // Fetch all users from Firestore
   const fetchUsers = async () => {
     try {
-      const usersSnapshot = await getDocs(collection(db, "users"));
+      const usersSnapshot = await getDocs(getOrgCollection(orgId, "users"));
       const usersList = usersSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),

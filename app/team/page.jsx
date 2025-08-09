@@ -3,22 +3,22 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
-  collection,
   getDocs,
-  doc,
   updateDoc,
   getDoc,
 } from "firebase/firestore";
-import { db } from "../firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 import { useLayout } from "@/src/context/LayoutContext";
 import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
+import { useOrganization } from "../../src/context/OrganizationContext";
+import { getOrgDoc, getOrgCollection } from "../../src/utils/firebaseHelpers";
 
 export default function CurrentTeam() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(null);
   const { user } = useUser();
+  const { orgId } = useOrganization();
   const { setActivePage } = useLayout();
   const [yearFilter, setYearFilter] = useState("all");
   const [alphaSort, setAlphaSort] = useState("asc");
@@ -33,7 +33,7 @@ export default function CurrentTeam() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const usersSnapshot = await getDocs(collection(db, "users"));
+        const usersSnapshot = await getDocs(getOrgCollection(orgId, "users"));
         const usersList = usersSnapshot.docs
           .map((doc) => ({
             id: doc.id,
@@ -69,7 +69,7 @@ export default function CurrentTeam() {
       const fileMap = {};
       await Promise.all(
         Array.from(fileRefs).map(async (fileId) => {
-          const fileDoc = await getDoc(doc(db, "files", fileId));
+          const fileDoc = await getDoc(getOrgDoc(orgId, "files", fileId));
           if (fileDoc.exists()) {
             fileMap[fileId] = fileDoc.data();
           }
@@ -98,7 +98,7 @@ export default function CurrentTeam() {
   const toggleUserRole = async (targetUserId, targetRole) => {
     if (!user || user.role !== "coach" || targetUserId === user.uid) return;
 
-    const userRef = doc(db, "users", targetUserId);
+    const userRef = getOrgDoc(orgId, "users", targetUserId);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) return;
 

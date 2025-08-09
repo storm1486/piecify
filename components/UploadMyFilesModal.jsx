@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import CreatableSelect from "react-select/creatable";
 import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
+import { useOrganization } from "@/src/context/OrganizationContext";
 
 // Updated custom styles for the select component
 const customStyles = {
@@ -76,6 +77,7 @@ export default function UploadMyFilesModal({
   const [length, setLength] = useState("10 min");
   const fileInputRef = useRef();
   const [isDragging, setIsDragging] = useState(false);
+  const { orgId } = useOrganization();
 
   if (!isOpen) return null;
 
@@ -145,15 +147,19 @@ export default function UploadMyFilesModal({
 
     try {
       // ✅ Generate a unique fileId
-      const fileId = doc(collection(db, "files")).id;
+      const fileId = doc(collection(db, "organizations", orgId, "files")).id;
 
       // ✅ Upload file to Firebase Storage
-      const storageRef = ref(storage, `user_files/${user.uid}/${file.name}`);
+      const safeName = (fileName || file.name).replace(/[^\w\s.-]/g, "").trim();
+      const storageRef = ref(
+        storage,
+        `organizations/${orgId}/users/${user.uid}/files/${fileId}/${safeName}`
+      );
       await uploadBytes(storageRef, file);
       const fileUrl = await getDownloadURL(storageRef);
 
       // ✅ Create a Firestore document in `files`
-      const fileRef = doc(db, "files", fileId);
+      const fileRef = doc(db, "organizations", orgId, "files", fileId);
       const now = new Date().toISOString();
       const currentOwnerEntry = { userId: user.uid, dateGiven: now };
 
@@ -174,13 +180,13 @@ export default function UploadMyFilesModal({
       });
 
       // ✅ Add file reference inside user's `myFiles`
-      await updateDoc(doc(db, "users", user.uid), {
+      const userRef = doc(db, "organizations", orgId, "users", user.uid);
+      await updateDoc(userRef, {
         myFiles: arrayUnion({
-          fileRef: fileRef,
+          fileRef, // <-- DocumentReference, not a string
           dateGiven: now,
         }),
       });
-
       // Complete progress
       setUploadProgress(100);
       stopProgressSimulation();

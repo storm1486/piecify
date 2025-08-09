@@ -1,79 +1,120 @@
+// functions/index.js
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-// Initialize Firebase Admin SDK
 initializeApp();
 const db = getFirestore();
 
-export const moveOldFiles = onSchedule("0 0 1 7 *", async () => {
-  // Runs at midnight UTC
-  console.log("Running file cleanup function...");
+export const moveOldFiles = onSchedule(
+  { schedule: "0 0 1 7 *", timeZone: "UTC" },
+  async () => {
+    console.log("Running org-scoped file cleanup…");
 
-  const usersSnapshot = await db.collection("users").get();
-  const cutoffDate = new Date(new Date().getFullYear(), 6, 1); // July 1st
+    // July is month index 6 (0-based)
+    const cutoffDate = new Date(new Date().getFullYear(), 6, 1);
 
-  for (const userDoc of usersSnapshot.docs) {
-    const userData = userDoc.data();
-    const myFiles = userData.myFiles || [];
-    const previousFiles = userData.previousFiles || [];
+    const orgsSnap = await db.collection("organizations").get();
 
-    const updatedFiles = [];
+    for (const orgDoc of orgsSnap.docs) {
+      const orgId = orgDoc.id;
+      console.log(`Processing organization: ${orgId}`);
 
-    for (const file of myFiles) {
-      if (new Date(file.dateGiven) < cutoffDate) {
-        previousFiles.push(file);
+      const usersSnap = await db
+        .collection("organizations")
+        .doc(orgId)
+        .collection("users")
+        .get();
 
-        // ** Step 1: Get the file document reference **
-        const fileRef = file.fileRef;
-        if (fileRef) {
-          try {
-            const fileDocRef = db.doc(fileRef.path); // Get actual file document
-            const fileDoc = await fileDocRef.get();
+      for (const userDoc of usersSnap.docs) {
+        const userRef = userDoc.ref;
+        const userData = userDoc.data() || {};
 
-            if (fileDoc.exists) {
-              // ** Step 2: Remove "currentOwner" by updating the file document **
-              await fileDocRef.update({
-                currentOwner: [], // Empty the currentOwner array
-              });
-              console.log(`Cleared currentOwner for file: ${fileRef.path}`);
+        const myFiles = Array.isArray(userData.myFiles) ? userData.myFiles : [];
+        const previousFiles = Array.isArray(userData.previousFiles)
+          ? userData.previousFiles
+          : [];
+
+        const updatedMyFiles = [];
+
+        for (const entry of myFiles) {
+          const dateGivenStr = entry && entry.dateGiven;
+          const dateGiven = dateGivenStr ? new Date(dateGivenStr) : null;
+
+          if (dateGiven && dateGiven < cutoffDate) {
+            // Move to previousFiles
+            previousFiles.push(entry);
+
+            // Clear currentOwner on the linked file document
+            const fileRef = entry && entry.fileRef;
+            if (fileRef) {
+              try {
+                await db.doc(fileRef.path).update({ currentOwner: [] });
+                console.log(`Cleared currentOwner for file: ${fileRef.path}`);
+              } catch (err) {
+                console.error(
+                  `Error updating file ${fileRef && fileRef.path}:`,
+                  err
+                );
+              }
             }
-          } catch (error) {
-            console.error(`Error updating file ${fileRef.path}:`, error);
+          } else {
+            updatedMyFiles.push(entry);
           }
         }
-      } else {
-        updatedFiles.push(file);
+
+        await userRef.update({
+          myFiles: updatedMyFiles,
+          previousFiles: previousFiles,
+        });
+
+        console.log(`User processed: ${userRef.path}`);
       }
     }
 
-    // ** Step 3: Update user document with new files **
-    await db.collection("users").doc(userDoc.id).update({
-      myFiles: updatedFiles,
-      previousFiles: previousFiles,
-    });
-
-    console.log(`Moved old files and cleared owners for user: ${userDoc.id}`);
+    console.log("Org-scoped file cleanup completed.");
   }
+);
 
-  console.log("File cleanup function completed.");
-});
+export const deleteExpiredLinks = onSchedule(
+  { schedule: "every 24 hours", timeZone: "UTC" },
+  async () => {
+    console.log("Running org-scoped expired share link cleanup…");
 
-// 🔹 Scheduled function to delete expired share links every 24 hours
-export const deleteExpiredLinks = onSchedule("every 24 hours", async () => {
-  console.log("Running expired share link cleanup...");
+    const now = new Date();
+    const orgsSnap = await db.collection("organizations").get();
 
-  const now = new Date();
-  const snapshot = await db.collection("sharedLinks").get();
-  const batch = db.batch();
+    for (const orgDoc of orgsSnap.docs) {
+      const orgId = orgDoc.id;
+      console.log(`Checking sharedLinks for org: ${orgId}`);
 
-  snapshot.forEach((doc) => {
-    const data = doc.data();
-    if (data.expiresAt.toDate() < now) {
-      batch.delete(doc.ref);
+      const linksSnap = await db
+        .collection("organizations")
+        .doc(orgId)
+        .collection("sharedLinks")
+        .get();
+
+      const batch = db.batch();
+
+      linksSnap.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        // Support Timestamp or ISO string
+        const expiresAt =
+          data.expiresAt && data.expiresAt.toDate
+            ? data.expiresAt.toDate()
+            : data.expiresAt
+            ? new Date(data.expiresAt)
+            : null;
+
+        if (expiresAt && expiresAt < now) {
+          batch.delete(docSnap.ref);
+        }
+      });
+
+      await batch.commit();
+      console.log(`Expired links cleanup complete for org: ${orgId}`);
     }
-  });
 
-  await batch.commit();
-  console.log("Expired links cleanup complete.");
-});
+    console.log("All organizations cleaned up.");
+  }
+);

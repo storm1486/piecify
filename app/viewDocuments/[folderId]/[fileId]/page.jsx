@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { db } from "../../../firebase/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { getDoc } from "firebase/firestore";
 import { motion } from "framer-motion";
 import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
@@ -12,6 +11,8 @@ import { useUser } from "@/src/context/UserContext";
 import ShareLinkModal from "@/components/ShareModal";
 import DocumentTags from "@/src/componenets/DocumentTags";
 import { useLayout } from "@/src/context/LayoutContext";
+import { useOrganization } from "../../../../src/context/OrganizationContext";
+import { getOrgDoc } from "../../../../src/utils/firebaseHelpers";
 
 export default function ViewDocument() {
   const { folderId, fileId } = useParams();
@@ -27,6 +28,7 @@ export default function ViewDocument() {
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
   const { setCustomNavButtons } = useLayout();
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     setCustomNavButtons([
@@ -92,29 +94,13 @@ export default function ViewDocument() {
         try {
           setIsLoading(true);
 
-          // Step 1: Fetch file reference from the folder
-          const folderFileRef = doc(db, "folders", folderId, "files", fileId);
-          const folderFileSnap = await getDoc(folderFileRef);
-
-          if (folderFileSnap.exists()) {
-            const folderFileData = folderFileSnap.data();
-            const fileRefPath = folderFileData.fileRef;
-
-            if (fileRefPath) {
-              // Step 2: Fetch actual file data from the top-level 'files' collection
-              const fileDocRef = doc(db, fileRefPath);
-              const fileDocSnap = await getDoc(fileDocRef);
-
-              if (fileDocSnap.exists()) {
-                setDocData(fileDocSnap.data());
-              } else {
-                console.error("No such file document in top-level collection!");
-              }
-            } else {
-              console.error("No fileRef found in folder document!");
-            }
+          // We already know the fileId; just read it directly from org-scoped 'files'
+          const fileDocRef = getOrgDoc(orgId, "files", fileId);
+          const fileDocSnap = await getDoc(fileDocRef);
+          if (fileDocSnap.exists()) {
+            setDocData(fileDocSnap.data());
           } else {
-            console.error("No such document in folder!");
+            console.error("No such file document in org files!");
           }
         } catch (error) {
           console.error("Error fetching document:", error);

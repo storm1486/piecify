@@ -1,6 +1,8 @@
 // utils/sendEmail.ts
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase"; // Adjust path as needed
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgCollection } from "@/src/utils/firebaseHelpers";
 
 export const sendEmail = async ({
   to,
@@ -11,8 +13,9 @@ export const sendEmail = async ({
   subject: string;
   html: string;
 }) => {
+  const { orgId } = useOrganization();
   try {
-    await addDoc(collection(db, "mail"), {
+    await addDoc(getOrgCollection(orgId, "mail"), {
       to,
       message: {
         subject,

@@ -3,27 +3,22 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useUser } from "@/src/context/UserContext";
-import {
-  collection,
-  getDocs,
-  doc,
-  getDoc,
-  updateDoc,
-  arrayUnion,
-} from "firebase/firestore";
+import { getDocs } from "firebase/firestore";
 import PendingIntroChangesModal from "./PendingIntroChangesModal";
 import PendingAccessRequestsModal from "./PendingAccessRequestModal";
-import { db } from "@/app/firebase/firebase";
 import { GrSort } from "react-icons/gr";
 import { MdOutlinePageview } from "react-icons/md";
 import { TbFileSmile } from "react-icons/tb";
 import { useLayout } from "@/src/context/LayoutContext";
 import { LuFileQuestion } from "react-icons/lu";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgCollection } from "@/src/utils/firebaseHelpers";
 
 export default function Sidebar({ className = "", closeSidebar }) {
   const { user, handleLogout, isPrivileged } = useUser();
   const isPrivilegedUser = isPrivileged();
   const { activePage, customNavButtons, customAdminButtons } = useLayout();
+  const { orgId } = useOrganization();
 
   // State for admin modals
   const [pendingIntroFiles, setPendingIntroFiles] = useState([]);
@@ -60,7 +55,7 @@ export default function Sidebar({ className = "", closeSidebar }) {
   // Fetch functions for admin features
   const fetchPendingIntroChanges = async () => {
     try {
-      const filesSnapshot = await getDocs(collection(db, "files"));
+      const filesSnapshot = await getDocs(getOrgCollection(orgId, "files"));
       const filesWithPendingChanges = filesSnapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
         .filter((file) => file.pendingIntroChange);
@@ -73,7 +68,7 @@ export default function Sidebar({ className = "", closeSidebar }) {
 
   const fetchPendingRequests = async () => {
     try {
-      const filesSnapshot = await getDocs(collection(db, "files"));
+      const filesSnapshot = await getDocs(getOrgCollection(orgId, "files"));
       const allRequests = [];
 
       for (const fileDoc of filesSnapshot.docs) {
@@ -102,50 +97,6 @@ export default function Sidebar({ className = "", closeSidebar }) {
       setPendingRequests(allRequests);
     } catch (error) {
       console.error("Error fetching pending requests:", error);
-    }
-  };
-
-  // Function to handle approval/rejection of requests
-  const handleRequestAction = async (fileId, userId, action) => {
-    try {
-      const fileRef = doc(db, "files", fileId);
-      const fileDoc = await getDoc(fileRef);
-
-      if (!fileDoc.exists()) {
-        console.error("File not found");
-        return;
-      }
-
-      const fileData = fileDoc.data();
-      const accessRequests = fileData.accessRequests || [];
-
-      // Find the specific request
-      const updatedRequests = accessRequests.map((request) => {
-        if (request.userId === userId) {
-          return { ...request, status: action };
-        }
-        return request;
-      });
-
-      // Update the file document
-      await updateDoc(fileRef, { accessRequests: updatedRequests });
-
-      // If approved, add file to user's myFiles
-      if (action === "approved") {
-        const userRef = doc(db, "users", userId);
-        const fileEntry = {
-          fileRef: fileRef,
-          dateGiven: new Date().toISOString(),
-        };
-        await updateDoc(userRef, {
-          myFiles: arrayUnion(fileEntry),
-        });
-      }
-
-      // Refresh the requests list
-      fetchPendingRequests();
-    } catch (error) {
-      console.error(`Error ${action} request:`, error);
     }
   };
 

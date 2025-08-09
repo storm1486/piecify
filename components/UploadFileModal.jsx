@@ -6,6 +6,7 @@ import { doc, setDoc, collection } from "firebase/firestore";
 import { db, storage } from "../app/firebase/firebase";
 import CreatableSelect from "react-select/creatable";
 import { sortedAttributeOptions } from "../src/componenets/AttributeIcons";
+import { useOrganization } from "@/src/context/OrganizationContext";
 
 const customStyles = {
   control: (provided, state) => ({
@@ -80,6 +81,7 @@ export default function UploadFileModal({
   const [length, setLength] = useState("10 min");
   const [error, setError] = useState(null);
   const [intro, setIntro] = useState("");
+  const { orgId } = useOrganization();
 
   const handleCancel = () => {
     setFile(null);
@@ -113,14 +115,18 @@ export default function UploadFileModal({
 
     try {
       // Generate a unique fileId
-      const fileId = doc(collection(db, "files")).id;
+      // Generate the fileId from the scoped files collection
+      const fileId = doc(collection(db, "organizations", orgId, "files")).id;
 
-      // Upload the file to Storage under the current folder
-      const storageRef = ref(storage, `${folderId}/${file.name}`);
+      // Upload file to storage as usual
+      const storageRef = ref(
+        storage,
+        `organizations/${orgId}/files/${fileId}/${safeName}`
+      );
       await uploadBytes(storageRef, file);
       const fileUrl = await getDownloadURL(storageRef);
 
-      // Create file document data with custom fields
+      // Create file document data
       const fileData = {
         fileId,
         fileName: customFileName || file.name,
@@ -130,24 +136,34 @@ export default function UploadFileModal({
         uploadedByName: `${user.firstName} ${user.lastName}`,
         uploadedAt: new Date().toISOString(),
         pieceDescription: pieceDescription || "No description provided.",
-        intro: intro || "", // Include intro here
+        intro: intro || "",
         currentOwner: [],
         previouslyOwned: [],
         editedVersions: [],
         pendingIntroChange: null,
         trackRecord: [],
         attributes: attributes || [],
-        length: length,
+        length,
         folderId,
       };
 
-      // Create Firestore document for the file
-      const fileRef = doc(db, "files", fileId);
+      // Write top-level file
+      const fileRef = doc(db, "organizations", orgId, "files", fileId);
       await setDoc(fileRef, fileData);
 
-      // Save a reference to the file in the folder's subcollection
-      await setDoc(doc(db, "folders", folderId, "files", fileId), {
-        fileRef: `/files/${fileId}`,
+      // Write reference in folder subcollection
+      const folderFileRef = doc(
+        db,
+        "organizations",
+        orgId,
+        "folders",
+        folderId,
+        "files",
+        fileId
+      );
+
+      await setDoc(folderFileRef, {
+        fileRef,
       });
 
       console.log("File uploaded successfully:", fileId);

@@ -3,19 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import {
-  collection,
-  getDocs,
-  getDoc,
-  doc,
-  updateDoc,
-  arrayUnion,
-} from "firebase/firestore";
-import { db } from "../../firebase/firebase";
+import { getDocs, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
 import SearchHeader from "@/components/SearchHeader";
 import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgCollection, getOrgDoc } from "@/src/utils/firebaseHelpers";
 
 export default function ViewPieces() {
   const { folderId } = useParams();
@@ -30,6 +24,7 @@ export default function ViewPieces() {
   const [tagFilter, setTagFilter] = useState("all");
   const [availableLengths, setAvailableLengths] = useState([]);
   const tagOptions = sortedAttributeOptions.map((opt) => opt.value);
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     if (folderId && !loading && user) {
@@ -61,7 +56,7 @@ export default function ViewPieces() {
 
   const fetchFolderDetails = async () => {
     try {
-      const folderDoc = await getDoc(doc(db, "folders", folderId));
+      const folderDoc = await getDoc(getOrgDoc(orgId, "folders", folderId));
       if (folderDoc.exists()) {
         setFolderName(folderDoc.data().name || "Untitled Folder");
       }
@@ -83,7 +78,7 @@ export default function ViewPieces() {
     try {
       setIsLoading(true);
       const snapshot = await getDocs(
-        collection(db, "folders", folderId, "files")
+        getOrgCollection(orgId, "folders", folderId, "files")
       );
       const fileData = [];
       const requestStatusesMap = new Map();
@@ -93,7 +88,7 @@ export default function ViewPieces() {
         if (data.fileRef) {
           const fileDoc = await getDoc(
             typeof data.fileRef === "string"
-              ? doc(db, data.fileRef)
+              ? getOrgDoc(orgId, data.fileRef)
               : data.fileRef
           );
 
@@ -145,7 +140,7 @@ export default function ViewPieces() {
 
   const requestAccess = async (fileId) => {
     try {
-      const fileRef = doc(db, "files", fileId);
+      const fileRef = getOrgDoc(orgId, "files", fileId);
       const newRequest = {
         userId: user.uid,
         requestedAt: new Date().toISOString(),

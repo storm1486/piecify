@@ -140,147 +140,142 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchMyFiles = async () => {
-    if (!user) return;
+    if (!user || !orgId) return;
 
     try {
       const userDocRef = getOrgDoc(orgId, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        const myFileRefs = data.myFiles || [];
-        const previousFileRefs = data.previousFiles || [];
-        const requestedFileRefs = data.requestedFiles || [];
+      if (!userDoc.exists()) return;
 
-        const now = new Date();
+      const data = userDoc.data();
+      const myFileRefs = data.myFiles || [];
+      const previousFileRefs = data.previousFiles || [];
+      const requestedFileRefs = data.requestedFiles || [];
 
-        // 🔹 Resolve requested files
-        const requestedFilePromises = requestedFileRefs.map(
-          async (fileEntry: {
-            fileRef: { path: any };
-            dateGiven: any;
-            expiresAt: string;
-          }) => {
-            const filePath = fileEntry.fileRef?.path;
-            const dateGiven = fileEntry.dateGiven;
-            const expiresAt = fileEntry.expiresAt;
+      const now = new Date();
 
-            if (!filePath) return null;
+      // Helper: normalize a path to a proper doc ref
+      const toFileDocRef = (filePath: string) => {
+        if (!filePath) return null;
+        if (filePath.startsWith("/organizations/")) {
+          return doc(db, filePath.slice(1)); // strip leading slash
+        }
+        if (filePath.startsWith("files/")) {
+          // legacy path -> convert to org scoped
+          const fileId = filePath.split("/")[1];
+          return getOrgDoc(orgId, "files", fileId);
+        }
+        // already a clean path (rare)
+        return doc(db, filePath);
+      };
 
-            // UPDATED: Handle organization-scoped file paths
-            let fileDocRef;
-            if (filePath.startsWith("/organizations/")) {
-              // Already org-scoped path
-              fileDocRef = doc(db, filePath.substring(1)); // Remove leading slash
-            } else if (filePath.startsWith("files/")) {
-              // Legacy path - convert to org-scoped
-              const fileId = filePath.split("/")[1];
-              fileDocRef = getOrgDoc(orgId, "files", fileId);
-            } else {
-              return null;
+      // requestedFiles (temp access)
+      const requestedFilePromises = requestedFileRefs.map(
+        async (fileEntry: {
+          fileRef: { path: string };
+          dateGiven: any;
+          expiresAt: string;
+        }) => {
+          const filePath = fileEntry?.fileRef?.path;
+          if (!filePath) return null;
+
+          const fileDocRef = toFileDocRef(filePath);
+          if (!fileDocRef) return null;
+
+          const snap = await getDoc(fileDocRef);
+          if (!snap.exists()) return null;
+
+          return {
+            id: snap.id,
+            ...snap.data(),
+            dateGiven: fileEntry.dateGiven,
+            expiresAt: fileEntry.expiresAt,
+          };
+        }
+      );
+
+      const resolvedRequestedFiles = (
+        await Promise.all(requestedFilePromises)
+      ).filter(Boolean) as any[];
+      const validRequestedFiles = resolvedRequestedFiles.filter((file) => {
+        const exp = file.expiresAt ? new Date(file.expiresAt) : null;
+        return !exp || exp > now;
+      });
+
+      // myFiles
+      const myFilePromises = myFileRefs.map(
+        async (fileEntry: { fileRef: { path: string }; dateGiven: any }) => {
+          const filePath = fileEntry?.fileRef?.path;
+          if (!filePath) return null;
+
+          const fileDocRef = toFileDocRef(filePath);
+          if (!fileDocRef) return null;
+
+          const snap = await getDoc(fileDocRef);
+          if (!snap.exists()) return null;
+
+          const fileData = snap.data() as any;
+          let originalFileName: string | null = null;
+
+          if (fileData.originalFileId) {
+            const originalRef = getOrgDoc(
+              orgId,
+              "files",
+              fileData.originalFileId
+            );
+            const originalSnap = await getDoc(originalRef);
+            if (originalSnap.exists()) {
+              originalFileName = originalSnap.data().fileName || null;
             }
-
-            const fileDocSnapshot = await getDoc(fileDocRef);
-
-            return fileDocSnapshot.exists()
-              ? {
-                  id: fileDocSnapshot.id,
-                  ...fileDocSnapshot.data(),
-                  dateGiven,
-                  expiresAt,
-                }
-              : null;
           }
-        );
 
-        const resolvedRequestedFiles = (
-          await Promise.all(requestedFilePromises)
-        ).filter(Boolean);
-        const validRequestedFiles = resolvedRequestedFiles.filter((file) => {
-          const expiresAt = file.expiresAt ? new Date(file.expiresAt) : null;
-          return !expiresAt || expiresAt > now;
-        });
+          return {
+            id: snap.id,
+            ...fileData,
+            dateGiven: fileEntry.dateGiven,
+            originalFileName,
+          };
+        }
+      );
 
-        // 🔹 Resolve myFiles
-        const myFilePromises = myFileRefs.map(
-          async (fileEntry: { fileRef: { path: any }; dateGiven: any }) => {
-            const filePath = fileEntry.fileRef?.path;
-            const dateGiven = fileEntry.dateGiven;
+      const resolvedMyFiles = (await Promise.all(myFilePromises)).filter(
+        Boolean
+      ) as any[];
 
-            if (!filePath) return null;
+      // previousFiles
+      const previousFilePromises = previousFileRefs.map(
+        async (fileEntry: { fileRef: { path: string }; dateGiven: any }) => {
+          const filePath = fileEntry?.fileRef?.path;
+          if (!filePath) return null;
 
-            const fileDocRef = doc(db, filePath);
-            const fileDocSnapshot = await getDoc(fileDocRef);
+          const fileDocRef = toFileDocRef(filePath);
+          if (!fileDocRef) return null;
 
-            if (!fileDocSnapshot.exists()) return null;
+          const snap = await getDoc(fileDocRef);
+          if (!snap.exists()) return null;
 
-            const fileData = fileDocSnapshot.data();
-            let originalFileName = null;
+          return {
+            id: snap.id,
+            ...snap.data(),
+            dateGiven: fileEntry.dateGiven,
+          };
+        }
+      );
 
-            // 🧠 If this is a cutting, fetch its original file name
-            if (fileData.originalFileId) {
-              const originalRef = getOrgDoc(
-                orgId,
-                "files",
-                fileData.originalFileId
-              );
-              const originalSnap = await getDoc(originalRef);
-              if (originalSnap.exists()) {
-                originalFileName = originalSnap.data().fileName || null;
-              }
-            }
+      const resolvedPreviousFiles = (
+        await Promise.all(previousFilePromises)
+      ).filter(Boolean) as any[];
 
-            return {
-              id: fileDocSnapshot.id,
-              ...fileData,
-              dateGiven,
-              originalFileName, // ✅ Add to be used in UI
-            };
-          }
-        );
-
-        const resolvedMyFiles = (await Promise.all(myFilePromises)).filter(
-          Boolean
-        );
-
-        // 🔹 Resolve previousFiles
-        const previousFilePromises = previousFileRefs.map(
-          async (fileEntry: { fileRef: { path: any }; dateGiven: any }) => {
-            const filePath = fileEntry.fileRef?.path;
-            const dateGiven = fileEntry.dateGiven;
-
-            if (!filePath) return null;
-
-            let fileDocRef;
-            if (filePath.startsWith("/organizations/")) {
-              // Already org-scoped path
-              fileDocRef = doc(db, filePath.substring(1)); // Remove leading slash
-            } else if (filePath.startsWith("files/")) {
-              // Legacy path - convert to org-scoped
-              const fileId = filePath.split("/")[1];
-              fileDocRef = getOrgDoc(orgId, "files", fileId);
-            } else {
-              return null;
-            }
-            const fileDocSnapshot = await getDoc(fileDocRef);
-            return fileDocSnapshot.exists()
-              ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
-              : null;
-          }
-        );
-
-        const resolvedPreviousFiles = (
-          await Promise.all(previousFilePromises)
-        ).filter(Boolean);
-
-        // 🔹 Set into user context
-        setUser((prevUser) => ({
-          ...prevUser!,
+      setUser((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
           myFiles: resolvedMyFiles,
           previousFiles: resolvedPreviousFiles,
-          requestedFiles: validRequestedFiles, // ✅ Include valid temporary files
-        }));
-      }
+          requestedFiles: validRequestedFiles,
+        };
+      });
     } catch (error) {
       console.error("Error fetching user's files:", error);
     }
@@ -316,8 +311,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  console.log("orgId", orgId);
-
   const handleLogin = async (email: string, password: string) => {
     try {
       const userCredential = await signInWithEmailAndPassword(
@@ -326,46 +319,40 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         password
       );
       const firebaseUser = userCredential.user;
+
+      // Find the user's org by scanning orgs (your current approach)
       const findUserAndOrg = async (uid: string) => {
         const orgsSnapshot = await getDocs(collection(db, "organizations"));
-
         for (const orgDoc of orgsSnapshot.docs) {
-          const orgId = orgDoc.id;
-          const userDocRef = getOrgDoc(orgId, "users", uid);
+          const candidateOrgId = orgDoc.id;
+          const userDocRef = getOrgDoc(candidateOrgId, "users", uid);
           const userSnap = await getDoc(userDocRef);
-
           if (userSnap.exists()) {
-            return { orgId, userSnap };
+            return { orgId: candidateOrgId, userSnap };
           }
         }
-
         throw new Error("User not found in any organization.");
       };
 
-      const { orgId, userSnap } = await findUserAndOrg(firebaseUser.uid);
+      const { orgId: resolvedOrgId, userSnap } = await findUserAndOrg(
+        firebaseUser.uid
+      );
 
-      console.log("firebaseUser", firebaseUser);
+      // Switch org *first*
+      await switchOrganization(resolvedOrgId);
 
-      // Fetch user document from Firestore
-      const userDocRef = getOrgDoc(orgId, "users", firebaseUser.uid);
-
-      console.log("ref", userDocRef);
-      const userDoc = await getDoc(userDocRef);
-
-      console.log("doc", userDoc.data());
-
-      // Load and set org context
-      await switchOrganization(orgId); // from OrganizationContext
-
-      // Use userSnap to set the user context
+      // Use the snap we already have
+      if (!userSnap.exists())
+        throw new Error("User document not found in Firestore.");
       const data = userSnap.data();
-      const userData: User = {
+
+      const nextUser: User = {
         uid: firebaseUser.uid,
         email: firebaseUser.email || "",
         role: data.role || "user",
         firstName: data.firstName || "",
         lastName: data.lastName || "",
-        graduationYear: data.graduationYear || null,
+        graduationYear: data.graduationYear ?? null,
         myFiles: data.myFiles || [],
         previousFiles: data.previousFiles || [],
         requestedFiles: [],
@@ -373,43 +360,21 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         allFolders: [],
       };
 
-      setUser(userData);
-
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-
-        const userData: User = {
-          email: firebaseUser.email || "",
-          role: data.role || "user",
-          uid: firebaseUser.uid,
-          firstName: data.firstName || "",
-          lastName: data.lastName || "",
-          graduationYear: data.graduationYear || null,
-          myFiles: data.myFiles || [],
-          previousFiles: data.previousFiles || [],
-          requestedFiles: [],
-          favoriteFolders: data.favoriteFolders || [],
-          allFolders: [],
-        };
-
-        // Fetch all folders for admin users
-        if (["admin", "coach"].includes(userData.role)) {
-          const folderSnapshot = await getDocs(
-            getOrgCollection(orgId, "folders")
-          );
-          userData.allFolders = folderSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-        }
-
-        setUser(userData); // Update context state
-        closeLoginModal(); // Close login modal after successful login
-      } else {
-        throw new Error("User document not found in Firestore.");
+      if (["admin", "coach"].includes(nextUser.role)) {
+        const folderSnapshot = await getDocs(
+          getOrgCollection(resolvedOrgId, "folders")
+        );
+        nextUser.allFolders = folderSnapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
       }
+
+      setUser(nextUser);
+      closeLoginModal();
     } catch (error) {
       console.error("Error logging in:", error);
+      throw error;
     }
   };
 
@@ -444,23 +409,23 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         email,
         password
       );
-      const user = userCredential.user;
+      const newUser = userCredential.user;
 
-      await setDoc(getOrgDoc(orgId, "users", user.uid), {
-        uid: user.uid,
-        email: user.email,
+      await setDoc(getOrgDoc(orgId, "users", newUser.uid), {
+        uid: newUser.uid,
+        email: newUser.email,
         orgId,
         role,
         firstName,
         lastName,
-        graduationYear,
+        graduationYear: graduationYear ? Number(graduationYear) : null,
         favoriteFolders: [],
         myFiles: [],
         previousFiles: [],
         favoriteFiles: [],
       });
 
-      console.log("User successfully signed up:", user.uid);
+      console.log("User successfully signed up:", newUser.uid);
     } catch (error) {
       console.error("Error signing up user:", error);
       throw error;

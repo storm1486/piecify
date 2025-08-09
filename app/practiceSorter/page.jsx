@@ -2,21 +2,20 @@
 import { useState, useRef, useEffect } from "react";
 import { useLayout } from "@/src/context/LayoutContext";
 import {
-  collection,
   getDocs,
   serverTimestamp,
   addDoc,
   deleteDoc,
-  doc,
 } from "firebase/firestore";
-import { db } from "../firebase/firebase";
 import { useMemo } from "react";
 import EnhancedRoomCard from "@/src/componenets/EnhancedRoomCard"; // Adjust path as needed
-import { X } from "lucide-react";
+import { useOrganization } from "../../src/context/OrganizationContext";
+import { getOrgCollection, getOrgDoc } from "../../src/utils/firebaseHelpers";
 
 export default function PracticeSorterPage() {
   const [nameInput, setNameInput] = useState("");
   const [fixedRooms, setFixedRooms] = useState([]);
+  const { orgId } = useOrganization();
   const [volunteers, setVolunteers] = useState({});
   const [presetPeople, setPresetPeople] = useState({});
   const [coachRoomFlags, setCoachRoomFlags] = useState({});
@@ -167,7 +166,7 @@ export default function PracticeSorterPage() {
         setIsLoadingTemplates(true);
         setLoadingError(""); // Clear any previous errors
 
-        const ref = collection(db, "practiceTemplates");
+        const ref = getOrgCollection(orgId, "practiceTemplates");
         const snapshot = await getDocs(ref);
         const templates = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -256,7 +255,7 @@ export default function PracticeSorterPage() {
           roomType: roomType || "speech", // or null/"" if you want no default
         })
       );
-      await addDoc(collection(db, "practiceTemplates"), {
+      await addDoc(getOrgCollection(orgId, "practiceTemplates"), {
         name: newTemplateName.trim(),
         rooms,
         createdAt: serverTimestamp(),
@@ -268,7 +267,7 @@ export default function PracticeSorterPage() {
       setNewTemplateRooms([]);
 
       // Refresh templates
-      const ref = collection(db, "practiceTemplates");
+      const ref = getOrgCollection(orgId, "practiceTemplates");
       const snapshot = await getDocs(ref);
       const templates = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -285,7 +284,7 @@ export default function PracticeSorterPage() {
     if (!confirm(`Are you sure you want to delete "${templateName}"?`)) return;
 
     try {
-      await deleteDoc(doc(db, "practiceTemplates", templateId));
+      await deleteDoc(getOrgDoc(orgId, "practiceTemplates", templateId));
       setPracticeTemplates((prev) => prev.filter((t) => t.id !== templateId));
       if (selectedTemplateId === templateId) {
         setSelectedTemplateId("");

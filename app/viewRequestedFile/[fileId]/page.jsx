@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
-import { db } from "../../firebase/firebase";
+import { useParams } from "next/navigation";
+import { getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { motion } from "framer-motion";
 import DocumentTags from "@/src/componenets/DocumentTags";
 import { useUser } from "@/src/context/UserContext";
+import { useOrganization } from "../../../src/context/OrganizationContext";
+import { getOrgDoc } from "../../../src/utils/firebaseHelpers";
 
 export default function ViewRequestedFile() {
   const { fileId } = useParams();
-  const router = useRouter();
   const [fileData, setFileData] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -18,6 +18,7 @@ export default function ViewRequestedFile() {
   const [hasRequested, setHasRequested] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
   const [isOwned, setIsOwned] = useState(false);
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     if (!fileId) {
@@ -29,7 +30,7 @@ export default function ViewRequestedFile() {
     const fetchRequestedFile = async () => {
       try {
         setIsLoading(true);
-        const fileDocRef = doc(db, "files", fileId);
+        const fileDocRef = getOrgDoc(orgId, "files", fileId);
         const fileDoc = await getDoc(fileDocRef);
 
         if (!fileDoc.exists()) {
@@ -43,7 +44,9 @@ export default function ViewRequestedFile() {
         const ownerNames = [];
 
         for (const owner of currentOwners) {
-          const userSnap = await getDoc(doc(db, "users", owner.userId));
+          const userSnap = await getDoc(
+            getOrgDoc(orgId, "users", owner.userId)
+          );
           if (userSnap.exists()) {
             const userData = userSnap.data();
             ownerNames.push(
@@ -72,7 +75,7 @@ export default function ViewRequestedFile() {
 
     setIsRequesting(true);
     try {
-      const fileRef = doc(db, "files", fileId);
+      const fileRef = getOrgDoc(orgId, "files", fileId);
       await updateDoc(fileRef, {
         accessRequests: arrayUnion({
           userId: user.uid,

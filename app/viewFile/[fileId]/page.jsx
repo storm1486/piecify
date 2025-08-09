@@ -6,7 +6,9 @@ import { motion } from "framer-motion";
 import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
 import DocumentTags from "@/src/componenets/DocumentTags";
-import { getDoc, doc } from "firebase/firestore";
+import { getDoc } from "firebase/firestore";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgDoc } from "@/src/utils/firebaseHelpers";
 
 export default function ViewFile() {
   const { fileId } = useParams();
@@ -20,6 +22,7 @@ export default function ViewFile() {
   const menuRef = useRef(null);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
   const [isEditedVersion, setIsEditedVersion] = useState(false);
+  const { orgId } = useOrganization();
 
   const handleOpenVersionsModal = () => setIsVersionsModalOpen(true);
   const handleCloseVersionsModal = () => setIsVersionsModalOpen(false);
@@ -28,18 +31,24 @@ export default function ViewFile() {
     if (userLoading || !fileId) return;
 
     const fetchFile = async () => {
+      const getIdFromRef = (f) => {
+        if (!f) return undefined;
+        if (typeof f.fileRef === "string") return f.fileRef.split("/").pop();
+        if (f.fileRef?.id) return f.fileRef.id;
+        return f.id;
+      };
       const localEntry =
-        user?.myFiles?.find(
-          (f) => f.fileRef?.id === fileId || f.id === fileId
-        ) ??
-        user?.previousFiles?.find(
-          (f) => f.fileRef?.id === fileId || f.id === fileId
-        );
+        user?.myFiles?.find((f) => getIdFromRef(f) === fileId) ??
+        user?.previousFiles?.find((f) => getIdFromRef(f) === fileId);
 
       // Case 1: file was stored with { fileRef, dateGiven } (in myFiles or previousFiles)
       if (localEntry?.fileRef) {
         try {
-          const fileSnap = await getDoc(localEntry.fileRef);
+          const ref =
+            typeof localEntry.fileRef === "string"
+              ? getOrgDoc(orgId, localEntry.fileRef) // handles "/organizations/{orgId}/files/{fileId}"
+              : localEntry.fileRef; // DocumentReference
+          const fileSnap = await getDoc(ref);
           if (fileSnap.exists()) {
             const fileData = fileSnap.data();
             const combined = { ...fileData, id: fileSnap.id };
@@ -65,7 +74,7 @@ export default function ViewFile() {
       // Case 3: fallback — fetch from Firestore directly
       else {
         try {
-          const fileDoc = await getDoc(doc(db, "files", fileId));
+          const fileDoc = await getDoc(getOrgDoc(orgId, "files", fileId));
           if (fileDoc.exists()) {
             const fetched = { id: fileDoc.id, ...fileDoc.data() };
             setDocData(fetched);

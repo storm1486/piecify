@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "../app/firebase/firebase";
+import { getDoc, updateDoc } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgDoc } from "@/src/utils/firebaseHelpers";
 
 export default function PieceDetails({ fileId, onClose }) {
   const { user, isPrivileged } = useUser();
@@ -21,6 +22,7 @@ export default function PieceDetails({ fileId, onClose }) {
   const [newIntro, setNewIntro] = useState("");
   const [isUserCurrentOwner, setIsUserCurrentOwner] = useState(false);
   const [showFullIntro, setShowFullIntro] = useState(false);
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     if (docData?.pieceDescription && !isEditingDescription) {
@@ -33,7 +35,7 @@ export default function PieceDetails({ fileId, onClose }) {
       if (!fileId) return;
 
       try {
-        const fileRef = doc(db, "files", fileId);
+        const fileRef = getOrgDoc(orgId, "files", fileId);
         const fileSnap = await getDoc(fileRef);
 
         if (fileSnap.exists()) {
@@ -53,7 +55,11 @@ export default function PieceDetails({ fileId, onClose }) {
 
           // ✅ Fetch current owner details
           if (fileData.currentOwner && fileData.currentOwner.length > 0) {
-            const ownerRef = doc(db, "users", fileData.currentOwner[0].userId);
+            const ownerRef = getOrgDoc(
+              orgId,
+              "users",
+              fileData.currentOwner[0].userId
+            );
             const ownerSnap = await getDoc(ownerRef);
 
             if (ownerSnap.exists()) {
@@ -93,7 +99,7 @@ export default function PieceDetails({ fileId, onClose }) {
       try {
         const ownerDetails = await Promise.all(
           docData.previouslyOwned.map(async (owner) => {
-            const userRef = doc(db, "users", owner.assignedUser);
+            const userRef = getOrgDoc(orgId, "users", owner.assignedUser);
             const userSnap = await getDoc(userRef);
 
             if (!userSnap.exists()) {
@@ -134,7 +140,7 @@ export default function PieceDetails({ fileId, onClose }) {
         throw new Error("File ID is missing!");
       }
 
-      const fileRef = doc(db, "files", fileId);
+      const fileRef = getOrgDoc(orgId, "files", fileId);
       await updateDoc(fileRef, { pieceDescription: newDescription });
 
       setDocData((prevData) => ({
@@ -153,7 +159,7 @@ export default function PieceDetails({ fileId, onClose }) {
   const handleUpdateIntro = async () => {
     try {
       if (!fileId) throw new Error("File ID is missing!");
-      const fileRef = doc(db, "files", fileId);
+      const fileRef = getOrgDoc(orgId, "files", fileId);
 
       if (isPrivilegedUser) {
         await updateDoc(fileRef, { intro: newIntro });

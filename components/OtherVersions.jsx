@@ -4,13 +4,20 @@ import { useEffect, useState, useRef } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../app/firebase/firebase"; // Adjust path as necessary
 import UploadEditedVersionFileModal from "./UploadEditedVersionModal";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgDoc } from "@/src/utils/firebaseHelpers";
 
-export default function OtherVersions({ fileId, onClose, disableUpload = false }) {
+export default function OtherVersions({
+  fileId,
+  onClose,
+  disableUpload = false,
+}) {
   const [originalFile, setOriginalFile] = useState(null);
   const [editedVersions, setEditedVersions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false); // ✅ Upload Modal State
   const modalRef = useRef(null);
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     if (!fileId) return;
@@ -18,7 +25,7 @@ export default function OtherVersions({ fileId, onClose, disableUpload = false }
     const fetchFileVersions = async () => {
       setIsLoading(true);
       try {
-        const fileRef = doc(db, "files", fileId);
+        const fileRef = getOrgDoc(orgId, "files", fileId);
         const fileSnap = await getDoc(fileRef);
 
         if (fileSnap.exists()) {
@@ -28,7 +35,12 @@ export default function OtherVersions({ fileId, onClose, disableUpload = false }
           if (fileData.editedVersions && fileData.editedVersions.length > 0) {
             const versionDocs = await Promise.all(
               fileData.editedVersions.map(async (versionRef) => {
-                const versionSnap = await getDoc(versionRef);
+                // Supports either a DocumentReference or a string fileId
+                const ref =
+                  typeof versionRef === "string"
+                    ? getOrgDoc(orgId, "files", versionRef)
+                    : versionRef; // assume DocumentReference
+                const versionSnap = await getDoc(ref);
                 return versionSnap.exists()
                   ? { id: versionSnap.id, ...versionSnap.data() }
                   : null;

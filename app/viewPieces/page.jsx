@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase/firebase"; // Adjust path
+import { getDocs } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext"; // Assuming you have this context
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
 import { useLayout } from "@/src/context/LayoutContext";
 import SearchHeader from "@/components/SearchHeader";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgCollection } from "@/src/utils/firebaseHelpers";
 
 export default function ViewPiecesPage() {
   const [folders, setFolders] = useState([]);
@@ -16,6 +17,7 @@ export default function ViewPiecesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredFolders, setFilteredFolders] = useState([]);
   const { setActivePage } = useLayout();
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     setActivePage("viewPieces"); // ✅ update current page
@@ -41,7 +43,7 @@ export default function ViewPiecesPage() {
   const fetchFolders = async () => {
     try {
       setIsLoading(true);
-      const snapshot = await getDocs(collection(db, "folders"));
+      const snapshot = await getDocs(getOrgCollection(orgId, "folders"));
 
       // Get all folders first
       const folderData = snapshot.docs.map((doc) => ({
@@ -54,19 +56,20 @@ export default function ViewPiecesPage() {
       const foldersWithCounts = await Promise.all(
         folderData.map(async (folder) => {
           try {
-            const filesSnapshot = await getDocs(
-              collection(db, "folders", folder.id, "files")
+            const filesRef = getOrgCollection(
+              orgId,
+              "folders",
+              folder.id,
+              "files"
             );
-            return {
-              ...folder,
-              fileCount: filesSnapshot.size, // Set the actual file count
-            };
+            const countSnap = await getCountFromServer(filesRef);
+            return { ...folder, fileCount: countSnap.data().count || 0 };
           } catch (error) {
             console.error(
-              `Error fetching files for folder ${folder.id}:`,
+              `Error counting files for folder ${folder.id}:`,
               error
             );
-            return folder; // Return folder with default count if there's an error
+            return folder;
           }
         })
       );

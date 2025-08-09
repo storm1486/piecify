@@ -7,14 +7,15 @@ import {
   updateDoc,
   Timestamp,
   doc,
-  collection,
   setDoc,
   getDoc,
 } from "firebase/firestore";
-import { storage, db } from "../app/firebase/firebase"; // Adjust path as needed
+import { storage } from "../app/firebase/firebase"; // Adjust path as needed
 import { useUser } from "@/src/context/UserContext"; // Import the user context
 import CreatableSelect from "react-select/creatable";
 import { sortedAttributeOptions } from "../src/componenets/AttributeIcons";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgCollection, getOrgDoc } from "@/src/utils/firebaseHelpers";
 
 const customStyles = {
   control: (provided, state) => ({
@@ -68,13 +69,14 @@ export default function UploadEditedVersionFileModal({
   const [attributes, setAttributes] = useState([]);
   const [length, setLength] = useState("10 min");
   const [originalFileName, setOriginalFileName] = useState("");
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     const fetchOriginalFileData = async () => {
       if (!fileId || !isOpen) return;
 
       try {
-        const docRef = doc(db, "files", fileId);
+        const docRef = getOrgDoc(orgId, "files", fileId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -116,14 +118,17 @@ export default function UploadEditedVersionFileModal({
     setUploadSuccess(false);
 
     try {
-      const newFileId = doc(collection(db, "files")).id;
+      const newFileId = doc(getOrgCollection(orgId, "files")).id;
       const safeFileName = newFileName.replace(/[^\w\s.-]/gi, "").trim();
 
-      const storageRef = ref(storage, `files/${newFileId}/${safeFileName}`);
+      const storageRef = ref(
+        storage,
+        `organizations/${orgId}/files/${newFileId}/${safeFileName}`
+      );
       await uploadBytes(storageRef, selectedFile);
       const downloadURL = await getDownloadURL(storageRef);
 
-      const newFileDocRef = doc(db, "files", newFileId);
+      const newFileDocRef = getOrgDoc(orgId, "files", newFileId);
       await setDoc(newFileDocRef, {
         fileId: newFileId,
         fileName: newFileName.trim(),
@@ -136,13 +141,13 @@ export default function UploadEditedVersionFileModal({
         length,
       });
 
-      const originalFileRef = doc(db, "files", fileId);
+      const originalFileRef = getOrgDoc(orgId, "files", fileId);
       await updateDoc(originalFileRef, {
         editedVersions: arrayUnion(newFileDocRef),
       });
 
       // ✅ Add edited version to user's myFiles with dateGiven
-      const userRef = doc(db, "users", user.uid);
+      const userRef = getOrgDoc(orgId, "users", user.uid);
       await updateDoc(userRef, {
         myFiles: arrayUnion({
           fileRef: newFileDocRef,

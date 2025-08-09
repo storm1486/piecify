@@ -1,11 +1,13 @@
 "use client";
 
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/app/firebase/firebase"; // Adjust path if needed
+import { updateDoc } from "firebase/firestore";
 import { useState } from "react";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgDoc } from "@/src/utils/firebaseHelpers";
 
 export default function ChangesModal({ file, onClose }) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const { orgId } = useOrganization();
 
   if (!file || !file.pendingIntroChange) return null;
 
@@ -14,7 +16,7 @@ export default function ChangesModal({ file, onClose }) {
   const handleApprove = async () => {
     try {
       setIsProcessing(true);
-      const fileRef = doc(db, "files", id);
+      const fileRef = getOrgDoc(orgId, "files", id);
       await updateDoc(fileRef, {
         intro: pendingIntroChange.newIntro,
         pendingIntroChange: null,
@@ -30,7 +32,7 @@ export default function ChangesModal({ file, onClose }) {
   const handleReject = async () => {
     try {
       setIsProcessing(true);
-      const fileRef = doc(db, "files", id);
+      const fileRef = getOrgDoc(orgId, "files", id);
       await updateDoc(fileRef, {
         pendingIntroChange: null,
       });

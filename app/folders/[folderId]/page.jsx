@@ -19,11 +19,18 @@ import FileSearchSelect from "@/components/FileSearchSelect";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { sortedAttributeOptions } from "@/src/componenets/AttributeIcons";
 import { useLayout } from "@/src/context/LayoutContext";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import {
+  getOrgCollection,
+  getOrgDoc,
+  getOrgSubCollection,
+} from "@/src/utils/firebaseHelpers";
 
 export default function FolderPage() {
   const { folderId } = useParams();
   const router = useRouter();
   const { user, loading, isPrivileged } = useUser();
+  const { orgId } = useOrganization();
   const isPrivilegedUser = isPrivileged();
   const [folderName, setFolderName] = useState("");
   const [files, setFiles] = useState([]);
@@ -149,7 +156,7 @@ export default function FolderPage() {
 
   const fetchUsers = async () => {
     try {
-      const usersSnapshot = await getDocs(collection(db, "users"));
+      const usersSnapshot = await getDocs(getOrgCollection(orgId, "users"));
       const usersList = usersSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -164,7 +171,7 @@ export default function FolderPage() {
     try {
       setUserFiles([]);
 
-      const userRef = doc(db, "users", userId);
+      const userRef = getOrgDoc(orgId, "users", userId);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
@@ -204,7 +211,7 @@ export default function FolderPage() {
     try {
       setIsLoading(true);
 
-      const folderDoc = await getDoc(doc(db, "folders", folderId));
+      const folderDoc = await getDoc(getOrgDoc(orgId, "folders", folderId));
       if (folderDoc.exists()) {
         setFolderName(folderDoc.data().name || "Untitled Folder");
       } else {
@@ -215,7 +222,7 @@ export default function FolderPage() {
 
       // Fetch files from the folder subcollection
       const filesSnapshot = await getDocs(
-        collection(db, "folders", folderId, "files")
+        getOrgSubCollection(orgId, "folders", folderId, "files")
       );
 
       const filePromises = filesSnapshot.docs.map(async (fileDoc) => {
@@ -227,7 +234,12 @@ export default function FolderPage() {
           if (typeof fileData.fileRef === "object") {
             fileRefDoc = await getDoc(fileData.fileRef);
           } else if (typeof fileData.fileRef === "string") {
-            fileRefDoc = await getDoc(doc(db, fileData.fileRef));
+            const cleanPath = fileData.fileRef.startsWith("/")
+              ? fileData.fileRef.substring(1)
+              : fileData.fileRef;
+
+            const fileDocRef = doc(db, cleanPath);
+            fileRefDoc = await getDoc(fileDocRef);
           }
 
           return fileRefDoc?.exists()
@@ -256,7 +268,7 @@ export default function FolderPage() {
     try {
       const names = await Promise.all(
         ownerEntries.map(async (entry) => {
-          const userRef = doc(db, "users", entry.userId);
+          const userRef = getOrgDoc(orgId, "users", entry.userId);
           const userSnap = await getDoc(userRef);
           if (userSnap.exists()) {
             const data = userSnap.data();
@@ -292,7 +304,7 @@ export default function FolderPage() {
         return;
       }
 
-      const userRef = doc(db, "users", userId);
+      const userRef = getOrgDoc(orgId, "users", userId);
       const userSnapshot = await getDoc(userRef);
 
       if (!userSnapshot.exists()) {
@@ -302,7 +314,7 @@ export default function FolderPage() {
 
       const userData = userSnapshot.data();
 
-      const topLevelFileRef = doc(db, "files", file.id);
+      const topLevelFileRef = getOrgDoc(orgId, "files", file.id);
       const fileSnapshot = await getDoc(topLevelFileRef);
 
       if (!fileSnapshot.exists()) {
@@ -325,7 +337,7 @@ export default function FolderPage() {
         const currentOwnerId = fileData.currentOwner[0].userId;
 
         // Fetch the current owner's user details
-        const currentOwnerRef = doc(db, "users", currentOwnerId);
+        const currentOwnerRef = getOrgDoc(orgId, "users", currentOwnerId);
         const currentOwnerSnap = await getDoc(currentOwnerRef);
 
         let currentOwnerName = "Unknown User";
@@ -462,9 +474,11 @@ export default function FolderPage() {
         return;
       }
 
-      const userRef = doc(db, "users", userId);
+      const userRef = getOrgDoc(orgId, "users", userId);
       const fileRef =
-        typeof file.fileRef === "object" ? file.fileRef : doc(db, file.fileRef);
+        typeof file.fileRef === "object"
+          ? file.fileRef
+          : getOrgDoc(orgId, file.fileRef);
 
       console.log("Resolved file reference:", fileRef.path);
 
@@ -515,7 +529,7 @@ export default function FolderPage() {
   };
   const reassignFileToUser = async (fromUserId, toUserId, file) => {
     try {
-      const fileRef = doc(db, "files", file.id);
+      const fileRef = getOrgDoc(orgId, "files", file.id);
       const fileSnap = await getDoc(fileRef);
 
       if (!fileSnap.exists()) {
@@ -553,7 +567,7 @@ export default function FolderPage() {
       });
 
       // Step 2: Remove from old user's myFiles
-      const fromUserRef = doc(db, "users", fromUserId);
+      const fromUserRef = getOrgDoc(orgId, "users", fromUserId);
       const fromUserSnap = await getDoc(fromUserRef);
       if (fromUserSnap.exists()) {
         const fromUserData = fromUserSnap.data();
@@ -566,7 +580,7 @@ export default function FolderPage() {
       }
 
       // Step 3: Add to new user's myFiles
-      const toUserRef = doc(db, "users", toUserId);
+      const toUserRef = getOrgDoc(orgId, "users", toUserId);
       await updateDoc(toUserRef, {
         myFiles: arrayUnion({
           fileRef: fileRef,

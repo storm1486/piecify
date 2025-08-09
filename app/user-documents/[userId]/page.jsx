@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { db } from "../../firebase/firebase";
-import { useUser } from "@/src/context/UserContext";
 import { useLayout } from "@/src/context/LayoutContext";
+import { useOrganization } from "../../../src/context/OrganizationContext";
+import { getOrgDoc } from "../../../src/utils/firebaseHelpers";
 
 export default function UserDocuments({ params }) {
   const [selectedUser, setSelectedUser] = useState(null);
@@ -15,8 +15,9 @@ export default function UserDocuments({ params }) {
   const [error, setError] = useState(null);
   const router = useRouter();
   const { userId } = params;
-  const { user } = useUser();
+  const { orgId } = useOrganization();
   const { setCustomNavButtons } = useLayout();
+  console.log("test page correct")
 
   useEffect(() => {
     setCustomNavButtons([
@@ -59,7 +60,7 @@ export default function UserDocuments({ params }) {
         setError(null);
 
         // Fetch selected user's details
-        const userDocRef = doc(db, "users", userId);
+        const userDocRef = getOrgDoc(orgId, "users", userId);
         const userDocSnap = await getDoc(userDocRef);
 
         if (!userDocSnap.exists()) {
@@ -74,23 +75,28 @@ export default function UserDocuments({ params }) {
         const fileRefs = userData.myFiles || [];
 
         const filePromises = fileRefs.map(async (fileEntry) => {
-          let filePath, dateGiven;
-
+          let filePath, fileId, dateGiven;
           if (typeof fileEntry === "string") {
-            // Old structure: direct reference
+            // Old structure: stored as a path like "/files/{id}"
             filePath = fileEntry;
             dateGiven = null;
+          } else if (fileEntry?.fileRef?.id) {
+            // Preferred: explicit file id
+            fileId = fileEntry.fileRef.id;
+            dateGiven = fileEntry.dateGiven ?? null;
           } else if (fileEntry?.fileRef?.path) {
-            // New structure: { fileRef, dateGiven }
+            // Fallback: path string
             filePath = fileEntry.fileRef.path;
-            dateGiven = fileEntry.dateGiven;
+            dateGiven = fileEntry.dateGiven ?? null;
           } else {
             return null; // Skip invalid entries
           }
 
-          const fileDocRef = doc(db, filePath);
-          const fileDocSnapshot = await getDoc(fileDocRef);
+          const fileDocRef = fileId
+            ? getOrgDoc(orgId, "files", fileId)
+            : getOrgDoc(orgId, filePath); // supports "/files/{id}" style
 
+          const fileDocSnapshot = await getDoc(fileDocRef);
           return fileDocSnapshot.exists()
             ? { id: fileDocSnapshot.id, ...fileDocSnapshot.data(), dateGiven }
             : null;

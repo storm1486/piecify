@@ -4,10 +4,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { getDocs, getDoc } from "firebase/firestore";
 import { useUser } from "@/src/context/UserContext";
 import { useLayout } from "@/src/context/LayoutContext";
-import { db } from "@/app/firebase/firebase";
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgCollection, getOrgDoc } from "@/src/utils/firebaseHelpers";
 
 export default function SearchHeader() {
   const { user, isPrivileged } = useUser();
@@ -20,6 +21,7 @@ export default function SearchHeader() {
   const [matchedMembers, setMatchedMembers] = useState([]);
   const { setActivePage } = useLayout();
   const router = useRouter();
+  const { orgId } = useOrganization();
 
   // Fetch user's files for non-admins
   useEffect(() => {
@@ -30,7 +32,12 @@ export default function SearchHeader() {
 
       for (const fileObj of userFileObjs) {
         if (!fileObj.fileId) continue; // skip anything without an ID
-        const fileRef = doc(db, "files", fileObj.fileId);
+        const fileRef = fileObj?.fileRef
+          ? fileObj.fileRef
+          : fileObj?.fileId
+          ? getOrgDoc(orgId, "files", fileObj.fileId)
+          : null;
+        if (!fileRef) continue;
         try {
           const snap = await getDoc(fileRef);
           if (snap.exists()) {
@@ -52,7 +59,7 @@ export default function SearchHeader() {
     const fetchTeamMembers = async () => {
       if (!user) return;
       try {
-        const usersSnapshot = await getDocs(collection(db, "users"));
+        const usersSnapshot = await getDocs(getOrgCollection(orgId, "users"));
         const users = usersSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -84,7 +91,9 @@ export default function SearchHeader() {
 
       if (isPrivilegedUser) {
         // Admin: search across all folders & files
-        const foldersSnapshot = await getDocs(collection(db, "folders"));
+        const foldersSnapshot = await getDocs(
+          getOrgCollection(orgId, "folders")
+        );
         const allFiles = [];
 
         for (const folderDoc of foldersSnapshot.docs) {
@@ -92,14 +101,14 @@ export default function SearchHeader() {
           const folderName = folderDoc.data().name;
 
           const filesSnapshot = await getDocs(
-            collection(db, "folders", folderId, "files")
+            getOrgCollection(orgId, "folders", folderId, "files")
           );
 
           for (const fileDoc of filesSnapshot.docs) {
             const fileId = fileDoc.id;
 
             try {
-              const fileSnap = await getDoc(doc(db, "files", fileId));
+              const fileSnap = await getDoc(getOrgDoc(orgId, "files", fileId));
               if (!fileSnap.exists()) continue;
 
               const fileData = fileSnap.data();

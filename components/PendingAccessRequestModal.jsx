@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../app/firebase/firebase"; // Adjust path as needed
+import { useOrganization } from "@/src/context/OrganizationContext";
+import { getOrgDoc } from "@/src/utils/firebaseHelpers";
 
 export default function PendingAccessRequestsModal({
   pendingRequests,
@@ -10,6 +12,7 @@ export default function PendingAccessRequestsModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const { orgId } = useOrganization();
 
   // Function to handle approval/rejection
   const handleRequestAction = async (fileId, userId, action) => {
@@ -17,7 +20,7 @@ export default function PendingAccessRequestsModal({
       setLoading(true);
       setMessage(null);
 
-      const fileRef = doc(db, "files", fileId);
+      const fileRef = getOrgDoc(orgId, "files", fileId);
       const fileDoc = await getDoc(fileRef);
 
       if (!fileDoc.exists()) {
@@ -29,12 +32,11 @@ export default function PendingAccessRequestsModal({
       const accessRequests = fileData.accessRequests || [];
 
       // Find the specific request
-      const updatedRequests = accessRequests.map((request) => {
-        if (request.userId === userId) {
-          return { ...request, status: action };
-        }
-        return request;
-      });
+      const updatedRequests = accessRequests.map((request) =>
+        request.userId === userId && request.status === "pending"
+          ? { ...request, status: action }
+          : request
+      );
 
       // Update the file document
       await updateDoc(fileRef, { accessRequests: updatedRequests });
@@ -64,7 +66,7 @@ export default function PendingAccessRequestsModal({
           });
         } else {
           // View: Add to user's requestedFiles
-          const userRef = doc(db, "users", userId);
+          const userRef = getOrgDoc(orgId, "users", userId);
           const fileEntry = {
             fileRef: fileRef,
             dateGiven: new Date().toISOString(),

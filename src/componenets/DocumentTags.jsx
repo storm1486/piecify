@@ -9,6 +9,8 @@ import {
 import { HelpCircle, Plus } from "lucide-react";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../../app/firebase/firebase";
+import { useOrganization } from "../context/OrganizationContext";
+import { getOrgDoc } from "../utils/firebaseHelpers";
 
 const customStyles = {
   control: (provided, state) => ({
@@ -84,11 +86,12 @@ export default function DocumentTags({ attributes, fileId, isPrivilegedUser }) {
   const [selectedTags, setSelectedTags] = useState([]);
   const [latestAttributes, setLatestAttributes] = useState(attributes);
   const [saving, setSaving] = useState(false);
+  const { orgId } = useOrganization();
 
   useEffect(() => {
     const fetchLatestTags = async () => {
       if (isModalOpen && fileId) {
-        const fileRef = doc(db, "files", fileId);
+        const fileRef = getOrgDoc(orgId, "files", fileId);
         const snap = await getDoc(fileRef);
         if (snap.exists()) {
           const data = snap.data();
@@ -110,7 +113,7 @@ export default function DocumentTags({ attributes, fileId, isPrivilegedUser }) {
     try {
       const newAttributes = selectedTags.map((opt) => opt.value);
 
-      await updateDoc(doc(db, "files", fileId), {
+      await updateDoc(getOrgDoc(orgId, "files", fileId), {
         attributes: newAttributes,
       });
 
