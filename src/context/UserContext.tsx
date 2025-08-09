@@ -12,11 +12,85 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import { doc, getDoc, collection, getDocs, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  setDoc,
+  Firestore,
+  serverTimestamp,
+} from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword } from "firebase/auth"; // At the top
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; // At the top
 import { useOrganization } from "./OrganizationContext";
 import { getOrgCollection, getOrgDoc } from "../utils/firebaseHelpers";
+
+async function writeGlobalProfile(
+  db: Firestore,
+  uid: string,
+  {
+    email,
+    firstName,
+    lastName,
+    graduationYear,
+  }: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    graduationYear: string;
+  }
+) {
+  await setDoc(
+    doc(db, "profiles", uid),
+    {
+      uid,
+      email: email || "",
+      firstName: firstName || "",
+      lastName: lastName || "",
+      graduationYear: graduationYear ? Number(graduationYear) : null,
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+async function writeOrgUser(
+  db: Firestore,
+  orgId: string,
+  uid: string,
+  {
+    email,
+    firstName,
+    lastName,
+    graduationYear,
+    role = "user",
+  }: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    graduationYear: string;
+    role: string;
+  }
+) {
+  await setDoc(
+    getOrgDoc(orgId, "users", uid),
+    {
+      uid,
+      email: email || "",
+      role,
+      firstName: firstName || "",
+      lastName: lastName || "",
+      graduationYear: graduationYear ? Number(graduationYear) : null,
+      favoriteFolders: [],
+      myFiles: [],
+      previousFiles: [],
+      favoriteFiles: [],
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
 
 // Define the shape of the user data
 interface User {
@@ -76,9 +150,24 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // If orgId not ready yet, hold off until it is
       if (!orgId) {
-        setLoading(true);
+        const { email, uid } = firebaseUser;
+
+        setUser((prev) => ({
+          email: email || "",
+          role: prev?.role || "user",
+          uid,
+          firstName: prev?.firstName || "",
+          lastName: prev?.lastName || "",
+          graduationYear: prev?.graduationYear ?? null,
+          myFiles: [],
+          previousFiles: [],
+          requestedFiles: [],
+          favoriteFolders: [],
+          allFolders: [],
+        }));
+
+        setLoading(false);
         return;
       }
 
@@ -398,6 +487,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     lastName,
     graduationYear,
     role,
+    // optional controls:
+    orgIdOverride, // pass when you already know the target org (e.g., invite join)
+    skipOrgScopedWrite = !orgId, // default: skip org write if there is no current org
   }: {
     email: string;
     password: string;
@@ -405,29 +497,45 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     lastName: string;
     graduationYear: string;
     role: string;
+    orgIdOverride?: string;
+    skipOrgScopedWrite?: boolean;
   }) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      const newUser = userCredential.user;
+      // 1) Create auth user
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = cred.user;
 
-      await setDoc(getOrgDoc(orgId, "users", newUser.uid), {
-        uid: newUser.uid,
-        email: newUser.email,
-        orgId,
-        role,
+      // Optional: set displayName
+      try {
+        await updateProfile(newUser, {
+          displayName: `${firstName} ${lastName}`,
+        });
+      } catch (_) {}
+
+      // 2) Always write a global profile so the app has basic info
+      await writeGlobalProfile(db, newUser.uid, {
+        email: newUser.email!,
         firstName,
         lastName,
-        graduationYear: graduationYear ? Number(graduationYear) : null,
-        favoriteFolders: [],
-        myFiles: [],
-        previousFiles: [],
-        favoriteFiles: [],
+        graduationYear,
       });
 
+      // 3) Decide whether to write org‑scoped user now
+      const targetOrgId = orgIdOverride ?? orgId ?? null;
+
+      if (!skipOrgScopedWrite && targetOrgId) {
+        await writeOrgUser(db, targetOrgId, newUser.uid, {
+          email: newUser.email!,
+          firstName,
+          lastName,
+          graduationYear,
+          role,
+        });
+      }
+
+      // Done. If you skipped org write, do it later:
+      // - after /create-organization (make creator admin), or
+      // - after /join (consume invite and add user to org)
       console.log("User successfully signed up:", newUser.uid);
     } catch (error) {
       console.error("Error signing up user:", error);

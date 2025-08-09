@@ -23,22 +23,41 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
 
-  if (user) {
-    router.push("/");
-    return null;
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const signUpCore = async () => {
     setError("");
     setIsLoading(true);
 
     if (isStudent && !graduationYear) {
       setError("Please enter your graduation year.");
       setIsLoading(false);
-      return;
+      throw new Error("missing-grad-year");
     }
 
+    await handleSignUp({
+      email,
+      password,
+      firstName,
+      lastName,
+      graduationYear,
+      role,
+      skipOrgScopedWrite: true, // important when creating an org after signup
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await signUpCore();
+      router.push("/"); // regular signup flow
+    } catch (err) {
+      handleAuthError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmitCreateOrg = async (e) => {
+    e.preventDefault();
     try {
       await handleSignUp({
         email,
@@ -47,22 +66,36 @@ export default function SignUpPage() {
         lastName: capitalize(lastName),
         graduationYear,
         role,
+        skipOrgScopedWrite: true, // important so it doesn’t require orgId yet
       });
-      router.push("/");
+
+      router.push("/create-organization"); // go straight to org creation page
     } catch (err) {
       console.error("Error signing up user:", err);
-
-      if (err.code === "auth/weak-password") {
+      if (err?.code === "auth/weak-password") {
         setError("Password must be at least 6 characters long.");
-      } else if (err.code === "auth/email-already-in-use") {
+      } else if (err?.code === "auth/email-already-in-use") {
         setError("This email is already in use. Please try logging in.");
-      } else if (err.code === "auth/invalid-email") {
+      } else if (err?.code === "auth/invalid-email") {
         setError("Please enter a valid email address.");
       } else {
         setError("Failed to sign up. Please try again.");
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAuthError = (err) => {
+    console.error("Error signing up user:", err);
+    if (err?.code === "auth/weak-password") {
+      setError("Password must be at least 6 characters long.");
+    } else if (err?.code === "auth/email-already-in-use") {
+      setError("This email is already in use. Please try logging in.");
+    } else if (err?.code === "auth/invalid-email") {
+      setError("Please enter a valid email address.");
+    } else if (err?.message !== "missing-grad-year") {
+      setError("Failed to sign up. Please try again.");
     }
   };
 
@@ -90,7 +123,7 @@ export default function SignUpPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -144,6 +177,7 @@ export default function SignUpPage() {
                 required
               />
             </div>
+
             {isStudent && (
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -159,21 +193,6 @@ export default function SignUpPage() {
               </div>
             )}
 
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Role
-              </label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-                <option value="coach">Coach</option>
-              </select>
-            </div> */}
-
             <div>
               <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
                 <input
@@ -186,14 +205,28 @@ export default function SignUpPage() {
               </label>
             </div>
 
+            {/* Primary: normal sign up */}
             <button
-              type="submit"
+              onClick={handleSubmit}
               disabled={isLoading}
               className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
                 isLoading ? "bg-green-400" : "bg-green-600 hover:bg-green-700"
               } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500`}
             >
               {isLoading ? "Signing up..." : "Sign Up"}
+            </button>
+
+            {/* Secondary: sign up then create org */}
+            <button
+              onClick={handleSubmitCreateOrg}
+              disabled={isLoading}
+              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                isLoading
+                  ? "bg-purple-400"
+                  : "bg-purple-600 hover:bg-purple-700"
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500`}
+            >
+              {isLoading ? "Working..." : "Sign Up & Create Organization"}
             </button>
           </form>
 
