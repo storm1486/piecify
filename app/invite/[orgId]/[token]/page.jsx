@@ -388,18 +388,6 @@ export default function JoinViaInvitePage({ params }) {
                 ? "Create Account & Join"
                 : "Sign In & Join"}
             </button>
-
-            <div className="text-center mt-4">
-              <button
-                type="button"
-                onClick={() => setMode(mode === "create" ? "login" : "create")}
-                className="text-sm text-blue-600 hover:text-blue-500 font-medium"
-              >
-                {mode === "create"
-                  ? "Already have an account? Sign in"
-                  : "Need an account? Create one"}
-              </button>
-            </div>
           </form>
         </div>
       </div>
