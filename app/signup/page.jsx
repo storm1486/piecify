@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useUser } from "@/src/context/UserContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { fetchSignInMethodsForEmail } from "firebase/auth"; // ✅
+import { auth } from "@/app/firebase/firebase"; // ✅ adjust path if needed
 
 const capitalize = (str) =>
   typeof str === "string" && str.length > 0
@@ -10,7 +12,7 @@ const capitalize = (str) =>
     : "";
 
 export default function SignUpPage() {
-  const { user, handleSignUp } = useUser();
+  const { handleSignUp } = useUser();
   const router = useRouter();
 
   const [firstName, setFirstName] = useState("");
@@ -23,6 +25,18 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStudent, setIsStudent] = useState(false);
 
+  // ✅ Check if email is already in use
+  const ensureEmailNotInUse = async (emailStr) => {
+    const clean = (emailStr || "").trim();
+    if (!clean) return;
+    const methods = await fetchSignInMethodsForEmail(auth, clean);
+    if (methods.length > 0) {
+      const err = new Error("auth/email-already-in-use");
+      err.code = "auth/email-already-in-use";
+      throw err;
+    }
+  };
+
   const signUpCore = async () => {
     setError("");
     setIsLoading(true);
@@ -33,14 +47,18 @@ export default function SignUpPage() {
       throw new Error("missing-grad-year");
     }
 
+    await ensureEmailNotInUse(email); // ✅ pre-check
+
     await handleSignUp({
       email,
       password,
       firstName,
       lastName,
-      graduationYear,
+      isStudent,
+      graduationYearRaw: graduationYear,
       role,
-      skipOrgScopedWrite: true, // important when creating an org after signup
+      skipOrgScopedWrite: true,
+      redirectTo: "/",
     });
   };
 
@@ -48,7 +66,7 @@ export default function SignUpPage() {
     e.preventDefault();
     try {
       await signUpCore();
-      router.push("/"); // regular signup flow
+      router.push("/");
     } catch (err) {
       handleAuthError(err);
     } finally {
@@ -59,28 +77,23 @@ export default function SignUpPage() {
   const handleSubmitCreateOrg = async (e) => {
     e.preventDefault();
     try {
+      await ensureEmailNotInUse(email); // ✅ pre-check
+
       await handleSignUp({
         email,
         password,
         firstName,
         lastName,
-        graduationYear,
+        isStudent,
+        graduationYearRaw: graduationYear,
         role,
-        skipOrgScopedWrite: true, // important so it doesn’t require orgId yet
+        skipOrgScopedWrite: true,
+        redirectTo: "/create-organization",
       });
 
-      router.push("/create-organization"); // go straight to org creation page
+      router.push("/create-organization");
     } catch (err) {
-      console.error("Error signing up user:", err);
-      if (err?.code === "auth/weak-password") {
-        setError("Password must be at least 6 characters long.");
-      } else if (err?.code === "auth/email-already-in-use") {
-        setError("This email is already in use. Please try logging in.");
-      } else if (err?.code === "auth/invalid-email") {
-        setError("Please enter a valid email address.");
-      } else {
-        setError("Failed to sign up. Please try again.");
-      }
+      handleAuthError(err);
     } finally {
       setIsLoading(false);
     }
@@ -205,7 +218,6 @@ export default function SignUpPage() {
               </label>
             </div>
 
-            {/* Primary: normal sign up */}
             <button
               onClick={handleSubmit}
               disabled={isLoading}
@@ -216,7 +228,6 @@ export default function SignUpPage() {
               {isLoading ? "Signing up..." : "Sign Up"}
             </button>
 
-            {/* Secondary: sign up then create org */}
             <button
               onClick={handleSubmitCreateOrg}
               disabled={isLoading}

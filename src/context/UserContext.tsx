@@ -10,6 +10,7 @@ import { auth, db } from "../../app/firebase/firebase"; // Adjust path to your F
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
   signOut,
 } from "firebase/auth";
 import {
@@ -487,14 +488,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     password,
     firstName,
     lastName,
-    // new:
-    isStudent, // boolean from "Are you a student?"
-    graduationYearRaw, // string | undefined
+    isStudent,
+    graduationYearRaw,
     role,
-    // existing:
     orgIdOverride,
     skipOrgScopedWrite = !orgId,
-    // optional redirect target
     redirectTo = "/",
   }: {
     email: string;
@@ -509,8 +507,21 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     redirectTo?: string;
   }) => {
     try {
+      // ✅ Check again inside context (race-safe)
+      const cleanEmail = (email || "").trim();
+      const methods = await fetchSignInMethodsForEmail(auth, cleanEmail);
+      if (methods.length > 0) {
+        const dupErr: any = new Error("auth/email-already-in-use");
+        dupErr.code = "auth/email-already-in-use";
+        throw dupErr;
+      }
+
       // 1) Create auth user
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const cred = await createUserWithEmailAndPassword(
+        auth,
+        cleanEmail,
+        password
+      );
       const newUser = cred.user;
 
       // 2) Display name
