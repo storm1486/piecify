@@ -19,10 +19,11 @@ export default function ClientLayout({
     setIsSidebarOpen(false);
   }, [pathname]);
 
-  // Routes without sidebar
-  const hideSidebarRoutes = ["/login", "/signup"];
-  const shouldHideSidebar =
-    hideSidebarRoutes.includes(pathname) || pathname.startsWith("/invite");
+  // Routes without sidebar (hide for the page and any subpaths)
+  const noSidebarPrefixes = ["/login", "/signup", "/reset-password", "/invite"];
+  const shouldHideSidebar = noSidebarPrefixes.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
 
   // ⛔ Gate rendering while org is loading
   if (!shouldHideSidebar && orgLoading) {
