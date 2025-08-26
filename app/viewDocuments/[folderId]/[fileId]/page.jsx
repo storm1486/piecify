@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getDoc } from "firebase/firestore";
+import { getDoc, updateDoc } from "firebase/firestore";
 import { motion } from "framer-motion";
 import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
@@ -19,17 +19,27 @@ export default function ViewDocument() {
   const { user, isPrivileged } = useUser();
   const isPrivilegedUser = isPrivileged();
   const router = useRouter();
+
   const [docData, setDocData] = useState(null);
   const [shareLink, setShareLink] = useState(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
+
+  // Inline edit state
+  const [editMode, setEditMode] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftLength, setDraftLength] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const { setCustomNavButtons } = useLayout();
   const { orgId } = useOrganization();
 
+  // Set custom nav button
   useEffect(() => {
     setCustomNavButtons([
       {
@@ -54,21 +64,49 @@ export default function ViewDocument() {
       },
     ]);
     return () => {
-      setCustomNavButtons([]); // Clean up when leaving the page
+      setCustomNavButtons([]);
     };
-  }, []);
+  }, [folderId, router, setCustomNavButtons]);
 
-  // Close menu when clicking outside
+  // Close menu on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setIsMenuOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Fetch file
+  useEffect(() => {
+    const fetchDocument = async () => {
+      if (!orgId || !folderId || !fileId) return;
+      try {
+        setIsLoading(true);
+        const fileDocRef = getOrgDoc(orgId, "files", fileId);
+        const fileDocSnap = await getDoc(fileDocRef);
+        if (fileDocSnap.exists()) {
+          const data = fileDocSnap.data();
+          setDocData(data);
+          // Seed edit fields
+          setDraftTitle(data.fileName || "");
+          setDraftLength(
+            data.length != null && data.length !== "" ? String(data.length) : ""
+          );
+        } else {
+          console.error("No such file document in org files!");
+        }
+      } catch (error) {
+        console.error("Error fetching document:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDocument();
+  }, [orgId, folderId, fileId]);
 
   const handleShare = async () => {
     if (!user || !isPrivilegedUser) {
@@ -91,33 +129,92 @@ export default function ViewDocument() {
     setIsMenuOpen(false);
   };
 
-  useEffect(() => {
-    const fetchDocument = async () => {
-      if (folderId && fileId) {
-        try {
-          setIsLoading(true);
-
-          // We already know the fileId; just read it directly from org-scoped 'files'
-          const fileDocRef = getOrgDoc(orgId, "files", fileId);
-          const fileDocSnap = await getDoc(fileDocRef);
-          if (fileDocSnap.exists()) {
-            setDocData(fileDocSnap.data());
-          } else {
-            console.error("No such file document in org files!");
-          }
-        } catch (error) {
-          console.error("Error fetching document:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchDocument();
-  }, [folderId, fileId]);
-
   const handleOpenVersionsModal = () => setIsVersionsModalOpen(true);
   const handleCloseVersionsModal = () => setIsVersionsModalOpen(false);
+
+  const handleViewFull = () => {
+    const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(
+      docData.fileUrl
+    )}&embedded=false`;
+    window.open(viewerUrl, "_blank");
+  };
+
+  // ----- Edit helpers -----
+  const lengthHelpText = "Length in minutes (e.g., 10 or 5)";
+
+  const parsedLength = useMemo(() => {
+    if (draftLength.trim() === "") return null;
+    const n = Number(draftLength);
+    if (Number.isNaN(n)) return NaN;
+    return n;
+  }, [draftLength]);
+
+  const startEdit = () => {
+    if (!isPrivilegedUser) return;
+    setDraftTitle(docData?.fileName || "");
+    setDraftLength(
+      docData?.length != null && docData?.length !== ""
+        ? String(docData.length)
+        : ""
+    );
+    setEditMode(true);
+  };
+
+  const cancelEdit = () => {
+    setEditMode(false);
+    setDraftTitle(docData?.fileName || "");
+    setDraftLength(
+      docData?.length != null && docData?.length !== ""
+        ? String(docData.length)
+        : ""
+    );
+  };
+
+  const saveEdits = async () => {
+    if (!isPrivilegedUser || !orgId || !fileId || !docData) return;
+
+    // Basic validation
+    if (!draftTitle.trim()) {
+      alert("Title cannot be empty.");
+      return;
+    }
+    if (draftLength.trim() !== "") {
+      if (Number.isNaN(parsedLength) || parsedLength < 0) {
+        alert("Please enter a valid, non-negative number for length.");
+        return;
+      }
+    }
+
+    try {
+      setIsSaving(true);
+
+      const updates = {
+        fileName: draftTitle.trim(),
+      };
+
+      // Only set length if provided; otherwise remove/clear
+      if (draftLength.trim() === "") {
+        updates.length = ""; // keep schema simple; if you prefer null, set null
+      } else {
+        updates.length = Number(parsedLength);
+      }
+
+      await updateDoc(getOrgDoc(orgId, "files", fileId), updates);
+
+      // Update local state
+      setDocData((prev) => ({
+        ...prev,
+        ...updates,
+      }));
+
+      setEditMode(false);
+    } catch (err) {
+      console.error("Failed to save edits:", err);
+      alert("Failed to save edits.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -162,13 +259,6 @@ export default function ViewDocument() {
     );
   }
 
-  const handleViewFull = () => {
-    const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(
-      docData.fileUrl
-    )}&embedded=false`;
-    window.open(viewerUrl, "_blank");
-  };
-
   return (
     <div className="flex h-screen bg-slate-50 text-gray-800">
       {/* Main Content */}
@@ -199,44 +289,86 @@ export default function ViewDocument() {
                   />
                 </svg>
               </div>
+
+              {/* Title + Length (view vs. edit) */}
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {docData.fileName}
-                </h1>
-                <p className="text-sm text-gray-500">
-                  {docData.fileName.endsWith(".pdf")
-                    ? "PDF Document"
-                    : docData.fileName.endsWith(".mp3")
-                    ? "Audio File"
-                    : "Document"}
-                </p>
+                {editMode ? (
+                  <>
+                    <input
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-gray-900 mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      value={draftTitle}
+                      onChange={(e) => setDraftTitle(e.target.value)}
+                      placeholder="Title"
+                    />
+                    <div className="flex items-center space-x-3">
+                      <input
+                        className="w-44 border border-gray-300 rounded-md px-2 py-1 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        value={draftLength}
+                        onChange={(e) => setDraftLength(e.target.value)}
+                        placeholder={lengthHelpText}
+                        inputMode="decimal"
+                      />
+                      <span className="text-sm text-gray-500">
+                        {lengthHelpText}
+                      </span>
+                    </div>
+                    {draftLength.trim() !== "" &&
+                      Number.isNaN(parsedLength) && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Length must be a number (minutes).
+                        </p>
+                      )}
+                  </>
+                ) : (
+                  <>
+                    <h1 className="text-xl font-semibold text-gray-900">
+                      {docData.fileName}
+                    </h1>
+                    <p className="text-sm text-gray-500">
+                      {docData.fileName?.endsWith(".pdf")
+                        ? "PDF Document"
+                        : docData.fileName?.endsWith(".mp3")
+                        ? "Audio File"
+                        : "Document"}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      <span className="font-medium">Length (min):</span>{" "}
+                      {docData.length !== "" && docData.length != null
+                        ? `${docData.length}`
+                        : "—"}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleViewFull}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+              {!editMode && (
+                <button
+                  onClick={handleViewFull}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-                Edit/Print
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  Edit/Print
+                </button>
+              )}
 
-              {isPrivilegedUser && (
+              {/* Share (unchanged) */}
+              {!editMode && isPrivilegedUser && (
                 <button
                   onClick={handleShare}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
@@ -259,116 +391,120 @@ export default function ViewDocument() {
                 </button>
               )}
 
-              {/* Menu Dropdown */}
-              <div className="relative" ref={menuRef}>
+              {/* Edit toggles / Save / Cancel */}
+              {isPrivilegedUser && !editMode && (
                 <button
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="p-2 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                  onClick={startEdit}
+                  className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                    />
-                  </svg>
+                  Edit Title & Length
                 </button>
-
-                {/* Dropdown Menu */}
-                {isMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.1 }}
-                    className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg z-20 border border-gray-200"
+              )}
+              {isPrivilegedUser && editMode && (
+                <>
+                  <button
+                    onClick={saveEdits}
+                    disabled={isSaving}
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
                   >
-                    <ul className="py-2">
-                      <li>
-                        <button
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            handleOpenVersionsModal();
-                          }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4 mr-3 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
+                    {isSaving ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    disabled={isSaving}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+
+              {/* Menu Dropdown */}
+              {!editMode && (
+                <div className="relative" ref={menuRef}>
+                  <button
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="p-2 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                      />
+                    </svg>
+                  </button>
+
+                  {isMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.1 }}
+                      className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg z-20 border border-gray-200"
+                    >
+                      <ul className="py-2">
+                        <li>
+                          <button
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              handleOpenVersionsModal();
+                            }}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                          Edited Versions
-                        </button>
-                      </li>
-                      {/* <li>
-                        <button
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            alert("Track Record Clicked");
-                          }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4 mr-3 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 mr-3 text-gray-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                              />
+                            </svg>
+                            Edited Versions
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              handleOpenPieceDetails();
+                            }}
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                          </svg>
-                          Track Record
-                        </button>
-                      </li> */}
-                      <li>
-                        <button
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            handleOpenPieceDetails();
-                          }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4 mr-3 text-gray-400"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                          Piece Details
-                        </button>
-                      </li>
-                    </ul>
-                  </motion.div>
-                )}
-              </div>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 mr-3 text-gray-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            Piece Details
+                          </button>
+                        </li>
+                      </ul>
+                    </motion.div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
