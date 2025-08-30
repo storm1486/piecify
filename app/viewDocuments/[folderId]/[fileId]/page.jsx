@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getDoc, updateDoc } from "firebase/firestore";
 import { motion } from "framer-motion";
 import PieceDetails from "@/components/PieceDetails";
 import OtherVersions from "@/components/OtherVersions";
-import { generateShareLink } from "../../../util/shareFile";
+import { generateShareLink } from "../../../../app/util/shareFile";
 import { useUser } from "@/src/context/UserContext";
 import ShareLinkModal from "@/components/ShareModal";
 import DocumentTags from "@/src/componenets/DocumentTags";
 import { useLayout } from "@/src/context/LayoutContext";
 import { useOrganization } from "../../../../src/context/OrganizationContext";
 import { getOrgDoc } from "../../../../src/utils/firebaseHelpers";
+import { FaPrint } from "react-icons/fa6";
+import { FiEdit } from "react-icons/fi";
 
 export default function ViewDocument() {
   const { folderId, fileId } = useParams();
@@ -31,15 +33,37 @@ export default function ViewDocument() {
   const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
   const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
 
-  // Inline edit state
+  // inline edit state
   const [editMode, setEditMode] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
-  const [draftLength, setDraftLength] = useState("");
+  const [draftLength, setDraftLength] = useState("10 min");
   const [isSaving, setIsSaving] = useState(false);
+
   const { setCustomNavButtons } = useLayout();
   const { orgId } = useOrganization();
 
-  // Set custom nav button
+  const LENGTH_OPTIONS = ["10 min", "5 min"];
+
+  // Normalize anything (string/number/odd variants) to "10 min" | "5 min"
+  function displayLength(val) {
+    if (val == null) return "10 min";
+    const raw = String(val).toLowerCase().replace(/\s+/g, " ").trim();
+
+    // numbers like 10, "10", "10.0"
+    const n = Number(raw);
+    if (!Number.isNaN(n)) {
+      if (n >= 9.5 && n <= 10.5) return "10 min";
+      if (n >= 4.5 && n <= 5.5) return "5 min";
+    }
+
+    // strings like "10 min", "10min", "10 m", "10 min min"
+    if (raw.startsWith("10")) return "10 min";
+    if (raw.startsWith("5")) return "5 min";
+
+    return "10 min";
+  }
+
+  // Custom nav button
   useEffect(() => {
     setCustomNavButtons([
       {
@@ -63,9 +87,7 @@ export default function ViewDocument() {
         ),
       },
     ]);
-    return () => {
-      setCustomNavButtons([]);
-    };
+    return () => setCustomNavButtons([]);
   }, [folderId, router, setCustomNavButtons]);
 
   // Close menu on outside click
@@ -79,32 +101,28 @@ export default function ViewDocument() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch file
+  // Fetch document
   useEffect(() => {
     const fetchDocument = async () => {
       if (!orgId || !folderId || !fileId) return;
       try {
         setIsLoading(true);
         const fileDocRef = getOrgDoc(orgId, "files", fileId);
-        const fileDocSnap = await getDoc(fileDocRef);
-        if (fileDocSnap.exists()) {
-          const data = fileDocSnap.data();
-          setDocData(data);
-          // Seed edit fields
+        const snap = await getDoc(fileDocRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          setDocData(data); // keep raw backend value
           setDraftTitle(data.fileName || "");
-          setDraftLength(
-            data.length != null && data.length !== "" ? String(data.length) : ""
-          );
+          setDraftLength(displayLength(data.length)); // seed editor with normalized label
         } else {
           console.error("No such file document in org files!");
         }
-      } catch (error) {
-        console.error("Error fetching document:", error);
+      } catch (err) {
+        console.error("Error fetching document:", err);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchDocument();
   }, [orgId, folderId, fileId]);
 
@@ -113,7 +131,6 @@ export default function ViewDocument() {
       alert("Only admins can share files.");
       return;
     }
-
     try {
       const link = await generateShareLink({ orgId, fileId, user });
       setShareLink(link);
@@ -124,14 +141,6 @@ export default function ViewDocument() {
     }
   };
 
-  const handleOpenPieceDetails = () => {
-    setIsPieceDetailsOpen(true);
-    setIsMenuOpen(false);
-  };
-
-  const handleOpenVersionsModal = () => setIsVersionsModalOpen(true);
-  const handleCloseVersionsModal = () => setIsVersionsModalOpen(false);
-
   const handleViewFull = () => {
     const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(
       docData.fileUrl
@@ -139,82 +148,55 @@ export default function ViewDocument() {
     window.open(viewerUrl, "_blank");
   };
 
-  // ----- Edit helpers -----
-  const lengthHelpText = "Length in minutes (e.g., 10 or 5)";
-
-  const parsedLength = useMemo(() => {
-    if (draftLength.trim() === "") return null;
-    const n = Number(draftLength);
-    if (Number.isNaN(n)) return NaN;
-    return n;
-  }, [draftLength]);
-
   const startEdit = () => {
     if (!isPrivilegedUser) return;
     setDraftTitle(docData?.fileName || "");
-    setDraftLength(
-      docData?.length != null && docData?.length !== ""
-        ? String(docData.length)
-        : ""
-    );
+    setDraftLength(displayLength(docData?.length));
     setEditMode(true);
   };
 
   const cancelEdit = () => {
     setEditMode(false);
     setDraftTitle(docData?.fileName || "");
-    setDraftLength(
-      docData?.length != null && docData?.length !== ""
-        ? String(docData.length)
-        : ""
-    );
+    setDraftLength(displayLength(docData?.length));
   };
 
   const saveEdits = async () => {
     if (!isPrivilegedUser || !orgId || !fileId || !docData) return;
-
-    // Basic validation
     if (!draftTitle.trim()) {
       alert("Title cannot be empty.");
       return;
     }
-    if (draftLength.trim() !== "") {
-      if (Number.isNaN(parsedLength) || parsedLength < 0) {
-        alert("Please enter a valid, non-negative number for length.");
-        return;
-      }
+    if (!LENGTH_OPTIONS.includes(draftLength)) {
+      alert("Length must be either 10 min or 5 min.");
+      return;
     }
-
     try {
       setIsSaving(true);
-
-      const updates = {
+      await updateDoc(getOrgDoc(orgId, "files", fileId), {
         fileName: draftTitle.trim(),
-      };
-
-      // Only set length if provided; otherwise remove/clear
-      if (draftLength.trim() === "") {
-        updates.length = ""; // keep schema simple; if you prefer null, set null
-      } else {
-        updates.length = Number(parsedLength);
-      }
-
-      await updateDoc(getOrgDoc(orgId, "files", fileId), updates);
-
-      // Update local state
+        length: draftLength, // always save exact enum string
+      });
       setDocData((prev) => ({
         ...prev,
-        ...updates,
+        fileName: draftTitle.trim(),
+        length: draftLength,
       }));
-
       setEditMode(false);
-    } catch (err) {
-      console.error("Failed to save edits:", err);
+    } catch (e) {
+      console.error(e);
       alert("Failed to save edits.");
     } finally {
       setIsSaving(false);
     }
   };
+
+  const handleOpenPieceDetails = () => {
+    setIsPieceDetailsOpen(true);
+    setIsMenuOpen(false);
+  };
+  const handleOpenVersionsModal = () => setIsVersionsModalOpen(true);
+  const handleCloseVersionsModal = () => setIsVersionsModalOpen(false);
 
   if (isLoading) {
     return (
@@ -300,24 +282,25 @@ export default function ViewDocument() {
                       onChange={(e) => setDraftTitle(e.target.value)}
                       placeholder="Title"
                     />
-                    <div className="flex items-center space-x-3">
-                      <input
-                        className="w-44 border border-gray-300 rounded-md px-2 py-1 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        value={draftLength}
-                        onChange={(e) => setDraftLength(e.target.value)}
-                        placeholder={lengthHelpText}
-                        inputMode="decimal"
-                      />
-                      <span className="text-sm text-gray-500">
-                        {lengthHelpText}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <div className="inline-flex rounded-lg border border-gray-300 p-1 bg-gray-50">
+                        {LENGTH_OPTIONS.map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setDraftLength(opt)}
+                            className={`px-3 py-1 text-sm rounded-md transition ${
+                              draftLength === opt
+                                ? "bg-indigo-600 text-white"
+                                : "text-gray-700 hover:bg-white"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                      <span className="text-sm text-gray-500">Pick one</span>
                     </div>
-                    {draftLength.trim() !== "" &&
-                      Number.isNaN(parsedLength) && (
-                        <p className="text-xs text-red-600 mt-1">
-                          Length must be a number (minutes).
-                        </p>
-                      )}
                   </>
                 ) : (
                   <>
@@ -332,10 +315,8 @@ export default function ViewDocument() {
                         : "Document"}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      <span className="font-medium">Length (min):</span>{" "}
-                      {docData.length !== "" && docData.length != null
-                        ? `${docData.length}`
-                        : "—"}
+                      <span className="font-medium">Length:</span>{" "}
+                      {displayLength(docData.length)}
                     </p>
                   </>
                 )}
@@ -347,31 +328,17 @@ export default function ViewDocument() {
               {!editMode && (
                 <button
                   onClick={handleViewFull}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors shadow-sm"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  Edit/Print
+                  <FaPrint className="h-4 w-4 mr-2" />
+                  Print
                 </button>
               )}
 
-              {/* Share (unchanged) */}
               {!editMode && isPrivilegedUser && (
                 <button
                   onClick={handleShare}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors shadow-sm"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -395,28 +362,56 @@ export default function ViewDocument() {
               {isPrivilegedUser && !editMode && (
                 <button
                   onClick={startEdit}
-                  className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm flex items-center"
                 >
+                  <FiEdit className="h-4 w-4 mr-2" />
                   Edit Title & Length
                 </button>
               )}
+
               {isPrivilegedUser && editMode && (
-                <>
+                <div className="flex items-center space-x-3">
                   <button
                     onClick={saveEdits}
                     disabled={isSaving}
-                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm flex items-center min-w-[80px] justify-center"
                   >
-                    {isSaving ? "Saving…" : "Save"}
+                    {isSaving ? (
+                      <>
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      "Save"
+                    )}
                   </button>
                   <button
                     onClick={cancelEdit}
                     disabled={isSaving}
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    className="bg-gray-200 hover:bg-gray-300 disabled:opacity-60 disabled:cursor-not-allowed text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
                   >
                     Cancel
                   </button>
-                </>
+                </div>
               )}
 
               {/* Menu Dropdown */}

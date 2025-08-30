@@ -185,7 +185,7 @@ export default function PieceDetails({ fileId, onClose }) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-semibold">Piece Details</h1>
 
@@ -242,7 +242,6 @@ export default function PieceDetails({ fileId, onClose }) {
             </div>
           )}
         </div>
-
         <div className="mb-4">
           <h3 className="text-lg underline">Description:</h3>
           {isEditingDescription ? (
@@ -337,7 +336,6 @@ export default function PieceDetails({ fileId, onClose }) {
             </>
           )}
         </div>
-
         {/* Current Owner Section */}
         <h3 className="text-lg underline">Current Owner:</h3>
         {currentOwner ? (
@@ -351,7 +349,6 @@ export default function PieceDetails({ fileId, onClose }) {
         ) : (
           <p className="mb-4">No current owner assigned.</p>
         )}
-
         {/* Toggle Button for Previous Owners */}
         {previousOwners.length > 0 && (
           <button
@@ -363,7 +360,6 @@ export default function PieceDetails({ fileId, onClose }) {
               : "Show Previous Owners"}
           </button>
         )}
-
         {/* Previous Owners (Hidden by Default) */}
         {/* Show Previous Owners (Hidden by Default) */}
         {showPreviousOwners && previousOwners.length > 0 ? (
@@ -403,7 +399,6 @@ export default function PieceDetails({ fileId, onClose }) {
         ) : (
           showPreviousOwners && <p>No previous owners.</p>
         )}
-
         {/* Previous Owners Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-40">
@@ -438,7 +433,6 @@ export default function PieceDetails({ fileId, onClose }) {
             </div>
           </div>
         )}
-
         <button
           onClick={onClose}
           className="mt-6 w-full bg-blue-500 text-white px-4 py-2 rounded"

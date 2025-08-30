@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../app/firebase/firebase"; // Adjust path as necessary
+import { getDoc } from "firebase/firestore";
 import UploadEditedVersionFileModal from "./UploadEditedVersionModal";
 import { useOrganization } from "@/src/context/OrganizationContext";
 import { getOrgDoc } from "@/src/utils/firebaseHelpers";
@@ -71,8 +70,8 @@ export default function OtherVersions({
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-30">
       <div
-        ref={modalRef}
-        className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96"
+        modalRef={modalRef}
+        className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-96 max-h-[90vh] overflow-y-auto"
       >
         <h2 className="text-xl font-bold mb-4">File Versions</h2>
         {isLoading ? (
