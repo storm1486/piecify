@@ -1,262 +1,224 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { getDoc, updateDoc } from "firebase/firestore";
-import { motion } from "framer-motion";
-import PieceDetails from "@/components/PieceDetails";
-import OtherVersions from "@/components/OtherVersions";
-import { generateShareLink } from "../app/util/shareFile";
-import { useUser } from "@/src/context/UserContext";
-import ShareLinkModal from "@/components/ShareModal";
-import DocumentTags from "@/src/componenets/DocumentTags";
-import { useLayout } from "@/src/context/LayoutContext";
-import { useOrganization } from "../src/context/OrganizationContext";
-import { getOrgDoc } from "../src/utils/firebaseHelpers";
+import { useState } from "react";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, setDoc, collection } from "firebase/firestore";
+import { db, storage } from "../app/firebase/firebase";
+import CreatableSelect from "react-select/creatable";
+import { sortedAttributeOptions } from "../src/componenets/AttributeIcons";
+import { useOrganization } from "@/src/context/OrganizationContext";
 
-export default function ViewDocument() {
-  const { folderId, fileId } = useParams();
-  const { user, isPrivileged } = useUser();
-  const isPrivilegedUser = isPrivileged();
-  const router = useRouter();
+const customStyles = {
+  control: (provided, state) => ({
+    ...provided,
+    backgroundColor: state.isFocused ? "#f9fafb" : "#f9fafb", // Light gray background
+    borderColor: state.isFocused ? "#6366f1" : "#d1d5db", // indigo-500 when focused
+    color: "#1f2937", // gray-800
+    padding: "0.25rem",
+    borderRadius: "0.5rem",
+    boxShadow: state.isFocused ? "0 0 0 1px #6366f1" : null, // indigo ring on focus
+    "&:hover": {
+      borderColor: "#4f46e5", // indigo-600
+    },
+  }),
+  menu: (provided) => ({
+    ...provided,
+    backgroundColor: "#ffffff", // White menu bg
+    color: "#1f2937", // gray-800
+    zIndex: 20,
+    boxShadow:
+      "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+    borderRadius: "0.375rem",
+  }),
+  option: (provided, state) => ({
+    ...provided,
+    backgroundColor: state.isFocused ? "#eef2ff" : "#ffffff", // indigo-50 on hover
+    color: state.isFocused ? "#4f46e5" : "#1f2937", // indigo-600 when focused
+    padding: "0.5rem 1rem",
+    cursor: "pointer",
+  }),
+  multiValue: (provided) => ({
+    ...provided,
+    backgroundColor: "#e0e7ff", // indigo-100
+    color: "#4f46e5", // indigo-600
+    borderRadius: "0.375rem",
+    padding: "0.125rem",
+  }),
+  multiValueLabel: (provided) => ({
+    ...provided,
+    color: "#4f46e5", // indigo-600
+  }),
+  multiValueRemove: (provided) => ({
+    ...provided,
+    color: "#4f46e5", // indigo-600
+    "&:hover": {
+      backgroundColor: "#c7d2fe", // indigo-200
+      color: "#4338ca", // indigo-700
+    },
+  }),
+  input: (provided) => ({
+    ...provided,
+    color: "#1f2937", // gray-800
+  }),
+  placeholder: (provided) => ({
+    ...provided,
+    color: "#9ca3af", // text-gray-400
+  }),
+};
 
-  const [docData, setDocData] = useState(null);
-  const [shareLink, setShareLink] = useState(null);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  const [isPieceDetailsOpen, setIsPieceDetailsOpen] = useState(false);
-  const [isVersionsModalOpen, setIsVersionsModalOpen] = useState(false);
-
-  // inline edit state
-  const [editMode, setEditMode] = useState(false);
-  const [draftTitle, setDraftTitle] = useState("");
-  const [draftLength, setDraftLength] = useState("10 min");
-  const [isSaving, setIsSaving] = useState(false);
-
-  const { setCustomNavButtons } = useLayout();
+export default function UploadFileModal({
+  isUploadModalOpen,
+  folderId,
+  user,
+  onUploadSuccess,
+  closeModal,
+}) {
+  const [file, setFile] = useState(null);
+  const [customFileName, setCustomFileName] = useState("");
+  const [pieceDescription, setPieceDescription] = useState("");
+  const [attributes, setAttributes] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [length, setLength] = useState("10 min");
+  const [error, setError] = useState(null);
+  const [intro, setIntro] = useState("");
   const { orgId } = useOrganization();
 
-  const LENGTH_OPTIONS = ["10 min", "5 min"];
+  const handleCancel = () => {
+    setFile(null);
+    setCustomFileName("");
+    setPieceDescription("");
+    setAttributes("");
+    setIntro("");
+    setError(null);
+    closeModal();
+  };
 
-  // Normalize anything (string/number/odd variants) to "10 min" | "5 min"
-  function displayLength(val) {
-    if (val == null) return "10 min";
-    const raw = String(val).toLowerCase().replace(/\s+/g, " ").trim();
-
-    // numbers like 10, "10", "10.0"
-    const n = Number(raw);
-    if (!Number.isNaN(n)) {
-      if (n >= 9.5 && n <= 10.5) return "10 min";
-      if (n >= 4.5 && n <= 5.5) return "5 min";
+  // Handle file selection
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files[0];
+    setFile(selectedFile);
+    setError(null);
+    // Prepopulate customFileName with the default file name
+    if (selectedFile) {
+      setCustomFileName(selectedFile.name);
     }
+  };
 
-    // strings like "10 min", "10min", "10 m", "10 min min"
-    if (raw.startsWith("10")) return "10 min";
-    if (raw.startsWith("5")) return "5 min";
-
-    return "10 min";
-  }
-
-  // Custom nav button
-  useEffect(() => {
-    setCustomNavButtons([
-      {
-        label: "Back to Folder",
-        onClick: () => router.push(`/folders/${folderId}`),
-        icon: (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 md:h-6 md:w-6 text-blue-200"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-            />
-          </svg>
-        ),
-      },
-    ]);
-    return () => setCustomNavButtons([]);
-  }, [folderId, router, setCustomNavButtons]);
-
-  // Close menu on outside click
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Fetch document
-  useEffect(() => {
-    const fetchDocument = async () => {
-      if (!orgId || !folderId || !fileId) return;
-      try {
-        setIsLoading(true);
-        const fileDocRef = getOrgDoc(orgId, "files", fileId);
-        const snap = await getDoc(fileDocRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          setDocData(data); // keep raw backend value
-          setDraftTitle(data.fileName || "");
-          setDraftLength(displayLength(data.length)); // seed editor with normalized label
-        } else {
-          console.error("No such file document in org files!");
-        }
-      } catch (err) {
-        console.error("Error fetching document:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDocument();
-  }, [orgId, folderId, fileId]);
-
-  const handleShare = async () => {
-    if (!user || !isPrivilegedUser) {
-      alert("Only admins can share files.");
+  // Handle file upload logic
+  const handleUpload = async () => {
+    if (!file) {
+      setError("Please select a file.");
       return;
     }
+    setUploading(true);
+    setError(null);
+
     try {
-      const link = await generateShareLink({ orgId, fileId, user });
-      setShareLink(link);
-      setIsShareModalOpen(true);
-    } catch (e) {
-      console.error("Failed to generate share link:", e);
-      alert("Failed to generate share link.");
-    }
-  };
+      // Generate a unique fileId
+      // Generate the fileId from the scoped files collection
+      const fileId = doc(collection(db, "organizations", orgId, "files")).id;
 
-  const handleViewFull = () => {
-    const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(
-      docData.fileUrl
-    )}&embedded=false`;
-    window.open(viewerUrl, "_blank");
-  };
+      // Upload file to storage as usual
+      const storageRef = ref(storage, `organizations/${orgId}/files/${fileId}`);
+      await uploadBytes(storageRef, file);
+      const fileUrl = await getDownloadURL(storageRef);
 
-  const startEdit = () => {
-    if (!isPrivilegedUser) return;
-    setDraftTitle(docData?.fileName || "");
-    setDraftLength(displayLength(docData?.length));
-    setEditMode(true);
-  };
+      // Create file document data
+      const fileData = {
+        fileId,
+        fileName: customFileName || file.name,
+        fileUrl,
+        uploadedBy: user.uid,
+        uploadedByEmail: user.email,
+        uploadedByName: `${user.firstName} ${user.lastName}`,
+        uploadedAt: new Date().toISOString(),
+        pieceDescription: pieceDescription || "No description provided.",
+        intro: intro || "",
+        currentOwner: [],
+        previouslyOwned: [],
+        editedVersions: [],
+        pendingIntroChange: null,
+        trackRecord: [],
+        attributes: attributes || [],
+        length,
+        folderId,
+      };
 
-  const cancelEdit = () => {
-    setEditMode(false);
-    setDraftTitle(docData?.fileName || "");
-    setDraftLength(displayLength(docData?.length));
-  };
+      // Write top-level file
+      const fileRef = doc(db, "organizations", orgId, "files", fileId);
+      await setDoc(fileRef, fileData);
 
-  const saveEdits = async () => {
-    if (!isPrivilegedUser || !orgId || !fileId || !docData) return;
-    if (!draftTitle.trim()) {
-      alert("Title cannot be empty.");
-      return;
-    }
-    if (!LENGTH_OPTIONS.includes(draftLength)) {
-      alert("Length must be either 10 min or 5 min.");
-      return;
-    }
-    try {
-      setIsSaving(true);
-      await updateDoc(getOrgDoc(orgId, "files", fileId), {
-        fileName: draftTitle.trim(),
-        length: draftLength, // always save exact enum string
+      // Write reference in folder subcollection
+      const folderFileRef = doc(
+        db,
+        "organizations",
+        orgId,
+        "folders",
+        folderId,
+        "files",
+        fileId
+      );
+
+      await setDoc(folderFileRef, {
+        fileRef,
       });
-      setDocData((prev) => ({
-        ...prev,
-        fileName: draftTitle.trim(),
-        length: draftLength,
-      }));
-      setEditMode(false);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to save edits.");
+
+      console.log("File uploaded successfully:", fileId);
+      // Set a success message instead of closing the modal
+      if (onUploadSuccess) onUploadSuccess();
+      closeModal();
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      setError("Upload failed. Please try again.");
     } finally {
-      setIsSaving(false);
+      setUploading(false);
     }
   };
 
-  const handleOpenPieceDetails = () => {
-    setIsPieceDetailsOpen(true);
-    setIsMenuOpen(false);
-  };
-  const handleOpenVersionsModal = () => setIsVersionsModalOpen(true);
-  const handleCloseVersionsModal = () => setIsVersionsModalOpen(false);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-indigo-500"></div>
-      </div>
-    );
-  }
-
-  if (!docData) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-12 w-12 mx-auto text-gray-400 mb-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">
-            Document not found
-          </h3>
-          <p className="text-gray-500 mb-4">
-            The requested document could not be located
-          </p>
-          <button
-            onClick={() => router.back()}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (!isUploadModalOpen) return null;
 
   return (
-    <div className="flex h-screen bg-slate-50 text-gray-800">
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <motion.header
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white shadow-sm p-4 z-10"
-        >
-          <div className="flex items-center justify-between">
-            {/* File Title and Info */}
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-lg w-[600px] max-w-full p-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Upload a File</h2>
+
+        <div className="mb-6">
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center bg-white mb-4">
+            <div className="mx-auto w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+            </div>
+            <p className="text-sm text-gray-500 mb-2">
+              Drag and drop files here, or
+            </p>
+            <label className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-colors">
+              Browse Files
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {file && (
+            <div className="p-3 bg-indigo-50 rounded-md flex items-center">
+              <div className="p-2 bg-indigo-100 rounded-md mr-3">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
+                  className="h-5 w-5 text-indigo-600"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -269,273 +231,129 @@ export default function ViewDocument() {
                   />
                 </svg>
               </div>
-
-              {/* Title + Length (view vs. edit) */}
-              <div>
-                {editMode ? (
-                  <>
-                    <input
-                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-gray-900 mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      value={draftTitle}
-                      onChange={(e) => setDraftTitle(e.target.value)}
-                      placeholder="Title"
-                    />
-                    <div className="flex items-center gap-3">
-                      <div className="inline-flex rounded-lg border border-gray-300 p-1 bg-gray-50">
-                        {LENGTH_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => setDraftLength(opt)}
-                            className={`px-3 py-1 text-sm rounded-md transition ${
-                              draftLength === opt
-                                ? "bg-indigo-600 text-white"
-                                : "text-gray-700 hover:bg-white"
-                            }`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                      <span className="text-sm text-gray-500">Pick one</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <h1 className="text-xl font-semibold text-gray-900">
-                      {docData.fileName}
-                    </h1>
-                    <p className="text-sm text-gray-500">
-                      {docData.fileName?.endsWith(".pdf")
-                        ? "PDF Document"
-                        : docData.fileName?.endsWith(".mp3")
-                        ? "Audio File"
-                        : "Document"}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      <span className="font-medium">Length:</span>{" "}
-                      {displayLength(docData.length)}
-                    </p>
-                  </>
-                )}
+              <div className="flex-grow">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {file.name}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {(file.size / 1024).toFixed(2)} KB
+                </p>
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center space-x-3">
-              {!editMode && (
-                <button
-                  onClick={handleViewFull}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                  Edit/Print
-                </button>
-              )}
-
-              {!editMode && isPrivilegedUser && (
-                <button
-                  onClick={handleShare}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
-                    />
-                  </svg>
-                  Share
-                </button>
-              )}
-
-              {/* Edit toggles / Save / Cancel */}
-              {isPrivilegedUser && !editMode && (
-                <button
-                  onClick={startEdit}
-                  className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                >
-                  Edit Title & Length
-                </button>
-              )}
-
-              {isPrivilegedUser && editMode && (
-                <>
-                  <button
-                    onClick={saveEdits}
-                    disabled={isSaving}
-                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    {isSaving ? "Saving…" : "Save"}
-                  </button>
-                  <button
-                    onClick={cancelEdit}
-                    disabled={isSaving}
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </>
-              )}
-
-              {/* Menu Dropdown */}
-              {!editMode && (
-                <div className="relative" ref={menuRef}>
-                  <button
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="p-2 rounded-md hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                      />
-                    </svg>
-                  </button>
-
-                  {isMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.1 }}
-                      className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg z-20 border border-gray-200"
-                    >
-                      <ul className="py-2">
-                        <li>
-                          <button
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              handleOpenVersionsModal();
-                            }}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 mr-3 text-gray-400"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            </svg>
-                            Edited Versions
-                          </button>
-                        </li>
-                        <li>
-                          <button
-                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                            onClick={() => {
-                              setIsMenuOpen(false);
-                              handleOpenPieceDetails();
-                            }}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 mr-3 text-gray-400"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            Piece Details
-                          </button>
-                        </li>
-                      </ul>
-                    </motion.div>
-                  )}
-                </div>
-              )}
+        {file && (
+          <>
+            {/* Custom File Name */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                File Name
+              </label>
+              <input
+                type="text"
+                value={customFileName}
+                onChange={(e) => setCustomFileName(e.target.value)}
+                placeholder="Enter file name"
+                className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              />
             </div>
-          </div>
 
-          {/* Document Tags */}
-          <div className="mt-4">
-            <DocumentTags
-              attributes={docData.attributes}
-              fileId={fileId}
-              isPrivilegedUser={isPrivilegedUser}
-            />
-          </div>
-        </motion.header>
+            {/* Piece Description */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Piece Description
+              </label>
+              <textarea
+                value={pieceDescription}
+                onChange={(e) => setPieceDescription(e.target.value)}
+                placeholder="Enter a description for the file"
+                className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm min-h-[80px] max-h-40 overflow-y-auto resize-y"
+                rows={3}
+              />
+            </div>
 
-        {/* Document Viewer */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="flex-1 p-4 overflow-hidden"
-        >
-          <div className="h-full bg-white rounded-lg shadow-sm overflow-hidden">
-            <iframe
-              src={`https://docs.google.com/gview?url=${encodeURIComponent(
-                docData.fileUrl
-              )}&embedded=true`}
-              className="w-full h-full border-0"
-              title={docData.fileName}
-              onLoad={() => setIsLoading(false)}
-            />
-          </div>
-        </motion.div>
-      </main>
+            {/* Intro Paragraph */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Intro Paragraph
+              </label>
+              <textarea
+                value={intro}
+                onChange={(e) => setIntro(e.target.value)}
+                placeholder="Enter the intro paragraph for the piece"
+                className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm min-h-[80px] max-h-40 overflow-y-auto resize-y"
+                rows={3}
+              />
+            </div>
 
-      {/* Modals */}
-      {isPieceDetailsOpen && (
-        <PieceDetails
-          fileId={fileId}
-          onClose={() => setIsPieceDetailsOpen(false)}
-        />
-      )}
-      {isVersionsModalOpen && (
-        <OtherVersions
-          fileId={fileId}
-          isOpen={isVersionsModalOpen}
-          onClose={handleCloseVersionsModal}
-        />
-      )}
-      <ShareLinkModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        shareLink={shareLink}
-      />
+            {/* Attributes */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1 text-gray-700">
+                Attributes
+              </label>
+              <CreatableSelect
+                isMulti
+                options={sortedAttributeOptions}
+                onChange={(selectedOptions) =>
+                  setAttributes(selectedOptions.map((option) => option.value))
+                }
+                placeholder="Select or create attributes"
+                styles={customStyles}
+                className="w-full"
+                classNamePrefix="select"
+              />
+            </div>
+
+            {/* 5 Min Version Checkbox */}
+            <div className="mb-6 flex items-center">
+              <input
+                type="checkbox"
+                id="fiveMinVersion"
+                checked={length === "5 min"}
+                onChange={(e) =>
+                  setLength(e.target.checked ? "5 min" : "10 min")
+                }
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label
+                htmlFor="fiveMinVersion"
+                className="ml-2 text-sm text-gray-700"
+              >
+                5 min version of the piece (optional)
+              </label>
+            </div>
+          </>
+        )}
+
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={handleUpload}
+            disabled={uploading || !file}
+            className={`px-4 py-2 rounded-md text-white font-medium transition-colors ${
+              uploading || !file
+                ? "bg-indigo-300 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700"
+            }`}
+          >
+            {uploading ? "Uploading..." : "Upload"}
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm">
+            <p className="font-medium">Error</p>
+            <p>{error}</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
