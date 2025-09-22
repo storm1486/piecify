@@ -157,13 +157,30 @@ export default function FolderPage() {
   const fetchUsers = async () => {
     try {
       const usersSnapshot = await getDocs(getOrgCollection(orgId, "users"));
-      const usersList = usersSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setUsers(usersList);
+
+      const norm = (v) =>
+        v == null ? "" : typeof v === "string" ? v : String(v);
+
+      const usersList = usersSnapshot.docs.map((d) => {
+        const data = d.data() || {};
+        // Normalize the 3 fields your search depends on:
+        const firstName = norm(data.firstName);
+        const lastName = norm(data.lastName);
+        const email = norm(data.email);
+
+        return {
+          id: d.id,
+          ...data,
+          firstName,
+          lastName,
+          email,
+        };
+      });
+
+      setUsers(Array.isArray(usersList) ? usersList : []);
     } catch (error) {
       console.error("Error fetching users:", error);
+      setUsers([]); // ensure it's always an array
     }
   };
 
