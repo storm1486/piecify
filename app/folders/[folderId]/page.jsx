@@ -616,14 +616,51 @@ export default function FolderPage() {
     router.push(`/viewDocuments/${folderId}/${fileId}`);
   };
 
+  // --- simple, fast client-side search across fields in THIS folder ---
+  // normalize any value to lowercased string
+  const norm = (v) => (v == null ? "" : String(v)).toLowerCase();
+
+  // build a single searchable string for a file (name, tags, length, owners, etc.)
+  const fileSearchText = (file) => {
+    const ownerNames = ownersMap[file.id] || []; // already populated elsewhere
+    const fields = [
+      file.fileName,
+      file.length,
+      ...(file.attributes || []),
+      file.intro, // if present on your file docs
+      file.description, // if present
+      file.notes, // if present
+      file.genre, // if present
+      file.type, // if present
+      ...ownerNames,
+    ].filter(Boolean);
+
+    return norm(fields.join(" • "));
+  };
+
+  // does this file match the current search query?
+  const matchesSearch = (file, q) => {
+    const query = norm(q).trim();
+    if (!query) return true; // no search -> include everything
+
+    // support multi-term (space-separated) "AND" matching
+    const hay = fileSearchText(file);
+    return query.split(/\s+/).every((term) => hay.includes(term));
+  };
+
   // Function to filter files by length
+  // Function to filter files by length, tag, AND search query
   const getFilteredFiles = () => {
     return files.filter((file) => {
       const lengthMatch =
         lengthFilter === "all" || file.length === lengthFilter;
+
       const tagMatch =
         tagFilter === "all" || (file.attributes || []).includes(tagFilter);
-      return lengthMatch && tagMatch;
+
+      const searchMatch = matchesSearch(file, searchQuery);
+
+      return lengthMatch && tagMatch && searchMatch;
     });
   };
 
@@ -714,7 +751,7 @@ export default function FolderPage() {
               <input
                 type="search"
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                placeholder="Search for files, folders, and more..."
+                placeholder="Search within this folder (name, tags, length, owner...)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
