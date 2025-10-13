@@ -1193,8 +1193,9 @@ export default function Home() {
               Remove Team File?
             </h2>
             <p className="text-sm text-gray-500 text-center mb-6">
-              Are you sure you want to remove "
-              {deleteConfirmModal.file.fileName}"? This action cannot be undone.
+              Are you sure you want to remove &quot;
+              {deleteConfirmModal.file.fileName}&quot;? This action cannot be
+              undone.
             </p>
             <div className="flex justify-end space-x-3">
               <button
