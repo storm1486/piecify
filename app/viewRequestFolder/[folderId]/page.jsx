@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { doc, getDocs, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import {
+  doc,
+  getDocs,
+  getDoc,
+  updateDoc,
+  arrayUnion,
+  query,
+  where,
+} from "firebase/firestore";
+import { sendEmail } from "../../../app/util/sendEmail";
 import { db } from "@/app/firebase/firebase";
 import { useUser } from "@/src/context/UserContext";
 import LoadingSpinner from "@/components/LoadingSpinner"; // Assuming you have this component
@@ -70,7 +79,7 @@ export default function ViewPieces() {
     const now = new Date();
     const requestTime = new Date(requestedAt);
     const expirationTime = new Date(
-      requestTime.getTime() + expirationHours * 60 * 60 * 1000
+      requestTime.getTime() + expirationHours * 60 * 60 * 1000,
     );
     return now < expirationTime;
   };
@@ -100,7 +109,7 @@ export default function ViewPieces() {
 
       // 1) list the folder's file refs
       const listSnap = await getDocs(
-        getOrgCollection(orgId, "folders", folderId, "files")
+        getOrgCollection(orgId, "folders", folderId, "files"),
       );
 
       const fileData = [];
@@ -134,7 +143,7 @@ export default function ViewPieces() {
           const mostRecent = fileInfo.accessRequests
             .filter((r) => r.userId === user.uid && r.requestedAt)
             .sort(
-              (a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)
+              (a, b) => new Date(b.requestedAt) - new Date(a.requestedAt),
             )[0];
 
           if (
@@ -171,6 +180,10 @@ export default function ViewPieces() {
   const requestAccess = async (fileId) => {
     try {
       const fileRef = getOrgDoc(orgId, "files", fileId);
+
+      // Find the actual piece
+      const piece = pieces.find((p) => p.id === fileId);
+
       const newRequest = {
         userId: user.uid,
         requestedAt: new Date().toISOString(),
@@ -182,9 +195,92 @@ export default function ViewPieces() {
         requestType: "view",
       };
 
+      // Save request
       await updateDoc(fileRef, {
         accessRequests: arrayUnion(newRequest),
       });
+
+      // =========================
+      // SEND EMAIL TO ADMINS
+      // =========================
+
+      try {
+        const adminsQuery = query(
+          getOrgCollection(orgId, "users"),
+          where("role", "==", "test"),
+        );
+
+        const adminsSnapshot = await getDocs(adminsQuery);
+        console.log("Admins snapshot:", adminsSnapshot.docs);
+
+        const adminEmails = adminsSnapshot.docs
+          .map((doc) => doc.data()?.email)
+          .filter(Boolean);
+
+        console.log("Admin users:", adminEmails);
+
+        console.log(
+          "Matched admin docs:",
+          adminsSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })),
+        );
+
+        console.log("Admin emails:", adminEmails);
+        console.log("Admin email count:", adminEmails.length);
+
+        if (adminEmails.length > 0) {
+          await sendEmail({
+            orgId,
+            to: adminEmails,
+            subject: "New Piece Access Request",
+            html: `
+            <div>
+              <h2>New Access Request</h2>
+
+              <p>
+                <strong>
+                  ${
+                    user.firstName && user.lastName
+                      ? `${user.firstName} ${user.lastName}`
+                      : user.email
+                  }
+                </strong>
+                requested access to:
+              </p>
+
+              <p>
+                <strong>${piece?.fileName || "Unknown Piece"}</strong>
+              </p>
+
+              <p>
+                Request Type:
+                <strong>View</strong>
+              </p>
+
+              <br />
+
+              <a
+        href="piecify.club"
+        style="
+          background:#2563eb;
+          color:white;
+          padding:12px 20px;
+          text-decoration:none;
+          border-radius:6px;
+          display:inline-block;
+        "
+      >
+        Review Request
+      </a>
+            </div>
+          `,
+          });
+        }
+      } catch (emailError) {
+        console.error("Error sending admin email:", emailError);
+      }
 
       // Update local requestStatuses so button changes immediately
       setRequestStatuses((prev) => {

@@ -309,7 +309,7 @@ export default function Sidebar({ className = "", closeSidebar }) {
                     <span className="text-sm md:text-base">All Folders</span>
                   </Link>
                 </li>
-                <li>
+                {/* <li>
                   <Link
                     href="/practiceSorter"
                     onClick={handleNavigation}
@@ -328,7 +328,7 @@ export default function Sidebar({ className = "", closeSidebar }) {
                       Practice Sorter
                     </span>
                   </Link>
-                </li>
+                </li> */}
               </>
             )}
             {/* Other Links */}
