@@ -9,6 +9,7 @@ import {
   getDoc,
   updateDoc,
   arrayUnion,
+  deleteDoc,
 } from "firebase/firestore";
 import Link from "next/link";
 import { db } from "../../firebase/firebase";
@@ -58,6 +59,8 @@ export default function FolderPage() {
   // For "undo assignment" window
   const [undoData, setUndoData] = useState(null);
   const [undoTimeLeft, setUndoTimeLeft] = useState(0);
+  const [deleteFileModalOpen, setDeleteFileModalOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState(null);
 
   const tagOptions = sortedAttributeOptions.map((opt) => opt.value);
 
@@ -145,7 +148,7 @@ export default function FolderPage() {
             const names = await fetchOwnerNames(ownerEntries);
             newOwnersMap[file.id] = names;
           }
-        })
+        }),
       );
 
       setOwnersMap(newOwnersMap);
@@ -215,7 +218,7 @@ export default function FolderPage() {
       });
 
       const resolvedFiles = (await Promise.all(filePromises)).filter(
-        (file) => file !== null
+        (file) => file !== null,
       );
 
       setUserFiles(resolvedFiles);
@@ -239,7 +242,7 @@ export default function FolderPage() {
 
       // Fetch files from the folder subcollection
       const filesSnapshot = await getDocs(
-        getOrgSubCollection(orgId, "folders", folderId, "files")
+        getOrgSubCollection(orgId, "folders", folderId, "files"),
       );
 
       const filePromises = filesSnapshot.docs.map(async (fileDoc) => {
@@ -268,11 +271,11 @@ export default function FolderPage() {
       });
 
       const resolvedFiles = (await Promise.all(filePromises)).filter(
-        (file) => file !== null
+        (file) => file !== null,
       );
 
       setFiles(
-        resolvedFiles.sort((a, b) => a.fileName.localeCompare(b.fileName))
+        resolvedFiles.sort((a, b) => a.fileName.localeCompare(b.fileName)),
       );
     } catch (error) {
       console.error("Error fetching folder data:", error);
@@ -294,7 +297,7 @@ export default function FolderPage() {
               : data.email || "Unknown User";
           }
           return "Unknown User";
-        })
+        }),
       );
       return names;
     } catch (error) {
@@ -345,7 +348,7 @@ export default function FolderPage() {
       const isDuo =
         fileData.attributes?.includes("DUO") ||
         ["Boy-Boy", "Girl-Girl", "Boy-Girl"].some((tag) =>
-          fileData.attributes?.includes(tag)
+          fileData.attributes?.includes(tag),
         );
 
       const currentOwners = fileData.currentOwner || [];
@@ -510,7 +513,7 @@ export default function FolderPage() {
         const updatedFiles = myFilesArray.filter(
           (entry) =>
             entry.fileRef?.id !== fileRef.id &&
-            entry.fileRef?.path !== fileRef.path
+            entry.fileRef?.path !== fileRef.path,
         );
 
         await updateDoc(userRef, { myFiles: updatedFiles });
@@ -525,7 +528,7 @@ export default function FolderPage() {
           : [];
 
         const updatedCurrentOwner = currentOwnerArray.filter(
-          (entry) => entry.userId !== userId
+          (entry) => entry.userId !== userId,
         );
 
         await updateDoc(fileRef, { currentOwner: updatedCurrentOwner });
@@ -560,7 +563,7 @@ export default function FolderPage() {
 
       // Remove `fromUserId` from `currentOwner`
       const newOwnerArray = oldOwnerArray.filter(
-        (entry) => entry.userId !== fromUserId
+        (entry) => entry.userId !== fromUserId,
       );
 
       // Add `toUserId` to `currentOwner`
@@ -591,7 +594,7 @@ export default function FolderPage() {
         const updatedFiles = (fromUserData.myFiles || []).filter(
           (entry) =>
             entry.fileRef?.id !== fileRef.id &&
-            entry.fileRef?.path !== fileRef.path
+            entry.fileRef?.path !== fileRef.path,
         );
         await updateDoc(fromUserRef, { myFiles: updatedFiles });
       }
@@ -701,6 +704,75 @@ export default function FolderPage() {
         fetchFolderData();
       }, 500);
       setHasChanged(false);
+    }
+  };
+
+  const handleDeleteFile = async () => {
+    if (!fileToDelete) return;
+
+    try {
+      const fileRef = getOrgDoc(orgId, "files", fileToDelete.id);
+
+      //
+      // Remove file from all users
+      //
+      const usersSnapshot = await getDocs(getOrgCollection(orgId, "users"));
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+
+        const updatedFiles = (userData.myFiles || []).filter(
+          (entry) =>
+            entry.fileRef?.id !== fileToDelete.id &&
+            entry.fileRef?.path !== fileRef.path,
+        );
+
+        if (updatedFiles.length !== (userData.myFiles || []).length) {
+          await updateDoc(userDoc.ref, {
+            myFiles: updatedFiles,
+          });
+        }
+      }
+
+      //
+      // Remove file reference from folder subcollection
+      //
+      const folderFilesSnapshot = await getDocs(
+        getOrgSubCollection(orgId, "folders", folderId, "files"),
+      );
+
+      for (const folderFileDoc of folderFilesSnapshot.docs) {
+        const data = folderFileDoc.data();
+
+        if (
+          data.fileRef?.id === fileToDelete.id ||
+          data.fileRef?.path === fileRef.path
+        ) {
+          await deleteDoc(folderFileDoc.ref);
+        }
+      }
+
+      //
+      // Delete actual file document
+      //
+      await deleteDoc(fileRef);
+
+      setDeleteFileModalOpen(false);
+      setFileToDelete(null);
+
+      await fetchFolderData();
+
+      setAssignMessage({
+        type: "success",
+        text: `"${fileToDelete.fileName}" was deleted successfully.`,
+      });
+    } catch (error) {
+      console.error("Error deleting file:", error);
+
+      setAssignMessage({
+        type: "error",
+        text: "Failed to delete file.",
+      });
     }
   };
 
@@ -983,7 +1055,7 @@ export default function FolderPage() {
                                       >
                                         {name}
                                       </div>
-                                    )
+                                    ),
                                   )}
                                 </div>
                               ) : (
@@ -992,6 +1064,33 @@ export default function FolderPage() {
                                 </div>
                               )}
                             </div>
+                            {isPrivilegedUser && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+
+                                  setFileToDelete(file);
+                                  setDeleteFileModalOpen(true);
+                                }}
+                                className="ml-2 p-1 rounded text-red-600 hover:bg-red-50"
+                                title="Delete File"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M19 7L5 7M10 11V17M14 11V17M6 7L7 20H17L18 7M9 7V4H15V7"
+                                  />
+                                </svg>
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1144,7 +1243,7 @@ export default function FolderPage() {
                                 {(ownersMap[file.id] || ["Loading..."]).map(
                                   (name, idx) => (
                                     <span key={idx}>{name}</span>
-                                  )
+                                  ),
                                 )}
                               </div>
                             </div>
@@ -1161,7 +1260,7 @@ export default function FolderPage() {
                                       e.stopPropagation(); // <- THIS IS CRITICAL
                                       setReassignFile(file);
                                       setReassignFromUser(
-                                        file.currentOwner[0].userId
+                                        file.currentOwner[0].userId,
                                       );
                                       setIsReassignModalOpen(true);
                                     }}
@@ -1322,7 +1421,7 @@ export default function FolderPage() {
                         <button
                           onClick={async () => {
                             const file = filteredModalFiles.find(
-                              (file) => file.id === selectedFile
+                              (file) => file.id === selectedFile,
                             );
                             if (file) {
                               await handleAssignFileToUser(selectedUser, file);
@@ -1363,7 +1462,7 @@ export default function FolderPage() {
                                   onClick={() =>
                                     handleUnassignFile(
                                       selectedUnassignUser,
-                                      file
+                                      file,
                                     )
                                   }
                                 >
@@ -1545,7 +1644,7 @@ export default function FolderPage() {
                             const result = await reassignFileToUser(
                               reassignFromUser,
                               selectedUser,
-                              reassignFile
+                              reassignFile,
                             );
 
                             if (result.success) {
@@ -1591,6 +1690,48 @@ export default function FolderPage() {
                 onUploadSuccess={fetchFolderData}
                 closeModal={() => setIsUploadModalOpen(false)}
               />
+
+              {deleteFileModalOpen && (
+                <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+                  <div className="bg-white rounded-lg p-6 w-[450px] shadow-xl">
+                    <h3 className="text-xl font-bold text-red-600 mb-3">
+                      Delete File
+                    </h3>
+
+                    <p className="text-gray-700 mb-4">
+                      Are you sure you want to permanently delete:
+                    </p>
+
+                    <div className="bg-gray-100 rounded p-3 mb-4 font-medium">
+                      {fileToDelete?.fileName}
+                    </div>
+
+                    <p className="text-sm text-red-600 mb-6">
+                      This action cannot be undone. The file will be removed
+                      from the folder and from all user assignments.
+                    </p>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setDeleteFileModalOpen(false);
+                          setFileToDelete(null);
+                        }}
+                        className="flex-1 bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        onClick={handleDeleteFile}
+                        className="flex-1 bg-red-600 text-white py-2 rounded hover:bg-red-700"
+                      >
+                        Delete File
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
